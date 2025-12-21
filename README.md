@@ -21,108 +21,86 @@
                                                 
 ```
 
-**OpenInfer** is an open-source inference library for building **lazy, step-by-step inference graphs** on top of a **single binary model package** (GGUF-like), and later **compiling those graphs into optimized executables** for specific hardware targets.
+# OpenInfer
 
-OpenInfer is designed to make **developer ergonomics the priority**, while allowing the implementation to grow into a full **compiler-style optimization pipeline** underneath.
+OpenInfer is an open‑source **inference graph and compilation framework** for machine‑learning workloads.
 
+Its primary goal is to let **developers describe inference logic and control flow explicitly**, using a clear, verbose, Rust‑embedded DSL, while OpenInfer handles simulation, analysis, optimization, and code generation for specific hardware targets.
+
+OpenInfer is **not model‑specific**. The same DSL can describe inference for:
+
+* LLMs and transformers
+* CNNs and vision models
+* Audio / signal‑processing models
+* Custom or experimental ML architectures
+
+The focus is on **developer control, readability, and inspectability**, not on hiding complexity behind opaque runtimes.
 
 ---
 
 ## Core Idea
 
-1. **All tensors, metadata, and state specifications live in a single binary file**
+1. **Models live in a single binary package**
 
-   * Weights, constants, quantization info
-   * Model metadata (dimensions, hyperparameters)
-   * KV-cache specifications (layout, capacity)
-2. **Developers define only the execution graph**
+   * Weights, constants, metadata
+   * Shapes, dtypes, quantization
+   * Optional persistent state layouts
 
-   * Which ops to run
-   * Which tensors/metadata from the model package to use
-3. The graph is:
+2. **Developers write the execution logic**
 
-   * **Lazy** in simulation mode (correctness-first)
-   * **Optimized and compiled** later for a specific backend (CPU, Vulkan GPU, future FPGA)
+   * Inputs and outputs
+   * Control flow (loops, branches)
+   * Explicit operations and side effects
+   * Constraints and optimization hints
 
-This workflow is inspired by GGML/GGUF-style inference, but with a **graph + compiler architecture** instead of a fixed runtime.
+3. **The graph is symbolic**
 
-However, OpenInfer differs from existing inference libraries like llama-cpp, as the goal is not to predefine all existing models with a generic interface to deploy their models, but to allow you to create and define your own inference model using a programmatic approach.
+   * Nothing executes when defined
+   * The result is a structured graph of blocks and operations
 
-So a realistic workflow would be: 
-1. You train your own model using PyTorch or a similar library for ML. 
-2. You export the model to some format like `HuggingFace` with safetensors and metadata.
-3. You use a conversion script to compress all needed data to a binary format (similar to `GGUF`) named `OPNF` (Open Infer Neural Format)
-4. You design the inference loop generally using Rust to create a `Graph` object.
-5. You pass this object to a simulator, which executes the nodes lazily, loading tensors from disk to memory when necessary.
-    - In the future GPU backend (`Vulkan` only) will also be supported to speed up simulation OPS with large weights.
-    - The simulator is used for correctness, not speed. You are just verifying that the inference loop you designed works correctly with the data.
-    - The reason for lazy evaluation is that on memory-constrained systems, you are not able to load all of the tensors and weights into memory; you need to reuse the same buffer, but with a different chunk of the matrices.  
-7. After you are satisfied with the results of the simulator, you pass this object to the `Evaluator` to generate an optimized solution for your specified hardware.
-   - This will be a simple source file that you can feed to the toolchain used for the hardware to compile into the desired binary executable format.
-   - Optimizations are on a device-by-device level (not only device type, ex, CPU, CPU, NPU, etc). Initially, the number of supported devices will be limited. 
-   - For example, if you export to two different types of GPU architectures or vendors, the output file might be different to take advantage of Vulkan vendor-specific extensions.
+4. **That graph can be**
+
+   * Simulated lazily for correctness
+   * Analyzed and optimized
+   * Compiled into device‑specific executables
 
 ---
 
-## Goals
+## Mental Model
 
-* Concise, readable graph definitions
-* Lazy simulation for correctness and debugging
-* Compiler-style optimization passes
-* Backend abstraction (CPU, Vulkan compute, future accelerators)
-* Everything references a **single binary model package**
+Think of OpenInfer as:
 
----
+> *A small, ML‑focused compiler frontend embedded in Rust.*
 
-## Non-Goals (for now)
-
-* Training
-* Automatic model conversion
-* Python-first APIs (bindings can come later)
+You describe **what happens** and **in what order**.
+OpenInfer decides **how to execute it efficiently** on the chosen hardware.
 
 ---
 
-## Model Package
-
-OpenInfer expects a single binary model file (e.g. `model.oinf`) containing:
-
-* **Tensor table**
-
-  * Key → dtype, shape, quantization, file offset
-* **Metadata store**
-
-  * Typed values (e.g. `n_layers`, `ctx_len`, `rope_theta`)
-* **State specs**
-
-  * KV-cache layout and capacity (contents allocated at runtime)
-* *(Optional, future)* Embedded graph IRs
-
-> **Important:** Tensor data is loaded lazily. Nothing is read from disk until it is actually needed during execution. Buffers are shared between passes if memmory is limited.
-
----
-
-## High-Level Workflow
+## High‑Level Workflow
 
 ```
-ModelLoader ──▶ Graph (lazy, symbolic)
-                   │
-                   ├─▶ SimSession (CPU / Vulkan)
-                   │      correctness-first
-                   │
-                   └─▶ Optimizer / Compiler
-                          ↓
-                    ExecutablePlan (CPU / Vulkan / FPGA)
+Model Package (.oinf)
+        │
+        ▼
+ graph! DSL  ──▶  Symbolic Graph (blocks + ops)
+                        │
+                        ├─▶ Simulator (lazy, correctness‑first)
+                        │
+                        └─▶ Evaluator / Compiler
+                               ▼
+                        Device‑specific source code
 ```
 
 ---
 
 ## Minimal Example
 
-A very small inference graph that:
+A very small graph that:
 
-* loads embeddings and lm_head from the model package
-* runs a single matmul
-* returns logits
+* Takes an input tensor
+* Applies two operations
+* Returns a result
 
 ```rust
 use openinfer::{ModelLoader, SimSession, SimBackend, graph};
@@ -130,175 +108,467 @@ use openinfer::{ModelLoader, SimSession, SimBackend, graph};
 fn main() -> anyhow::Result<()> {
     let model = ModelLoader::open("model.oinf")?;
 
-    let (g, logits) = graph! {
+    let (g, out) = graph! {
         model: model,
 
-        inputs: {
-            tok: i32[B],
-        },
+        inputs {
+            x : f32 [B];
+        }
 
-        let x      = gather(model["tok_embeddings"], tok) |> cast(f16);
-        let logits = matmul(x, model["lm_head"]);
+        outputs {
+            y : f32 [B];
+        }
 
-        output logits;
+        block entry {
+            t0 = op add(a=x, b=x);
+            y  = op mul(a=t0, b=model["scale"]);
+            return y;
+        }
     };
 
     let mut sim = SimSession::new(&model, SimBackend::Cpu)?;
-    let out = sim.run_step(&g, inputs! { tok: vec![42] })?;
+    let result = sim.run(&g, inputs! { x: vec![1.0, 2.0, 3.0] })?;
 
-    println!("logits = {:?}", out.fetch(logits)?);
+    println!("y = {:?}", result.fetch(out)?);
     Ok(())
 }
 ```
 
 ---
 
-## KV Cache + Loop Example
+## Inputs and Outputs
 
-A concise transformer-style decode step:
-
-* reads metadata from the model file
-* declares a KV cache
-* loops over layers
-* performs attention and projection
+Inputs and outputs are always declared **at the top level**.
 
 ```rust
-use openinfer::{
-    ModelLoader, SimSession, SimBackend,
-    Evaluator, DeviceSpec, HostLang, graph,
-};
-
-fn main() -> anyhow::Result<()> {
-    let model = ModelLoader::open("model.oinf")?;
-
-    let n_layers: usize = model.meta("n_layers")?;
-    let ctx_len: usize  = model.meta("ctx_len")?;
-
-    let (g, logits) = graph! {
-        model: model,
-
-        inputs: {
-            tok:  i32[B],
-            step: i32[],
-            mask: u8[B,1,1,ctx_len],
-        },
-
-        state: {
-            kv: kv_cache(f16, layers=n_layers, cap=ctx_len),
-        },
-
-        let x = gather(model["tok_embeddings"], tok) |> cast(f16);
-
-        let x = for l in 0..n_layers {
-            let q = matmul(x, model[format!("Wq.{l}")]);
-            let k = matmul(x, model[format!("Wk.{l}")]);
-            let v = matmul(x, model[format!("Wv.{l}")]);
-
-            kv_write(kv, layer=l, step=step, k=k, v=v);
-            let (k_all, v_all) = kv_read(kv, layer=l, step=step);
-
-            let a = sdpa(q, k_all, v_all, mask) @ { fuse: true };
-            let y = matmul(a, model[format!("Wo.{l}")]);
-
-            x = x + y;
-        };
-
-        let logits = matmul(x, model["lm_head"]);
-        output logits;
-    };
-
-    // Lazy simulation (correctness-first)
-    let mut sim = SimSession::new(&model, SimBackend::Cpu)?;
-    let _ = sim.run_step(&g, inputs! { tok: vec![42], step: 0, mask: /* ... */ })?;
-
-    // Device-specific evaluation (Vulkan-only, GPU-specialized)
-    let dev = DeviceSpec::GPU()
-        .api("vulkan")
-        .vendor("NVIDIA")
-        .architecture("ada_lovelace")
-        .driver("555.xx");
-
-    let eval = Evaluator::new(dev).from_graph(&model, &g)?;
-
-    // Emits one or more device shader sources (GLSL/HLSL/etc. chosen by Evaluator)
-    // Evaluator decides how many shaders to generate and their filenames.
-    eval.emit_device("build/device")?;
-
-    // Emits host-side source that:
-    // - initializes Vulkan
-    // - creates pipelines/descriptors
-    // - uploads weights from the model package
-    // - manages KV buffers and dispatch order
-    // - exposes a simple `run_step()` interface
-    //
-    // User can choose the host language/tooling.
-    eval.emit_host(HostLang::Cpp, "build/host")?;
-
-    Ok(())
+inputs {
+    image : f32 [B, 3, H, W];
+    step  : i32 [];
 }
 
+outputs {
+    logits : f32 [B, C];
+}
+```
+
+Benefits:
+
+* Shapes and dtypes are explicit
+* The graph boundary is well‑defined
+* The evaluator can plan memory and I/O early
+
+---
+
+## Blocks and Control Flow
+
+Execution logic is written in **blocks**.
+
+```rust
+block entry {
+    a = op matmul(a=x, b=w);
+    b = op add(a=a, b=bias);
+    return b;
+}
+```
+
+Blocks:
+
+* Execute sequentially
+* Contain operations and effects
+* End with an explicit terminator (`return`, `branch`, `yield`)
+
+Blocks form a **control‑flow graph**, not just a flat list of ops.
+
+---
+
+## Loops
+
+Loops are explicit control‑flow constructs.
+
+```rust
+loop layers (l in 0..num_layers) {
+    block body {
+        h = op matmul(a=h, b=model[fmt("W.{l}")]);
+        h = op relu(x=h);
+    }
+}
+```
+
+Characteristics:
+
+* Loop bounds are symbolic
+* Loop bodies are normal blocks
+* Loop‑carried values must be explicit
+
+This makes iteration visible and analyzable by the compiler.
+
+---
+
+## Side Effects and State
+
+Operations that mutate or read persistent state are written as **effects**.
+
+```rust
+state {
+    cache : buffer(f32, [B, T, D]);
+}
+
+block entry {
+    effect write(cache, index=step, value=h);
+    h2 = effect read(cache, index=step - 1);
+    return h2;
+}
+```
+
+Why effects are explicit:
+
+* Prevents illegal reordering
+* Makes dependencies visible
+* Enables correct scheduling and fusion
+
+---
+
+## Operation Attributes and Constraints
+
+Operations and blocks can carry **constraints and hints**.
+
+```rust
+a = op matmul(a=x, b=w)
+      with { fuse = true, placement = "gpu" };
+```
+
+Common constraints:
+
+* `fuse = true | false`
+* `placement = "cpu" | "gpu"`
+* `group = "name"`
+* `no_reorder = true`
+
+Constraints:
+
+* Do not guarantee a specific implementation
+* Restrict or guide optimizer decisions
+* Are preserved through compilation
+
+---
+
+## Barriers and Control Dependencies
+
+You can prevent motion or fusion across boundaries using barriers.
+
+```rust
+block entry {
+    a = op matmul(a=x, b=w);
+    barrier;
+    b = op add(a=a, b=bias);
+    return b;
+}
+```
+
+Use cases:
+
+* Debugging
+* Interfacing with external state
+* Enforcing ordering for numerical or memory reasons
+
+---
+
+## Scopes and Regions
+
+Scopes annotate logical regions of the graph.
+
+```rust
+scope "attention" {
+    a = op sdpa(q=q, k=k, v=v);
+    b = op matmul(a=a, b=wo);
+}
+```
+
+Scopes:
+
+* Group related operations
+* Aid diagnostics and visualization
+* Provide natural fusion or optimization boundaries
+
+---
+
+## Simulation
+
+Simulation mode:
+
+* Executes lazily
+* Loads weights on demand
+* Preserves state across steps
+* Prioritizes correctness and debuggability
+
+Simulation is meant to validate **logic**, not performance.
+
+---
+
+## Graph Serialization (JSON)
+
+Graphs are regular Rust objects and can be **serialized to JSON** for:
+
+* reproducible runs
+* CI snapshots / golden tests
+* offline analysis and visualization
+* passing graphs between tools (simulator ⇄ synthesizer)
+
+### Serialize a graph
+
+```rust
+use openinfer::{ModelLoader, graph, ir::GraphJson};
+
+let model = ModelLoader::open("model.oinf")?;
+let (g, y) = graph! {
+    model: model,
+
+    inputs { x: f32 [B]; }
+    outputs { y: f32 [B]; }
+
+    block entry {
+        t0 = op add(a=x, b=x);
+        y  = op mul(a=t0, b=model["scale"]);
+        return y;
+    }
+};
+
+// Convert to a stable JSON representation and write to disk
+let json: GraphJson = g.to_json()?;
+std::fs::write("build/graph.json", serde_json::to_string_pretty(&json)?)?;
+```
+
+### Load a graph from JSON
+
+```rust
+use openinfer::{ir::GraphJson, Graph};
+
+let txt = std::fs::read_to_string("build/graph.json")?;
+let json: GraphJson = serde_json::from_str(&txt)?;
+
+// Reconstruct the graph object
+let g: Graph = Graph::from_json(json)?;
+```
+
+> Tip: JSON is intended to be **stable and inspectable**. It should preserve block structure, op attributes, and control-flow edges.
+
+---
+
+## Simulator: Step-by-step Execution (Verbose)
+
+In addition to running the full graph, the simulator can:
+
+* step through execution **block-by-block** or **node-by-node**
+* emit **verbose logs** (op name, shapes, attrs)
+* record **timings** for each node (useful for debugging and early performance signals)
+
+### Run a full graph
+
+```rust
+use openinfer::{SimSession, SimBackend};
+
+let mut sim = SimSession::new(&model, SimBackend::Cpu)?;
+let out = sim.run(&g, inputs! { x: vec![1.0, 2.0, 3.0] })?;
+println!("y = {:?}", out.fetch(y)?);
+```
+
+### Step through nodes with logging + timing
+
+```rust
+use openinfer::{SimSession, SimBackend, sim::TraceLevel};
+
+let mut sim = SimSession::new(&model, SimBackend::Cpu)?
+    .with_trace(TraceLevel::Verbose)
+    .with_timing(true);
+
+let mut exec = sim.prepare(&g, inputs! { x: vec![1.0, 2.0, 3.0] })?;
+
+while exec.is_running() {
+    let ev = exec.step()?;
+
+    // Typical step event info
+    // - block/op identifiers
+    // - input/output shapes
+    // - duration (if enabled)
+    println!(
+        "[{}] {} :: {}  ({} µs)",
+        ev.kind,          // BlockEnter | OpExecute | BlockExit | ...
+        ev.block_name,    // "entry" etc.
+        ev.op_name,       // "matmul" etc. (empty for non-op events)
+        ev.micros
+    );
+}
+
+let out = exec.finish()?;
+println!("final y = {:?}", out.fetch(y)?);
+```
+
+### Export a simulator trace
+
+```rust
+let trace = exec.trace();
+std::fs::write("build/trace.json", serde_json::to_string_pretty(&trace)?)?;
 ```
 
 ---
 
-## Simulation Mode
+## Passing Graphs to the Synthesizer
 
-* Graph is evaluated lazily
-* Only required nodes are executed
-* Weights are loaded from disk on first use and cached
-* KV cache persists across steps
-* Minimal optimization (easy debugging)
+The synthesizer accepts either:
 
----
+* a `Graph` object directly (in-process), or
+* a serialized JSON graph (tooling / CLI / build pipelines)
 
-## Compilation / Optimization Mode
+### In-process usage
 
-* Graph analysis and rewrites (fusion, scheduling, layout)
-* Backend-specific lowering
+```rust
+use openinfer::{Synthesizer, DeviceSpec};
 
-  * CPU kernels
-  * Vulkan compute pipelines
-* Produces a reusable `ExecutablePlan`
+let dev = DeviceSpec::GPU().api("vulkan");
+let synth = Synthesizer::new(dev);
 
----
+let plan = synth.synthesize(&model, &g)?;
+plan.emit("build/out")?;
+```
 
-## Macro DSL Philosophy
+### From JSON
 
-The macro DSL is **only a frontend**:
+```rust
+use openinfer::{Synthesizer, ir::GraphJson, Graph};
 
-* Expands into normal Rust API calls
-* Builds a symbolic graph (no execution)
-* Keeps user code concise and readable
+let dev = DeviceSpec::GPU().api("vulkan");
+let synth = Synthesizer::new(dev);
 
-Features:
+let graph_txt = std::fs::read_to_string("build/graph.json")?;
+let graph_json: GraphJson = serde_json::from_str(&graph_txt)?;
+let g = Graph::from_json(graph_json)?;
 
-* `model["key"]` → tensor reference by key
-* `|>` pipe for chaining ops
-* `@ { ... }` for metadata and optimization hints
-* Structured control flow (`for`, future `if`)
-
----
-
-## Backend Support
-
-* CPU (reference + optimized)
-* Vulkan compute (GPU backend)
-* Future: FPGA / custom accelerators
+let plan = synth.synthesize(&model, &g)?;
+plan.emit("build/out")?;
+```
 
 ---
 
-## Project Status
+## Device Architecture JSON (Synthesizer Input)
 
-Early-stage design / prototype.
+For reproducible compilation, the synthesizer can be configured with a JSON file that describes the target device architecture.
 
-Contributions welcome:
+This file is intended to be:
 
-* Graph IR and passes
-* CPU reference kernels
-* Vulkan compute kernels
-* Model package format and tooling
+* explicit (no guessing)
+* stable in CI/build systems
+* extensible over time
+
+### Mock example
+
+```json
+{
+  "device": {
+    "type": "gpu",
+    "api": "vulkan",
+    "vendor": "nvidia",
+    "name": "Mock RTX",
+    "architecture": "ada_lovelace",
+    "driver": "555.xx"
+  },
+  "limits": {
+    "max_workgroup_size": [1024, 1024, 64],
+    "max_shared_memory_bytes": 65536,
+    "max_push_constants_bytes": 256,
+    "max_storage_buffer_range_bytes": 2147483647
+  },
+  "features": {
+    "fp16": true,
+    "int8": true,
+    "subgroup_ops": true,
+    "cooperative_matrix": false
+  },
+  "memory": {
+    "global_bytes": 17179869184,
+    "shared_bytes_per_sm": 65536,
+    "l2_bytes": 67108864
+  },
+  "preferences": {
+    "default_precision": "fp16",
+    "prefer_fusion": true,
+    "prefer_persistent_kv": true,
+    "max_kernel_ops": 12
+  }
+}
+```
+
+### Loading the device JSON
+
+```rust
+use openinfer::{Synthesizer, device::DeviceArch};
+
+let txt = std::fs::read_to_string("devices/ada_mock.json")?;
+let arch: DeviceArch = serde_json::from_str(&txt)?;
+
+let synth = Synthesizer::from_arch(arch);
+let plan = synth.synthesize(&model, &g)?;
+plan.emit("build/out")?;
+```
+
+> The device JSON is how you make compilation **repeatable** across machines and CI environments.
 
 ---
+
+## Evaluation and Compilation
+
+After validation, the same graph can be compiled:
+
+* Device‑specific scheduling
+* Kernel fusion
+* Memory planning
+* Backend‑specific code generation
+
+The output is **plain source code** (C++, shaders, etc.), not a runtime dependency.
+
+---
+
+## DSL Philosophy
+
+The DSL is intentionally:
+
+* Verbose
+* Explicit
+* Structured
+
+This makes:
+
+* Control flow visible
+* Dependencies analyzable
+* Optimizations safe
+* Generated code predictable
+
+The DSL describes **intent**, not implementation.
+
+---
+
+## Non‑Goals
+
+* Training
+* Automatic model conversion
+* Implicit execution or magic scheduling
+* Python‑first APIs
+
+---
+
+## Status
+
+OpenInfer is in early development.
+
+Areas open for contribution:
+
+* Graph analysis passes
+* Optimization strategies
+* Device backends
+* Tooling and visualization
+
+The DSL and IR are expected to evolve, but the core philosophy—**developer‑authored inference logic with compiler‑level optimization**—is stable.
+
+
 
 ## License
 
