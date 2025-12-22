@@ -23,18 +23,19 @@
 
 # OpenInfer
 
-OpenInfer is an open‑source **inference graph and compilation framework** for machine‑learning workloads.
+OpenInfer is an open-source **inference graph and compilation framework** for machine-learning workloads.
 
-Its primary goal is to let **developers describe inference logic and control flow explicitly**, using a clear, verbose, Rust‑embedded DSL, while OpenInfer handles simulation, analysis, optimization, and code generation for specific hardware targets.
+Its primary goal is to let **developers describe inference logic and control flow explicitly**, using a clear, verbose, Rust-embedded DSL, while OpenInfer handles simulation, analysis, optimization, and code generation for specific hardware targets.
 
-OpenInfer is **not model‑specific**. The same DSL can describe inference for:
+OpenInfer is **model-agnostic**. The same DSL can describe inference for:
 
-* LLMs and transformers
+* Transformers and LLMs
 * CNNs and vision models
-* Audio / signal‑processing models
-* Custom or experimental ML architectures
+* Audio and signal-processing pipelines
+* Streaming or recurrent architectures
+* Experimental or custom ML systems
 
-The focus is on **developer control, readability, and inspectability**, not on hiding complexity behind opaque runtimes.
+The focus is on **clarity, explicit control, and inspectability**, rather than hiding complexity behind opaque runtimes.
 
 ---
 
@@ -42,27 +43,28 @@ The focus is on **developer control, readability, and inspectability**, not on h
 
 1. **Models live in a single binary package**
 
-   * Weights, constants, metadata
-   * Shapes, dtypes, quantization
-   * Optional persistent state layouts
+   * Weights and tensors
+   * Constants and metadata
+   * Shapes, dtypes, layouts
+   * Optional persistent buffer definitions
 
 2. **Developers write the execution logic**
 
    * Inputs and outputs
    * Control flow (loops, branches)
-   * Explicit operations and side effects
-   * Constraints and optimization hints
+   * Explicit operations
+   * Explicit persistent memory access
 
-3. **The graph is symbolic**
+3. **The result is a symbolic graph**
 
    * Nothing executes when defined
-   * The result is a structured graph of blocks and operations
+   * The DSL produces a structured graph of blocks and operations
 
 4. **That graph can be**
 
-   * Simulated lazily for correctness
+   * Simulated for correctness
    * Analyzed and optimized
-   * Compiled into device‑specific executables
+   * Compiled into device-specific code
 
 ---
 
@@ -70,33 +72,35 @@ The focus is on **developer control, readability, and inspectability**, not on h
 
 Think of OpenInfer as:
 
-> *A small, ML‑focused compiler frontend embedded in Rust.*
+> **A small, ML-focused compiler frontend embedded in Rust.**
 
-You describe **what happens** and **in what order**.
-OpenInfer decides **how to execute it efficiently** on the chosen hardware.
+You describe **what happens and in what order**.
+OpenInfer decides **how to execute it efficiently**.
+
+The DSL is closer in spirit to **ONNX / XLA / TVM IRs** than to eager frameworks like PyTorch.
 
 ---
 
-## High‑Level Workflow
+## High-Level Workflow
 
 ```
 Model Package (.oinf)
         │
         ▼
- graph! DSL  ──▶  Symbolic Graph (blocks + ops)
+ graph! DSL  ──▶  Symbolic Graph
                         │
-                        ├─▶ Simulator (lazy, correctness‑first)
+                        ├─▶ Simulator (correctness-first)
                         │
-                        └─▶ Evaluator / Compiler
+                        └─▶ Analyzer / Compiler
                                ▼
-                        Device‑specific source code
+                        Device-specific source code
 ```
 
 ---
 
 ## Minimal Example
 
-A very small graph that:
+A minimal graph that:
 
 * Takes an input tensor
 * Applies two operations
@@ -112,16 +116,17 @@ fn main() -> anyhow::Result<()> {
         model: model,
 
         inputs {
-            x : f32 [B];
+            x: f32[B];
         }
 
         outputs {
-            y : f32 [B];
+            y: f32[B];
         }
 
         block entry {
-            t0 = op add(a=x, b=x);
-            y  = op mul(a=t0, b=model["scale"]);
+            assign t0: f32[B];
+            op add(x, x) >> t0;
+            op mul(t0, t0) >> y;
             return y;
         }
     };
@@ -142,153 +147,321 @@ Inputs and outputs are always declared **at the top level**.
 
 ```rust
 inputs {
-    image : f32 [B, 3, H, W];
-    step  : i32 [];
+    image: f32[B, 3, H, W];
+    step:  i32[];
 }
 
 outputs {
-    logits : f32 [B, C];
+    logits: f32[B, C];
 }
 ```
 
 Benefits:
 
 * Shapes and dtypes are explicit
-* The graph boundary is well‑defined
-* The evaluator can plan memory and I/O early
+* The graph boundary is well-defined
+* Memory and I/O planning is possible up front
 
 ---
 
-## Blocks and Control Flow
+## Blocks and Execution
 
-Execution logic is written in **blocks**.
+Execution logic is written inside **blocks**.
 
 ```rust
 block entry {
-    a = op matmul(a=x, b=w);
-    b = op add(a=a, b=bias);
-    return b;
+    assign a: f32[B, D];
+    op matmul(x, w) >> a;
+    op add(a, bias) >> a;
+    return a;
 }
 ```
 
-Blocks:
+Key properties:
 
-* Execute sequentially
-* Contain operations and effects
-* End with an explicit terminator (`return`, `branch`, `yield`)
+* Blocks execute sequentially
+* Each line represents a graph node
+* Execution order is explicit
+* Blocks end with a terminator (`return`, later `branch`, `yield`, etc.)
+* The main entry point of the graph is always `block entry`
 
-Blocks form a **control‑flow graph**, not just a flat list of ops.
+Blocks form a **control-flow graph**, not just a flat list of ops.
+
+---
+
+## Assignments and Operations
+
+* `assign` declares a temporary tensor or scalar
+* `op` executes a computation and produces an output
+
+```rust
+assign h: f32[B, D];
+op matmul(x, w) >> h;
+```
+
+Assignments are **ephemeral**:
+
+* They exist only during execution
+* The runtime may reuse or alias memory
+* They do not persist across steps
 
 ---
 
 ## Loops
 
-Loops are explicit control‑flow constructs.
+Loops are explicit control-flow constructs.
 
 ```rust
 loop layers (l in 0..num_layers) {
-    block body {
-        h = op matmul(a=h, b=model[fmt("W.{l}")]);
-        h = op relu(x=h);
-    }
+    op matmul(h, W[l]) >> h;
+    op relu(h) >> h;
 }
 ```
 
 Characteristics:
 
 * Loop bounds are symbolic
-* Loop bodies are normal blocks
-* Loop‑carried values must be explicit
-
-This makes iteration visible and analyzable by the compiler.
+* Loop indices are explicit variables
+* Loop bodies form nested regions
+* Repetition is visible to the compiler
 
 ---
 
-## Side Effects and State
+## Persistent Memory: Cache
 
-Operations that mutate or read persistent state are written as **effects**.
+Some inference models require **persistent memory across steps**:
+
+* Transformer KV cache
+* Recurrent hidden state
+* Streaming buffers
+* Rolling windows
+
+OpenInfer models this using **cache**, a generic persistent storage abstraction.
+
+### Declaring a Cache
 
 ```rust
-state {
-    cache : buffer(f32, [B, T, D]);
-}
-
-block entry {
-    effect write(cache, index=step, value=h);
-    h2 = effect read(cache, index=step - 1);
-    return h2;
+cache {
+    cursor step: i32 @init(0);
+    K(l, t): f16[H, Dh] @table;
+    V(l, t): f16[H, Dh] @table;
 }
 ```
 
-Why effects are explicit:
+Properties:
 
-* Prevents illegal reordering
-* Makes dependencies visible
-* Enables correct scheduling and fusion
+* Cache lives outside `block entry`
+* Cache persists across executions
+* Cache entries are indexed
+* Cache is architecture-agnostic
+
+---
+
+## Cache Operations
+
+Cache access is explicit and side-effectful.
+
+```rust
+cache.read  K[l, step] >> k;
+cache.write v >> V[l, step];
+cache.advance step;
+```
+
+Available primitives:
+
+* `cache.read`
+* `cache.write`
+* `cache.advance`
+
+This makes data dependencies and ordering explicit and analyzable.
 
 ---
 
 ## Operation Attributes and Constraints
 
-Operations and blocks can carry **constraints and hints**.
+Attributes let you attach **hints, constraints, or metadata** to:
+
+* Variable definitions (inputs, outputs, constants, prefix tables, cache)
+* Control-flow constructs (loops) and blocks
+
+Attributes are written as **function-like annotations**.
+
+### Attributes on variable definitions
+
+Use this for linking model data, expressing layouts, quantization, or other metadata.
 
 ```rust
-a = op matmul(a=x, b=w)
-      with { fuse = true, placement = "gpu" };
+constants {
+  alpha: f32 @ref_const("alpha");
+  beta:  f32 @ref_const("beta");
+  bias:  f32 @ref_const("gamma");
+}
+
+prefix {
+  W(l): f32[D, D] @ref_pattern("W.{l}") @layout("row_major");
+}
+
+cache {
+  cursor step: i32 @init(0);
+  K(l, t): f16[H, Dh] @table @placement("device");
+  V(l, t): f16[H, Dh] @table @placement("device");
+}
 ```
 
-Common constraints:
+### Operator settings are named parameters
 
-* `fuse = true | false`
-* `placement = "cpu" | "gpu"`
-* `group = "name"`
-* `no_reorder = true`
+Operations do **not** use attributes. Instead, operator configuration is expressed via **named parameters**.
 
-Constraints:
+```rust
+op relu(h, negative_slope=0.0, clamp_min=0.0, clamp_max=inf) >> h;
+```
 
-* Do not guarantee a specific implementation
-* Restrict or guide optimizer decisions
-* Are preserved through compilation
+Examples of realistic activation settings you might see in real deployments:
+
+```rust
+// Standard ReLU
+op relu(h, negative_slope=0.0) >> h;
+
+// LeakyReLU (common in CNNs)
+op relu(h, negative_slope=0.01) >> h;
+
+// Clipped ReLU / ReLU6 (common in mobile / quantization-aware)
+op relu(h, negative_slope=0.0, clamp_max=6.0) >> h;
+
+// Lower clamp (occasionally used for numerical stabilization)
+op relu(h, negative_slope=0.0, clamp_min=-1e-6) >> h;
+```
+
+### What attributes mean
+
+* Attributes are **declarative**: they restrict or guide compiler decisions.
+* They do not guarantee a specific implementation.
+* Unknown attributes can be preserved (for tooling) or rejected (for strict mode).
 
 ---
 
 ## Barriers and Control Dependencies
 
-You can prevent motion or fusion across boundaries using barriers.
+Inference graphs often need explicit ordering boundaries for correctness, debugging, or interoperability.
+
+### Barrier
+
+A `barrier;` prevents motion, fusion, or reordering across the boundary.
 
 ```rust
 block entry {
-    a = op matmul(a=x, b=w);
-    barrier;
-    b = op add(a=a, b=bias);
-    return b;
+  assign h: f32[B, D];
+
+  op matmul(x, W[0]) >> h;
+  barrier;
+  op relu(h) >> h;
+  return h;
 }
 ```
 
-Use cases:
+### Explicit control dependency
 
-* Debugging
-* Interfacing with external state
-* Enforcing ordering for numerical or memory reasons
+A control dependency expresses ordering **without creating a data edge**.
+
+This is useful when:
+
+* you must enforce “write happens after compute” even if the value isn’t used later
+* you need deterministic traces
+* you interface with an external effect that the compiler must not reorder
+
+Example: ensure a cache write happens after an op, but the output tensor itself is not otherwise consumed.
+
+```rust
+block entry {
+  assign h: f32[B, D];
+
+  op matmul(x, W[0]) >> h;
+
+  // Record the computed activation into a cache table for debugging/inspection.
+  // The `dep` makes the ordering explicit even though the write is an effect.
+  dep after(matmul) before(cache.write);
+  cache.write h >> K[0, step];
+
+  op relu(h, negative_slope=0.0) >> h;
+  return h;
+}
+```
+
+> A compiler is free to reorder pure ops, but it must respect explicit deps around effects.
 
 ---
 
-## Scopes and Regions
-
-Scopes annotate logical regions of the graph.
+## Example: Single Inference Step with Cache
 
 ```rust
-scope "attention" {
-    a = op sdpa(q=q, k=k, v=v);
-    b = op matmul(a=a, b=wo);
+graph! {
+  model: model,
+
+  inputs {
+    x: f32[B, D];
+  }
+
+  outputs {
+    z: f32[B, D];
+  }
+
+  prefix {
+    W(l): f32[D, D] @ref_pattern("W.{l}");
+  }
+
+  cache {
+    cursor step: i32 @init(0);
+    K(l, t): f16[H, Dh] @table;
+    V(l, t): f16[H, Dh] @table;
+  }
+
+  block entry {
+    assign h: f32[B, D];
+    assign k: f16[H, Dh];
+    assign v: f16[H, Dh];
+
+    transfer x >> h;
+
+    loop layers (l in 0..10) {
+      cache.read  K[l, step] >> k;
+      cache.read  V[l, step] >> v;
+
+      op attn(h, k, v, W[l]) >> h;
+
+      cache.write k >> K[l, step];
+      cache.write v >> V[l, step];
+    }
+
+    cache.advance step;
+
+    return h;
+  }
 }
 ```
 
-Scopes:
+> `transfer` is not a copy but an alias (unless you use an attribute to make it explicitly a copy, like `transfer(deepcopy=True)`). Generally, both the `Simulator` and `Synthesize` don't allocate any runtime buffers unless they have to. 
 
-* Group related operations
-* Aid diagnostics and visualization
-* Provide natural fusion or optimization boundaries
+---
+
+## Multiple Steps in the Simulator
+
+Running the graph multiple times advances the cache.
+
+```rust
+let mut sim = SimSession::new(&model, SimBackend::Cpu)?;
+
+let mut exec = sim.prepare(&g, inputs! { x: first_token })?;
+exec.finish()?;
+
+let mut exec = sim.prepare(&g, inputs! { x: second_token })?;
+exec.finish()?;
+```
+
+Each invocation:
+
+* Reuses cache contents
+* Writes new entries at the next step
+* Advances the cache cursor
 
 ---
 
@@ -297,233 +470,104 @@ Scopes:
 Simulation mode:
 
 * Executes lazily
-* Loads weights on demand
-* Preserves state across steps
+* Loads model data on demand
+* Preserves cache across runs
 * Prioritizes correctness and debuggability
 
-Simulation is meant to validate **logic**, not performance.
+Simulation is designed to validate **logic and structure**, not raw performance.
 
 ---
 
-## Graph Serialization (JSON)
+## Branching and Yielding Across Blocks
 
-Graphs are regular Rust objects and can be **serialized to JSON** for:
+OpenInfer graphs are **control-flow graphs**. `entry` is always the starting block, but execution can jump to other blocks.
 
-* reproducible runs
-* CI snapshots / golden tests
-* offline analysis and visualization
-* passing graphs between tools (simulator ⇄ synthesizer)
+### Branch
 
-### Serialize a graph
+Use `branch` to jump to another block based on a condition.
 
 ```rust
-use openinfer::{ModelLoader, graph, ir::GraphJson};
+block entry {
+  assign h: f32[B, D];
+  assign cond: bool[];
 
-let model = ModelLoader::open("model.oinf")?;
-let (g, y) = graph! {
-    model: model,
+  op matmul(x, W[0]) >> h;
+  op is_finite(h) >> cond;
 
-    inputs { x: f32 [B]; }
-    outputs { y: f32 [B]; }
+  branch cond -> ok, bad;
+}
 
-    block entry {
-        t0 = op add(a=x, b=x);
-        y  = op mul(a=t0, b=model["scale"]);
-        return y;
-    }
-};
+block ok {
+  op relu(h, negative_slope=0.0) >> h;
+  return h;
+}
 
-// Convert to a stable JSON representation and write to disk
+block bad {
+  op fill_nan_like(h, value=0.0) >> h;
+  return h;
+}
+```
+
+### Yield
+
+Use `yield` when you want a block to **produce an intermediate result** and pause. This is useful for async or streaming execution.
+
+```rust
+block entry {
+  assign h: f32[B, D];
+
+  op matmul(x, W[0]) >> h;
+  yield h -> consumer;
+
+  op relu(h, negative_slope=0.0, clamp_max=6.0) >> h;
+  return h;
+}
+
+block consumer {
+  // A different executor or thread could consume the yielded value.
+  // The exact scheduling model is backend-defined.
+  assign out: f32[B, D];
+  op identity(h) >> out;
+  return out;
+}
+```
+
+Notes:
+
+* `yield` is a terminator like `return`.
+* It defines an explicit control-flow edge to a continuation block.
+* Backends may interpret `yield` as “pause and resume”, “send to a queue”, or “schedule on another device”.
+
+---
+
+## Graph Serialization
+
+Graphs are plain Rust objects and can be serialized to JSON.
+
+```rust
+use openinfer::ir::GraphJson;
+
 let json: GraphJson = g.to_json()?;
-std::fs::write("build/graph.json", serde_json::to_string_pretty(&json)?)?;
-```
-
-### Load a graph from JSON
-
-```rust
-use openinfer::{ir::GraphJson, Graph};
-
-let txt = std::fs::read_to_string("build/graph.json")?;
-let json: GraphJson = serde_json::from_str(&txt)?;
-
-// Reconstruct the graph object
-let g: Graph = Graph::from_json(json)?;
-```
-
-> Tip: JSON is intended to be **stable and inspectable**. It should preserve block structure, op attributes, and control-flow edges.
-
----
-
-## Simulator: Step-by-step Execution (Verbose)
-
-In addition to running the full graph, the simulator can:
-
-* step through execution **block-by-block** or **node-by-node**
-* emit **verbose logs** (op name, shapes, attrs)
-* record **timings** for each node (useful for debugging and early performance signals)
-
-### Run a full graph
-
-```rust
-use openinfer::{SimSession, SimBackend};
-
-let mut sim = SimSession::new(&model, SimBackend::Cpu)?;
-let out = sim.run(&g, inputs! { x: vec![1.0, 2.0, 3.0] })?;
-println!("y = {:?}", out.fetch(y)?);
-```
-
-### Step through nodes with logging + timing
-
-```rust
-use openinfer::{SimSession, SimBackend, sim::TraceLevel};
-
-let mut sim = SimSession::new(&model, SimBackend::Cpu)?
-    .with_trace(TraceLevel::Verbose)
-    .with_timing(true);
-
-let mut exec = sim.prepare(&g, inputs! { x: vec![1.0, 2.0, 3.0] })?;
-
-while exec.is_running() {
-    let ev = exec.step()?;
-
-    // Typical step event info
-    // - block/op identifiers
-    // - input/output shapes
-    // - duration (if enabled)
-    println!(
-        "[{}] {} :: {}  ({} µs)",
-        ev.kind,          // BlockEnter | OpExecute | BlockExit | ...
-        ev.block_name,    // "entry" etc.
-        ev.op_name,       // "matmul" etc. (empty for non-op events)
-        ev.micros
-    );
-}
-
-let out = exec.finish()?;
-println!("final y = {:?}", out.fetch(y)?);
-```
-
-### Export a simulator trace
-
-```rust
-let trace = exec.trace();
-std::fs::write("build/trace.json", serde_json::to_string_pretty(&trace)?)?;
+std::fs::write("graph.json", serde_json::to_string_pretty(&json)?)?;
 ```
 
 ---
 
-## Passing Graphs to the Synthesizer
+## Compilation and Synthesis
 
-The synthesizer accepts either:
+Once validated, the same graph can be compiled:
 
-* a `Graph` object directly (in-process), or
-* a serialized JSON graph (tooling / CLI / build pipelines)
-
-### In-process usage
-
-```rust
-use openinfer::{Synthesizer, DeviceSpec};
-
-let dev = DeviceSpec::GPU().api("vulkan");
-let synth = Synthesizer::new(dev);
-
-let plan = synth.synthesize(&model, &g)?;
-plan.emit("build/out")?;
-```
-
-### From JSON
-
-```rust
-use openinfer::{Synthesizer, ir::GraphJson, Graph};
-
-let dev = DeviceSpec::GPU().api("vulkan");
-let synth = Synthesizer::new(dev);
-
-let graph_txt = std::fs::read_to_string("build/graph.json")?;
-let graph_json: GraphJson = serde_json::from_str(&graph_txt)?;
-let g = Graph::from_json(graph_json)?;
-
-let plan = synth.synthesize(&model, &g)?;
-plan.emit("build/out")?;
-```
-
----
-
-## Device Architecture JSON (Synthesizer Input)
-
-For reproducible compilation, the synthesizer can be configured with a JSON file that describes the target device architecture.
-
-This file is intended to be:
-
-* explicit (no guessing)
-* stable in CI/build systems
-* extensible over time
-
-### Mock example
-
-```json
-{
-  "device": {
-    "type": "gpu",
-    "api": "vulkan",
-    "vendor": "nvidia",
-    "name": "Mock RTX",
-    "architecture": "ada_lovelace",
-    "driver": "555.xx"
-  },
-  "limits": {
-    "max_workgroup_size": [1024, 1024, 64],
-    "max_shared_memory_bytes": 65536,
-    "max_push_constants_bytes": 256,
-    "max_storage_buffer_range_bytes": 2147483647
-  },
-  "features": {
-    "fp16": true,
-    "int8": true,
-    "subgroup_ops": true,
-    "cooperative_matrix": false
-  },
-  "memory": {
-    "global_bytes": 17179869184,
-    "shared_bytes_per_sm": 65536,
-    "l2_bytes": 67108864
-  },
-  "preferences": {
-    "default_precision": "fp16",
-    "prefer_fusion": true,
-    "prefer_persistent_kv": true,
-    "max_kernel_ops": 12
-  }
-}
-```
-
-### Loading the device JSON
-
-```rust
-use openinfer::{Synthesizer, device::DeviceArch};
-
-let txt = std::fs::read_to_string("devices/ada_mock.json")?;
-let arch: DeviceArch = serde_json::from_str(&txt)?;
-
-let synth = Synthesizer::from_arch(arch);
-let plan = synth.synthesize(&model, &g)?;
-plan.emit("build/out")?;
-```
-
-> The device JSON is how you make compilation **repeatable** across machines and CI environments.
-
----
-
-## Evaluation and Compilation
-
-After validation, the same graph can be compiled:
-
-* Device‑specific scheduling
+* Device-specific scheduling
 * Kernel fusion
 * Memory planning
-* Backend‑specific code generation
+* Backend code generation
 
-The output is **plain source code** (C++, shaders, etc.), not a runtime dependency.
+Depending on the chosen architecture and settings for synthesis, the output can be:
+- C code (with SIMD optionally).
+- C code + GLSL shader code.
+- Device-specific source code (Verilog, etc).
+
+> Output will never be an executable program, as it's expected that you use the source code with the compiler of your device. 
 
 ---
 
@@ -531,27 +575,27 @@ The output is **plain source code** (C++, shaders, etc.), not a runtime dependen
 
 The DSL is intentionally:
 
-* Verbose
 * Explicit
+* Verbose
 * Structured
 
-This makes:
+This ensures:
 
-* Control flow visible
-* Dependencies analyzable
-* Optimizations safe
-* Generated code predictable
+* Control flow is visible
+* Side effects are explicit
+* Optimizations are safe
+* Generated code is predictable
 
 The DSL describes **intent**, not implementation.
 
 ---
 
-## Non‑Goals
+## Non-Goals
 
 * Training
 * Automatic model conversion
-* Implicit execution or magic scheduling
-* Python‑first APIs
+* Implicit execution
+* Python-first APIs
 
 ---
 
@@ -566,11 +610,10 @@ Areas open for contribution:
 * Device backends
 * Tooling and visualization
 
-The DSL and IR are expected to evolve, but the core philosophy—**developer‑authored inference logic with compiler‑level optimization**—is stable.
-
-
+---
 
 ## License
 
 Apache-2.0
+
 
