@@ -139,6 +139,8 @@ fn main() -> anyhow::Result<()> {
 }
 ```
 
+> Variables like `[B]` are named sizes, which are defined in the `model.oinf`; these can be dynamic. The `Simulator` and `Synthesizer` check if the dimensions for the data used with the ops are consistent.
+
 ---
 
 ## Inputs and Outputs
@@ -164,6 +166,37 @@ Benefits:
 
 ---
 
+## Prefix Tables
+
+Many models store repeated tensors under a predictable naming scheme, for example:
+
+* `W.0`, `W.1`, …, `W.9`
+* `attn.qkv.0`, `attn.qkv.1`, …
+
+A **prefix table** declares a *family* of model tensors under one DSL name, indexed by one or more symbolic variables.
+
+```rust
+prefix {
+  W(l): f32[D, D] @pattern("W.{l}");
+}
+```
+
+How it works:
+
+* `W(l)` declares an indexed handle `W[<expr>]` usable inside blocks.
+* `@pattern("W.{l}")` tells the loader how to map an index `l` to a model key.
+* Prefix tables are **declarations**: the graph references them, and the runtime resolves them from the model package.
+
+You can also alias different naming schemes:
+
+```rust
+prefix {
+  QKV(layer): f16[D, 3*D] @pattern("attn.qkv.{layer}");
+}
+```
+
+---
+
 ## Blocks and Execution
 
 Execution logic is written inside **blocks**.
@@ -183,7 +216,6 @@ Key properties:
 * Each line represents a graph node
 * Execution order is explicit
 * Blocks end with a terminator (`return`, later `branch`, `yield`, etc.)
-* The main entry point of the graph is always `block entry`
 
 Blocks form a **control-flow graph**, not just a flat list of ops.
 
@@ -217,6 +249,8 @@ loop layers (l in 0..num_layers) {
     op relu(h) >> h;
 }
 ```
+
+> Here `layers` is just a name to identify it as a block in the graph; you can use any name like `heads`, `batches`, etc.   
 
 Characteristics:
 
@@ -292,13 +326,13 @@ Use this for linking model data, expressing layouts, quantization, or other meta
 
 ```rust
 constants {
-  alpha: f32 @ref_const("alpha");
-  beta:  f32 @ref_const("beta");
-  bias:  f32 @ref_const("gamma");
+  alpha: f32 @ref("alpha");
+  beta:  f32 @ref("beta");
+  bias:  f32 @ref("gamma");
 }
 
 prefix {
-  W(l): f32[D, D] @ref_pattern("W.{l}") @layout("row_major");
+  W(l): f32[D, D] @pattern("W.{l}") @layout("row_major");
 }
 
 cache {
@@ -307,6 +341,8 @@ cache {
   V(l, t): f16[H, Dh] @table @placement("device");
 }
 ```
+
+> Some of these attributes like `@layout("row_major");` are the defaults. Also, by default, if the name in the binary file for a variable is the same as in the DSL, you don't need `@ref`. 
 
 ### Operator settings are named parameters
 
@@ -406,7 +442,7 @@ graph! {
   }
 
   prefix {
-    W(l): f32[D, D] @ref_pattern("W.{l}");
+    W(l): f32[D, D] pattern("W.{l}");
   }
 
   cache {
@@ -438,8 +474,6 @@ graph! {
   }
 }
 ```
-
-> `transfer` is not a copy but an alias (unless you use an attribute to make it explicitly a copy, like `transfer(deepcopy=True)`). Generally, both the `Simulator` and `Synthesize` don't allocate any runtime buffers unless they have to. 
 
 ---
 
@@ -475,6 +509,45 @@ Simulation mode:
 * Prioritizes correctness and debuggability
 
 Simulation is designed to validate **logic and structure**, not raw performance.
+
+---
+
+## Attributes in Practice
+
+A typical workflow is:
+
+1. Use attributes on **definitions** to connect DSL names to model package names.
+2. Use named parameters inside **ops** to select operator behavior.
+3. Use barriers / control deps to enforce ordering around effects.
+
+Small example:
+
+```rust
+graph! {
+  model: model,
+
+  inputs { x: f32[B, D] @layout("row_major"); }
+  outputs { z: f32[B, D]; }
+
+  constants {
+    scale: f32 @ref("scale");
+  }
+
+  prefix {
+    W(l): f32[D, D] @pattern("W.{l}");
+  }
+
+  block entry {
+    assign h: f32[B, D];
+
+    op matmul(x, W[0]) >> h;
+    barrier;
+    op relu(h, negative_slope=0.0, clamp_max=6.0) >> h;
+    op mul(h, scale) >> z;
+    return z;
+  }
+}
+```
 
 ---
 
@@ -562,12 +635,7 @@ Once validated, the same graph can be compiled:
 * Memory planning
 * Backend code generation
 
-Depending on the chosen architecture and settings for synthesis, the output can be:
-- C code (with SIMD optionally).
-- C code + GLSL shader code.
-- Device-specific source code (Verilog, etc).
-
-> Output will never be an executable program, as it's expected that you use the source code with the compiler of your device. 
+The output is **plain source code** (C++, shaders, etc.), not a runtime dependency.
 
 ---
 
@@ -615,5 +683,6 @@ Areas open for contribution:
 ## License
 
 Apache-2.0
+
 
 
