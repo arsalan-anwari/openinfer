@@ -305,7 +305,9 @@ Available primitives:
 
 * `cache.read`
 * `cache.write`
-* `cache.advance`
+* `cache.advance`, `cache.advance {number} x`
+* `cache.retract`, `cache.retract {number} x`
+* `cache.reset`
 
 This makes data dependencies and ordering explicit and analyzable.
 
@@ -423,7 +425,7 @@ block entry {
 }
 ```
 
-> A compiler is free to reorder pure ops, but it must respect explicit deps around effects.
+> The syntheziser is free to reorder pure ops, but it must respect explicit deps around effects.
 
 ---
 
@@ -555,9 +557,13 @@ graph! {
 
 OpenInfer graphs are **control-flow graphs**. `entry` is always the starting block, but execution can jump to other blocks.
 
+only entry block can assign variables to be used. all subblocks can mutate it, but cannot return value back to entry block. essentially all variables are globals. 
+
+> This is to make parsing and traversing the graph easier. 
+
 ### Branch
 
-Use `branch` to jump to another block based on a condition.
+Use `branch` to jump to another block (optionally based on a condition). 
 
 ```rust
 block entry {
@@ -567,49 +573,76 @@ block entry {
   op matmul(x, W[0]) >> h;
   op is_finite(h) >> cond;
 
-  branch cond -> ok, bad;
+  branch cond ok bad;
+  return h;
 }
 
 block ok {
   op relu(h, negative_slope=0.0) >> h;
-  return h;
+  return;
 }
 
 block bad {
   op fill_nan_like(h, value=0.0) >> h;
-  return h;
+  return;
 }
 ```
 
+
 ### Yield
 
-Use `yield` when you want a block to **produce an intermediate result** and pause. This is useful for async or streaming execution.
+Use `yield {var}` when you want the entry block to remove temporary access to a variable  
+
+This is useful for async or streaming execution.
+
+After yielding, the entry block cannot mutate the variable used by the consuming block. However its free to execute other code. 
+
+Using `await {var}`, multiple blocks can consume the same variable, but only one can mutate it. When multiple block mutate variable, execution will be serialized. 
+
+Entry block has access to the variable whenever all consumers yield the variable. 
 
 ```rust
 block entry {
   assign h: f32[B, D];
+  assign x: i32[D];
 
   op matmul(x, W[0]) >> h;
-  yield h -> consumer;
+  yield x;
 
   op relu(h, negative_slope=0.0, clamp_max=6.0) >> h;
+
+  await x;
+  // do something with x modified by consumer blocks...
   return h;
 }
 
-block consumer {
-  // A different executor or thread could consume the yielded value.
-  // The exact scheduling model is backend-defined.
-  assign out: f32[B, D];
-  op identity(h) >> out;
-  return out;
+// A different device, core or thread could execute execute this
+// The exact scheduling model is backend-defined.
+
+block consumer_1 {
+  await x;
+  // some compute modifiying x.
+  yield x;
+}
+
+block consumer_2 {
+  await x;
+  // some compute reading x.
+  yield x;
+}
+
+block consumer_3 {
+  await x;
+  // some compute reading x.
+  yield x;
 }
 ```
 
 Notes:
 
-* `yield` is a terminator like `return`.
+* For sub blocks `yield` is a terminator like `return`. For entry block its an invokation. 
 * It defines an explicit control-flow edge to a continuation block.
-* Backends may interpret `yield` as “pause and resume”, “send to a queue”, or “schedule on another device”.
+* Backends may interpret `yield` as “pause and resume”, “send to a queue”, or “schedule on another device”. Implementation depends on device. 
 
 ---
 
