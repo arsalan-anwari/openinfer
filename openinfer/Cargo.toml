@@ -1,0 +1,13 @@
+[package]
+name = "openinfer"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1"
+uuid = { version = "1", features = ["v4", "serde"] }
+serde = { version = "1", features = ["derive"] }
+openinfer-dsl = { path = "../openinfer-dsl" }
+
+[dev-dependencies]
+rand = "0.8"

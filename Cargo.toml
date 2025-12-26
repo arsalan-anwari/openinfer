@@ -1,0 +1,7 @@
+[workspace]
+members = [
+  "openinfer",
+  "openinfer-dsl",
+]
+resolver = "2"
+default-members = ["openinfer"]

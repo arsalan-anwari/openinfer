@@ -112,12 +112,12 @@ B := 1024
 a: f32[B] = {3.4324, 53.24324, 2334.2345 ...}
 ```
 
-> main.rs
+> minimal.rs
 ```rust
 use openinfer::{
-  ModelLoader, Simulator, Device, 
-  graph, insert_executor, fetch_executor
+    graph, fetch_executor, insert_executor, Device, ModelLoader, Simulator,
 };
+use rand::Rng;
 
 fn main() -> anyhow::Result<()> {
     let model = ModelLoader::open("model.oinf")?;
@@ -129,7 +129,7 @@ fn main() -> anyhow::Result<()> {
 
         volatile {
             a: f32[B];
-            y: f32[B];
+            y: f32[B] @init(5.0);
         }
 
         block entry {
@@ -140,14 +140,23 @@ fn main() -> anyhow::Result<()> {
         }
     };
 
-    let mut sim = Simulator::new(&model, Device::Cpu)?;
-    let exec = sim.make_executor(&g)?;
+    let sim = Simulator::new(&model, Device::Cpu)?;
+    let mut exec = sim.make_executor(&g)?;
 
-    insert_executor!(exec, { x: vec![1.0, 2.0, 3.0, ...] })?;
+    let mut rng = rand::thread_rng();
+    let len = model.size_of("B")?;
+    let input: Vec<f32> = (0..len)
+        .map(|i| {
+            let base = rng.gen_range(-10.0..=10.0);
+            base + (i as f32 * 0.001)
+        })
+        .collect();
+
+    insert_executor!(exec, { x: input });
     exec.run_step()?;
-    
-    fetch_executor!(exec, { y })?;
-    println!("y = {:?}", y);
+
+    fetch_executor!(exec, { y: f32 });
+    println!("y[0..100] = {:?}", &y.data[..100.min(y.len())]);
 
     Ok(())
 }
@@ -157,6 +166,28 @@ Variables like `[B]` are named sizes, which are defined in the `model.oinf`; the
 
 The variables defined in the model binary and the DSL do not need to be exactly the same. The DSL can have new variables not found in the binary, but the DSL cannot have the same variable name with a different data type or dimension. By default the variables are linked between the binary and DSL. So `a: f32[B]` in the DSL is directly linked to `a: f32[B]` in the binary by default. 
 
+### Executor Macros
+
+These macros bridge between user data and the executor. Use the panic-on-error versions for quick scripts, and the `try_*` versions when you want to handle errors yourself.
+
+```rust
+insert_executor!(exec, { x: vec![1.0, 2.0, 3.0] });
+fetch_executor!(exec, { y: f32 });
+println!("y = {:?}", y.data);
+```
+
+```rust
+try_insert_executor!(exec, { x: vec![1.0, 2.0, 3.0] })?;
+let y = try_fetch_executor!(exec, { y: f32 })?;
+println!("y = {:?}", y.data);
+```
+
+```rust
+let (y, z) = try_fetch_executor!(exec, { y: f32, z: i64 })?;
+println!("y = {:?}, z = {:?}", y.data, z.data);
+```
+
+> The `*_fetch_*` macros require you to specify the type of the tensor you want to load as type information of the graph nodes is loaded during runtime, but the macro runs at compile time. This means you wont know which data type the Tensor is you want to return. You could alternative omit the type hint and use it like `{y}`, but then you need to explicitly turn the TensorWrapper to a Tensor using `y.as_{type}()`. 
 ---
 
 ## Inputs and Outputs
@@ -534,10 +565,10 @@ Running the graph multiple times advances the cache.
 let mut sim = Simulator::new(&model, Device::Cpu)?;
 let exec = sim.make_executor(&g)?;
 
-insert_executor!(exec, { x: first_token })?;
+insert_executor!(exec, { x: first_token });
 exec.run_step()?;
 
-insert_executor!(exec, { x: second_token })?;
+insert_executor!(exec, { x: second_token });
 exec.run_step()?;
 ```
 
@@ -674,12 +705,12 @@ let mut sim = SimSession::new(&model, Device::Cpu)?
     .with_timing(true);
 
 let mut exec = sim.make_executor(&g)?;
-insert_executor!(exec, { x: vec![1.0, 2.0, 3.0, ...] })?;
+insert_executor!(exec, { x: vec![1.0, 2.0, 3.0, ...] });
 
 while exec.is_running() {
     let ev = exec.next_node()?;
 
-    fetch_executor!(exec, { z })?;
+    fetch_executor!(exec, { z: f32 });
 
     // Typical step event info
     // - block/op identifiers
@@ -687,7 +718,7 @@ while exec.is_running() {
     // - duration (if enabled)
     println!(
         "z={} -- [{}] {} :: {}  ({} µs)",
-        z,
+        z.data,
         ev.kind,          // BlockEnter | OpExecute | BlockExit | ...
         ev.block_name,    // "entry" etc.
         ev.op_name,       // "matmul" etc. (empty for non-op events)
@@ -870,6 +901,3 @@ Implementations for Ops on CPU and GPU are already developed in C, just need por
 ## License
 
 Apache-2.0
-
-
-
