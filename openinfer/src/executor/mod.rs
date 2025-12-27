@@ -48,7 +48,7 @@ pub(crate) trait DeviceBackend {
         &self,
         op: OpKind,
         attrs: &OpAttrs,
-        dtype: DType,
+        output_dtype: DType,
         tensors: &[TensorStorage],
     ) -> Result<TensorStorage>;
 }
@@ -185,28 +185,21 @@ impl<'a> Executor<'a> {
         inputs: &[String],
         output: &str,
     ) -> Result<()> {
-        let op_name = op.as_str();
         let mut tensors = Vec::new();
         for input in inputs {
             tensors.push(self.get_tensor(input)?);
         }
+        let output_dtype = match self.graph.vars.get(output) {
+            Some(var) => var.dtype,
+            None => tensors
+                .first()
+                .ok_or_else(|| anyhow!("op {} expects at least 1 input", op.as_str()))?
+                .dtype(),
+        };
 
-        if tensors.len() < 2 {
-            return Err(anyhow!("op {} expects at least 2 inputs", op_name));
-        }
-
-        let len = tensors[0].len();
-        let dtype = tensors[0].dtype();
-        for t in &tensors {
-            if t.len() != len {
-                return Err(anyhow!("shape mismatch for op {}", op_name));
-            }
-            if t.dtype() != dtype {
-                return Err(anyhow!("dtype mismatch for op {}", op_name));
-            }
-        }
-
-        let result = self.backend.exec_op(op, &attrs, dtype, &tensors)?;
+        let result = self
+            .backend
+            .exec_op(op, &attrs, output_dtype, &tensors)?;
 
         if self.kinds.get(output) == Some(&MemoryKind::Dynamic) {
             self.dynamic.insert(output.to_string(), result);

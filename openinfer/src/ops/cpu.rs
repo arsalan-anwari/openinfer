@@ -21,3 +21,11 @@ pub fn mul_f32(a: &[f32], b: &[f32]) -> Result<Vec<f32>> {
     }
     Ok(out)
 }
+
+pub fn abs_f32(a: &[f32]) -> Result<Vec<f32>> {
+    let mut out = Vec::with_capacity(a.len());
+    for v in a {
+        out.push(v.abs());
+    }
+    Ok(out)
+}

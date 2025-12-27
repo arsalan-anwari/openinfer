@@ -11,6 +11,7 @@ use crate::types::{MemoryKind, ScalarValue, VarDecl};
 pub enum OpKind {
     Add,
     Mul,
+    Abs,
 }
 
 impl OpKind {
@@ -18,6 +19,7 @@ impl OpKind {
         match self {
             OpKind::Add => "add",
             OpKind::Mul => "mul",
+            OpKind::Abs => "abs",
         }
     }
 }

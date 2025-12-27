@@ -25,6 +25,7 @@ impl TensorStorage {
         }
     }
 
+    #[allow(dead_code)]
     pub fn len(&self) -> usize {
         match self {
             TensorStorage::Host(value) => value.len(),

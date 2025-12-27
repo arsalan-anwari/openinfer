@@ -11,3 +11,6 @@ openinfer-dsl = { path = "../openinfer-dsl" }
 
 [dev-dependencies]
 rand = "0.8"
+
+[features]
+vulkan = []

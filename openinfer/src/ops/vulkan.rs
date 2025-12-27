@@ -30,3 +30,14 @@ pub fn mul_f32(a: &VulkanBuffer, b: &VulkanBuffer) -> Result<VulkanBuffer> {
         len: a.len,
     })
 }
+
+pub fn abs_f32(a: &VulkanBuffer) -> Result<VulkanBuffer> {
+    if a.dtype != DType::F32 {
+        return Err(anyhow!("abs op expects f32 buffer"));
+    }
+    println!("vulkan abs_f32: len={}", a.len);
+    Ok(VulkanBuffer {
+        dtype: DType::F32,
+        len: a.len,
+    })
+}

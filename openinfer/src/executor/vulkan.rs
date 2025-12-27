@@ -53,15 +53,16 @@ impl DeviceBackend for VulkanBackend {
         &self,
         op: OpKind,
         attrs: &OpAttrs,
-        dtype: DType,
+        output_dtype: DType,
         tensors: &[TensorStorage],
     ) -> Result<TensorStorage> {
+        let input_dtypes: Vec<DType> = tensors.iter().map(|t| t.dtype()).collect();
         let buffers = to_vulkan_buffers(tensors)?;
-        let kernel = lookup_kernel(self.device(), op, dtype, *attrs)
+        let kernel = lookup_kernel(self.device(), op, output_dtype, &input_dtypes, *attrs)
             .ok_or_else(|| anyhow!("unsupported op {}", op.as_str()))?;
         match kernel {
             KernelFn::Vulkan(func) => Ok(TensorStorage::Device(DeviceTensor::Vulkan(
-                func(attrs, &buffers)?,
+                (func)(attrs, &buffers)?,
             ))),
             KernelFn::Host(_) => Err(anyhow!("vulkan backend cannot run host kernel")),
         }

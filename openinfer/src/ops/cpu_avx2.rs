@@ -48,3 +48,12 @@ pub fn mul_f32(a: &[f32], b: &[f32]) -> Result<Vec<f32>> {
     }
     Ok(out)
 }
+
+pub fn abs_f32(a: &[f32]) -> Result<Vec<f32>> {
+    let len = a.len();
+    let mut out = vec![0.0f32; len];
+    for i in 0..len {
+        out[i] = a[i].abs();
+    }
+    Ok(out)
+}

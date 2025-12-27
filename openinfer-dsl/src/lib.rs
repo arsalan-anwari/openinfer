@@ -317,6 +317,7 @@ fn match_opkind(op: &Ident) -> Result<proc_macro2::TokenStream> {
     match s.as_str() {
         "add" => Ok(quote! { ::openinfer::OpKind::Add }),
         "mul" => Ok(quote! { ::openinfer::OpKind::Mul }),
+        "abs" => Ok(quote! { ::openinfer::OpKind::Abs }),
         _ => Err(syn::Error::new(op.span(), "unsupported op")),
     }
 }
