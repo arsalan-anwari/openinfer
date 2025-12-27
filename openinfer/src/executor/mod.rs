@@ -2,17 +2,19 @@ use std::collections::{HashMap, HashSet};
 
 use anyhow::{anyhow, Result};
 
-use crate::backend::{DeviceTensor, TensorStorage, VulkanBuffer};
-use crate::graph::{describe_node, Graph, NodeKind};
+use crate::backend::TensorStorage;
+use crate::graph::{describe_node, Graph, NodeKind, OpAttrs, OpKind};
 use crate::model_loader::ModelLoader;
-use crate::ops::{
-    add_f32, add_f32_avx, add_f32_avx2, add_f32_vulkan, mul_f32, mul_f32_avx, mul_f32_avx2,
-    mul_f32_vulkan,
-};
 use crate::tensor::{DType, Tensor, TensorElement, TensorValue};
 use crate::types::MemoryKind;
 
-#[derive(Debug, Clone, Copy)]
+mod cpu;
+mod vulkan;
+
+use cpu::CpuBackend;
+use vulkan::VulkanBackend;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Device {
     Cpu,
     CpuAvx,
@@ -35,54 +37,26 @@ impl Device {
             Device::Vulkan => true,
         }
     }
+}
 
-    fn alloc(&self, dtype: DType, len: usize) -> Result<TensorStorage> {
-        match self {
-            Device::Cpu | Device::CpuAvx | Device::CpuAvx2 => {
-                Ok(TensorStorage::Host(TensorValue::zeros(dtype, len)))
-            }
-            Device::Vulkan => {
-                println!("vulkan alloc: dtype={:?} len={}", dtype, len);
-                Ok(TensorStorage::Device(DeviceTensor::Vulkan(VulkanBuffer {
-                    dtype,
-                    len,
-                })))
-            }
-        }
-    }
+pub(crate) trait DeviceBackend {
+    fn device(&self) -> Device;
+    fn alloc(&self, dtype: DType, len: usize) -> Result<TensorStorage>;
+    fn upload(&self, value: TensorValue) -> Result<TensorStorage>;
+    fn download(&self, value: TensorStorage) -> Result<TensorValue>;
+    fn exec_op(
+        &self,
+        op: OpKind,
+        attrs: &OpAttrs,
+        dtype: DType,
+        tensors: &[TensorStorage],
+    ) -> Result<TensorStorage>;
+}
 
-    fn upload(&self, value: TensorValue) -> Result<TensorStorage> {
-        match self {
-            Device::Cpu | Device::CpuAvx | Device::CpuAvx2 => Ok(TensorStorage::Host(value)),
-            Device::Vulkan => {
-                let dtype = value.dtype();
-                let len = value.len();
-                println!("vulkan upload: dtype={:?} len={}", dtype, len);
-                Ok(TensorStorage::Device(DeviceTensor::Vulkan(VulkanBuffer {
-                    dtype,
-                    len,
-                })))
-            }
-        }
-    }
-
-    fn download(&self, value: TensorStorage) -> Result<TensorValue> {
-        match value {
-            TensorStorage::Host(host) => Ok(host),
-            TensorStorage::Device(DeviceTensor::Vulkan(buf)) => {
-                println!("vulkan download: dtype={:?} len={}", buf.dtype, buf.len);
-                Ok(TensorValue::zeros(buf.dtype, buf.len))
-            }
-        }
-    }
-
-    fn exec_op(&self, op: &str, tensors: &[TensorStorage]) -> Result<TensorStorage> {
-        match self {
-            Device::Cpu => exec_cpu_op(op, tensors),
-            Device::CpuAvx => exec_cpu_avx_op(op, tensors),
-            Device::CpuAvx2 => exec_cpu_avx2_op(op, tensors),
-            Device::Vulkan => exec_vulkan_op(op, tensors),
-        }
+fn backend_for(device: Device) -> Box<dyn DeviceBackend> {
+    match device {
+        Device::Cpu | Device::CpuAvx | Device::CpuAvx2 => Box::new(CpuBackend::new(device)),
+        Device::Vulkan => Box::new(VulkanBackend::new()),
     }
 }
 
@@ -111,11 +85,9 @@ enum StoredTensor {
     Data(TensorStorage),
 }
 
-#[derive(Debug)]
 pub struct Executor<'a> {
     model: &'a ModelLoader,
-    #[allow(dead_code)]
-    device: Device,
+    backend: Box<dyn DeviceBackend>,
     graph: Graph,
     dynamic: HashMap<String, TensorStorage>,
     storage: HashMap<String, StoredTensor>,
@@ -136,7 +108,7 @@ impl<'a> Executor<'a> {
 
         Ok(Self {
             model,
-            device,
+            backend: backend_for(device),
             graph: graph.clone(),
             dynamic: HashMap::new(),
             storage,
@@ -148,7 +120,7 @@ impl<'a> Executor<'a> {
     pub fn insert_dynamic<T: Into<TensorValue>>(&mut self, name: &str, data: T) -> Result<()> {
         match self.kinds.get(name) {
             Some(MemoryKind::Dynamic) => {
-                let uploaded = self.device.upload(data.into())?;
+                let uploaded = self.backend.upload(data.into())?;
                 self.dynamic.insert(name.to_string(), uploaded);
                 Ok(())
             }
@@ -164,8 +136,10 @@ impl<'a> Executor<'a> {
                 .get(name)
                 .cloned()
                 .ok_or_else(|| anyhow!("dynamic variable not set: {}", name))
-                .and_then(|value| self.device.download(value)),
-            Some(_) => self.get_tensor(name).and_then(|value| self.device.download(value)),
+                .and_then(|value| self.backend.download(value)),
+            Some(_) => self
+                .get_tensor(name)
+                .and_then(|value| self.backend.download(value)),
             None => Err(anyhow!("unknown variable: {}", name)),
         }
     }
@@ -183,17 +157,18 @@ impl<'a> Executor<'a> {
             match node.kind {
                 NodeKind::Assign { name, dims, dtype } => {
                     let len = self.model.resolve_len(&dims)?;
-                    let data = self.device.alloc(dtype, len)?;
+                    let data = self.backend.alloc(dtype, len)?;
                     self.storage
                         .insert(name.clone(), StoredTensor::Data(data));
                     self.temps.insert(name);
                 }
                 NodeKind::Op {
-                    name,
+                    op,
+                    attrs,
                     inputs,
                     output,
                 } => {
-                    self.exec_op(&name, &inputs, &output)?;
+                    self.exec_op(op, attrs, &inputs, &output)?;
                 }
                 NodeKind::Return => break,
             }
@@ -203,28 +178,35 @@ impl<'a> Executor<'a> {
         Ok(())
     }
 
-    fn exec_op(&mut self, op: &str, inputs: &[String], output: &str) -> Result<()> {
+    fn exec_op(
+        &mut self,
+        op: OpKind,
+        attrs: OpAttrs,
+        inputs: &[String],
+        output: &str,
+    ) -> Result<()> {
+        let op_name = op.as_str();
         let mut tensors = Vec::new();
         for input in inputs {
             tensors.push(self.get_tensor(input)?);
         }
 
         if tensors.len() < 2 {
-            return Err(anyhow!("op {} expects at least 2 inputs", op));
+            return Err(anyhow!("op {} expects at least 2 inputs", op_name));
         }
 
         let len = tensors[0].len();
         let dtype = tensors[0].dtype();
         for t in &tensors {
             if t.len() != len {
-                return Err(anyhow!("shape mismatch for op {}", op));
+                return Err(anyhow!("shape mismatch for op {}", op_name));
             }
             if t.dtype() != dtype {
-                return Err(anyhow!("dtype mismatch for op {}", op));
+                return Err(anyhow!("dtype mismatch for op {}", op_name));
             }
         }
 
-        let result = self.device.exec_op(op, &tensors)?;
+        let result = self.backend.exec_op(op, &attrs, dtype, &tensors)?;
 
         if self.kinds.get(output) == Some(&MemoryKind::Dynamic) {
             self.dynamic.insert(output.to_string(), result);
@@ -251,7 +233,7 @@ impl<'a> Executor<'a> {
             Some(StoredTensor::Unloaded) => {
                 let data = if self.model.var_info(name).is_some() {
                     let host = self.model.load_tensor(name)?;
-                    self.device.upload(host)?
+                    self.backend.upload(host)?
                 } else {
                     let decl = self
                         .graph
@@ -261,9 +243,9 @@ impl<'a> Executor<'a> {
                     let len = self.model.resolve_len(&decl.dims)?;
                     if let Some(init) = decl.init.as_ref() {
                         let host = init.to_tensor_value(decl.dtype, len)?;
-                        self.device.upload(host)?
+                        self.backend.upload(host)?
                     } else {
-                        self.device.alloc(decl.dtype, len)?
+                        self.backend.alloc(decl.dtype, len)?
                     }
                 };
                 self.storage
@@ -283,87 +265,5 @@ impl<'a> Executor<'a> {
         for temp in self.temps.drain() {
             self.storage.remove(&temp);
         }
-    }
-
-}
-
-fn exec_cpu_op(op: &str, tensors: &[TensorStorage]) -> Result<TensorStorage> {
-    let host = to_host_tensors(tensors)?;
-    let result = exec_cpu_op_host(op, &host)?;
-    Ok(TensorStorage::Host(result))
-}
-
-fn exec_cpu_avx_op(op: &str, tensors: &[TensorStorage]) -> Result<TensorStorage> {
-    let host = to_host_tensors(tensors)?;
-    let result = exec_cpu_avx_op_host(op, &host)?;
-    Ok(TensorStorage::Host(result))
-}
-
-fn exec_cpu_avx2_op(op: &str, tensors: &[TensorStorage]) -> Result<TensorStorage> {
-    let host = to_host_tensors(tensors)?;
-    let result = exec_cpu_avx2_op_host(op, &host)?;
-    Ok(TensorStorage::Host(result))
-}
-
-fn exec_vulkan_op(op: &str, tensors: &[TensorStorage]) -> Result<TensorStorage> {
-    if tensors.len() < 2 {
-        return Err(anyhow!("op {} expects at least 2 inputs", op));
-    }
-    let (a, b) = match (&tensors[0], &tensors[1]) {
-        (TensorStorage::Device(DeviceTensor::Vulkan(a)), TensorStorage::Device(DeviceTensor::Vulkan(b))) => {
-            (a, b)
-        }
-        _ => return Err(anyhow!("vulkan backend expects device tensors")),
-    };
-
-    let out = match op {
-        "add" => add_f32_vulkan(a, b)?,
-        "mul" => mul_f32_vulkan(a, b)?,
-        _ => return Err(anyhow!("unsupported op: {}", op)),
-    };
-    Ok(TensorStorage::Device(DeviceTensor::Vulkan(out)))
-}
-
-fn to_host_tensors(tensors: &[TensorStorage]) -> Result<Vec<TensorValue>> {
-    let mut out = Vec::with_capacity(tensors.len());
-    for tensor in tensors {
-        match tensor {
-            TensorStorage::Host(value) => out.push(value.clone()),
-            TensorStorage::Device(DeviceTensor::Vulkan(_)) => {
-                return Err(anyhow!("device tensor passed to host backend"));
-            }
-        }
-    }
-    Ok(out)
-}
-
-fn exec_cpu_op_host(op: &str, tensors: &[TensorValue]) -> Result<TensorValue> {
-    exec_cpu_op_impl(op, tensors, add_f32, mul_f32)
-}
-
-fn exec_cpu_avx_op_host(op: &str, tensors: &[TensorValue]) -> Result<TensorValue> {
-    exec_cpu_op_impl(op, tensors, add_f32_avx, mul_f32_avx)
-}
-
-fn exec_cpu_avx2_op_host(op: &str, tensors: &[TensorValue]) -> Result<TensorValue> {
-    exec_cpu_op_impl(op, tensors, add_f32_avx2, mul_f32_avx2)
-}
-
-fn exec_cpu_op_impl(
-    op: &str,
-    tensors: &[TensorValue],
-    add: fn(&Tensor<f32>, &Tensor<f32>) -> Result<Tensor<f32>>,
-    mul: fn(&Tensor<f32>, &Tensor<f32>) -> Result<Tensor<f32>>,
-) -> Result<TensorValue> {
-    match op {
-        "add" => match (&tensors[0], &tensors[1]) {
-            (TensorValue::F32(a), TensorValue::F32(b)) => Ok(TensorValue::F32(add(a, b)?)),
-            _ => Err(anyhow!("unsupported add dtype combination")),
-        },
-        "mul" => match (&tensors[0], &tensors[1]) {
-            (TensorValue::F32(a), TensorValue::F32(b)) => Ok(TensorValue::F32(mul(a, b)?)),
-            _ => Err(anyhow!("unsupported mul dtype combination")),
-        },
-        _ => Err(anyhow!("unsupported op: {}", op)),
     }
 }

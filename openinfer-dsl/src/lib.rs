@@ -265,7 +265,7 @@ impl GraphDsl {
                                 }
                             }
                             Node::Op(op) => {
-                                let name = op.name.to_string();
+                                let kind = match_opkind(&op.name)?;
                                 let inputs = op.inputs.iter().map(|i| {
                                     let s = i.to_string();
                                     quote! { #s.to_string() }
@@ -273,7 +273,8 @@ impl GraphDsl {
                                 let output = op.output.to_string();
                                 quote! {
                                     ::openinfer::NodeKind::Op {
-                                        name: #name.to_string(),
+                                        op: #kind,
+                                        attrs: ::openinfer::OpAttrs::None,
                                         inputs: vec![#(#inputs),*],
                                         output: #output.to_string(),
                                     }
@@ -308,6 +309,15 @@ fn match_dtype(dtype: &Ident) -> Result<proc_macro2::TokenStream> {
         "i64" => Ok(quote! { ::openinfer::DType::I64 }),
         "bool" => Ok(quote! { ::openinfer::DType::Bool }),
         _ => Err(syn::Error::new(dtype.span(), "unsupported dtype")),
+    }
+}
+
+fn match_opkind(op: &Ident) -> Result<proc_macro2::TokenStream> {
+    let s = op.to_string();
+    match s.as_str() {
+        "add" => Ok(quote! { ::openinfer::OpKind::Add }),
+        "mul" => Ok(quote! { ::openinfer::OpKind::Mul }),
+        _ => Err(syn::Error::new(op.span(), "unsupported op")),
     }
 }
 

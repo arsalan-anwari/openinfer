@@ -7,11 +7,32 @@ use uuid::Uuid;
 use crate::tensor::DType;
 use crate::types::{MemoryKind, ScalarValue, VarDecl};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum OpKind {
+    Add,
+    Mul,
+}
+
+impl OpKind {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            OpKind::Add => "add",
+            OpKind::Mul => "mul",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum OpAttrs {
+    None,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum NodeKind {
     Assign { name: String, dtype: DType, dims: Vec<String> },
     Op {
-        name: String,
+        op: OpKind,
+        attrs: OpAttrs,
         inputs: Vec<String>,
         output: String,
     },
@@ -107,8 +128,13 @@ impl Graph {
 pub fn describe_node(kind: &NodeKind) -> String {
     match kind {
         NodeKind::Assign { name, .. } => format!("assign {}", name),
-        NodeKind::Op { name, inputs, output } => {
-            format!("op {}({}) >> {}", name, inputs.join(","), output)
+        NodeKind::Op {
+            op,
+            attrs: _,
+            inputs,
+            output,
+        } => {
+            format!("op {}({}) >> {}", op.as_str(), inputs.join(","), output)
         }
         NodeKind::Return => "return".to_string(),
     }
