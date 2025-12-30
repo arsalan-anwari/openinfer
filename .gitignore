@@ -21,5 +21,14 @@ target
 #.idea/
 
 .venv/
+*.pyc
+*.pyo
+
+
+# Byte-compiled / optimized / DLL files
 __pycache__/
-examples/__pycache__/
+*.py[cod]
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
