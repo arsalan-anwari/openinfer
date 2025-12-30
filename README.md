@@ -120,6 +120,8 @@ Create a binary file:
 python examples/python/minimal_oinf.py
 ```
 
+> See [docs/oinf.md](docs/oinf.md) how you can create your own binary file from a Python Dataclass. 
+
 Inspect it:
 
 ```bash

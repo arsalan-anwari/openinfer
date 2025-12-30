@@ -174,6 +174,82 @@ python verify_oinf.py res/simple_model.oinf
 python verify_oinf.py res/minimal_model.oinf
 ```
 
+### Create a Binary from a Dataclass
+
+`dataclass_to_oinf.py` can serialize any Python dataclass instance into an OINF
+file. You can pass a module path to a dataclass and optionally provide JSON data
+for its fields.
+
+Minimal example (matches `examples/python/minimal_oinf.py`):
+
+```python
+from dataclasses import dataclass
+import numpy as np
+
+from dataclass_to_oinf import TensorSpec, write_oinf
+
+@dataclass
+class MinimalModel:
+    B: int
+    a: TensorSpec
+
+def build_minimal() -> MinimalModel:
+    rng = np.random.default_rng(1)
+    B = 1024
+    a = rng.uniform(-1.0, 1.0, size=B).astype(np.float32)
+    return MinimalModel(B=B, a=TensorSpec(a))
+
+write_oinf(build_minimal(), "minimal_model.oinf")
+```
+
+Simple example (matches `examples/python/simple_oinf.py`):
+
+```python
+from dataclasses import dataclass
+import numpy as np
+
+from dataclass_to_oinf import TensorSpec, UninitializedTensor, write_oinf
+
+@dataclass
+class ExampleModel:
+    D: int
+    B: int
+    a: TensorSpec
+    x: TensorSpec
+    W_0: TensorSpec
+    mode: str
+    y: UninitializedTensor
+    kernel: TensorSpec
+
+def build_example() -> ExampleModel:
+    rng = np.random.default_rng(0)
+    D = 128
+    B = 1024
+    a = rng.normal(size=B).astype(np.float16)
+    x = np.array(10.35, dtype=np.float32)
+    w0 = rng.normal(size=D).astype(np.float32)
+    kernel = rng.integers(0, 256, size=(D, D), dtype=np.uint8)
+    return ExampleModel(
+        D=D,
+        B=B,
+        a=TensorSpec(a),
+        x=TensorSpec(x),
+        W_0=TensorSpec(w0, name="W.0"),
+        mode="clamp_up",
+        y=UninitializedTensor(dtype="i16", shape=()),
+        kernel=TensorSpec(kernel),
+    )
+
+write_oinf(build_example(), "simple_model.oinf")
+```
+
+CLI example (module path + JSON payload):
+
+```bash
+python dataclass_to_oinf.py --input examples.python.simple_oinf:ExampleModel --output model.oinf
+python dataclass_to_oinf.py --input my_pkg.my_model:MyModel --json data.json --output model.oinf
+```
+
 ## Verifier Output Examples
 
 `res/minimal_model.oinf` (values truncated):
