@@ -98,6 +98,38 @@ Model Package (.oinf)
 
 ---
 
+## OINF Binary Format (Brief)
+
+OpenInfer models are stored in a single `.oinf` binary container that holds:
+
+* Named size variables (u64 only)
+* Metadata key/value pairs
+* Named tensors with dtype, shape, and optional data
+
+Conceptually, an uncompacted view looks like:
+
+```ini
+B := 1024
+a: f32[B] = { ... }
+mode: str = "clamp_up"
+```
+
+Create a binary file:
+
+```bash
+python examples/python/minimal_oinf.py
+```
+
+Inspect it:
+
+```bash
+python verify_oinf.py minimal_model.oinf
+```
+
+For the full technical spec and layout, see [docs/oinf.md](docs/oinf.md).
+
+---
+
 ## Minimal Example
 
 A minimal graph that:
@@ -188,6 +220,7 @@ println!("y = {:?}, z = {:?}", y.data, z.data);
 ```
 
 > The `*_fetch_*` macros require you to specify the type of the tensor you want to load as type information of the graph nodes is loaded during runtime, but the macro runs at compile time. This means you wont know which data type the Tensor is you want to return. You could alternative omit the type hint and use it like `{y}`, but then you need to explicitly turn the TensorWrapper to a Tensor using `y.as_{type}()`. 
+
 ---
 
 ## Inputs and Outputs

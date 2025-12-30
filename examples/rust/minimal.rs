@@ -2,9 +2,11 @@ use openinfer::{
     graph, fetch_executor, insert_executor, Device, ModelLoader, Simulator,
 };
 use rand::Rng;
+use std::path::Path;
 
 fn main() -> anyhow::Result<()> {
-    let model = ModelLoader::open("model.oinf")?;
+    let model_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../res/minimal_model.oinf");
+    let model = ModelLoader::open(model_path)?;
 
     let g = graph! {
         dynamic {
@@ -44,3 +46,4 @@ fn main() -> anyhow::Result<()> {
 
     Ok(())
 }
+

@@ -76,4 +76,5 @@ pub struct VarInfo {
     pub dtype: DType,
     pub dims: Vec<String>,
     pub value_range: Option<(usize, usize)>,
+    pub has_data: bool,
 }

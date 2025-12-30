@@ -224,9 +224,24 @@ impl<'a> Executor<'a> {
         match self.storage.get(name) {
             Some(StoredTensor::Data(data)) => Ok(data.clone()),
             Some(StoredTensor::Unloaded) => {
-                let data = if self.model.var_info(name).is_some() {
-                    let host = self.model.load_tensor(name)?;
-                    self.backend.upload(host)?
+                let data = if let Some(info) = self.model.var_info(name) {
+                    if info.has_data {
+                        let host = self.model.load_tensor(name)?;
+                        self.backend.upload(host)?
+                    } else {
+                        let decl = self
+                            .graph
+                            .vars
+                            .get(name)
+                            .ok_or_else(|| anyhow!("unknown variable: {}", name))?;
+                        let len = self.model.resolve_len(&decl.dims)?;
+                        if let Some(init) = decl.init.as_ref() {
+                            let host = init.to_tensor_value(decl.dtype, len)?;
+                            self.backend.upload(host)?
+                        } else {
+                            self.backend.alloc(decl.dtype, len)?
+                        }
+                    }
                 } else {
                     let decl = self
                         .graph

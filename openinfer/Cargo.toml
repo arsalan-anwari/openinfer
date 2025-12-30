@@ -14,3 +14,7 @@ rand = "0.8"
 
 [features]
 vulkan = []
+
+[[example]]
+name = "minimal"
+path = "../examples/rust/minimal.rs"
