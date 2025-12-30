@@ -96,6 +96,8 @@ Model Package (.oinf)
                         Device-specific source code
 ```
 
+For more information see [docs/implementation.md](docs/implementation.md)
+
 ---
 
 ## OINF Binary Format (Brief)

@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Context, Result};
 
-use crate::tensor::{DType, Tensor, TensorValue};
+use crate::tensor::{Bitset, DType, F16, Tensor, TensorValue};
 use crate::types::VarInfo;
 
 const MAGIC: &[u8; 5] = b"OINF\0";
@@ -259,11 +259,19 @@ impl ModelLoader {
         }
 
         match info.dtype {
+            DType::I8 => Ok(TensorValue::I8(Tensor::new(parse_i8(&buf)?))),
+            DType::I16 => Ok(TensorValue::I16(Tensor::new(parse_i16(&buf)?))),
             DType::F32 => Ok(TensorValue::F32(Tensor::new(parse_f32(&buf)?))),
             DType::F64 => Ok(TensorValue::F64(Tensor::new(parse_f64(&buf)?))),
+            DType::U8 => Ok(TensorValue::U8(Tensor::new(parse_u8(&buf)?))),
+            DType::U16 => Ok(TensorValue::U16(Tensor::new(parse_u16(&buf)?))),
             DType::I32 => Ok(TensorValue::I32(Tensor::new(parse_i32(&buf)?))),
             DType::I64 => Ok(TensorValue::I64(Tensor::new(parse_i64(&buf)?))),
+            DType::U32 => Ok(TensorValue::U32(Tensor::new(parse_u32(&buf)?))),
+            DType::U64 => Ok(TensorValue::U64(Tensor::new(parse_u64(&buf)?))),
             DType::Bool => Ok(TensorValue::Bool(Tensor::new(parse_bool(&buf)?))),
+            DType::Bitset => Ok(TensorValue::Bitset(Tensor::new(parse_bitset(&buf)?))),
+            DType::F16 => Ok(TensorValue::F16(Tensor::new(parse_f16(&buf)?))),
         }
     }
 
@@ -304,16 +312,25 @@ impl ValueType {
                 | Self::F32
                 | Self::F64
                 | Self::BOOL
+                | Self::BITSET
         )
     }
 
     fn to_dtype(value_type: u32) -> Result<DType> {
         match value_type {
+            Self::I8 => Ok(DType::I8),
+            Self::I16 => Ok(DType::I16),
             Self::F32 => Ok(DType::F32),
             Self::F64 => Ok(DType::F64),
+            Self::U8 => Ok(DType::U8),
+            Self::U16 => Ok(DType::U16),
             Self::I32 => Ok(DType::I32),
             Self::I64 => Ok(DType::I64),
+            Self::U32 => Ok(DType::U32),
+            Self::U64 => Ok(DType::U64),
             Self::BOOL => Ok(DType::Bool),
+            Self::BITSET => Ok(DType::Bitset),
+            Self::F16 => Ok(DType::F16),
             other => Err(anyhow!("unsupported tensor dtype {}", other)),
         }
     }
@@ -321,11 +338,19 @@ impl ValueType {
 
 fn dtype_nbytes(dtype: DType) -> usize {
     match dtype {
+        DType::I8 => 1,
+        DType::I16 => 2,
         DType::F32 => 4,
         DType::F64 => 8,
+        DType::U8 => 1,
+        DType::U16 => 2,
         DType::I32 => 4,
         DType::I64 => 8,
+        DType::U32 => 4,
+        DType::U64 => 8,
         DType::Bool => 1,
+        DType::Bitset => 1,
+        DType::F16 => 2,
     }
 }
 
@@ -336,6 +361,34 @@ fn parse_f32(buf: &[u8]) -> Result<Vec<f32>> {
     Ok(buf
         .chunks_exact(4)
         .map(|chunk| f32::from_le_bytes(chunk.try_into().unwrap()))
+        .collect())
+}
+
+fn parse_i8(buf: &[u8]) -> Result<Vec<i8>> {
+    Ok(buf.iter().map(|b| *b as i8).collect())
+}
+
+fn parse_i16(buf: &[u8]) -> Result<Vec<i16>> {
+    if buf.len() % 2 != 0 {
+        return Err(anyhow!("i16 tensor bytes not aligned"));
+    }
+    Ok(buf
+        .chunks_exact(2)
+        .map(|chunk| i16::from_le_bytes(chunk.try_into().unwrap()))
+        .collect())
+}
+
+fn parse_u8(buf: &[u8]) -> Result<Vec<u8>> {
+    Ok(buf.to_vec())
+}
+
+fn parse_u16(buf: &[u8]) -> Result<Vec<u16>> {
+    if buf.len() % 2 != 0 {
+        return Err(anyhow!("u16 tensor bytes not aligned"));
+    }
+    Ok(buf
+        .chunks_exact(2)
+        .map(|chunk| u16::from_le_bytes(chunk.try_into().unwrap()))
         .collect())
 }
 
@@ -369,8 +422,44 @@ fn parse_i64(buf: &[u8]) -> Result<Vec<i64>> {
         .collect())
 }
 
+fn parse_u32(buf: &[u8]) -> Result<Vec<u32>> {
+    if buf.len() % 4 != 0 {
+        return Err(anyhow!("u32 tensor bytes not aligned"));
+    }
+    Ok(buf
+        .chunks_exact(4)
+        .map(|chunk| u32::from_le_bytes(chunk.try_into().unwrap()))
+        .collect())
+}
+
+fn parse_u64(buf: &[u8]) -> Result<Vec<u64>> {
+    if buf.len() % 8 != 0 {
+        return Err(anyhow!("u64 tensor bytes not aligned"));
+    }
+    Ok(buf
+        .chunks_exact(8)
+        .map(|chunk| u64::from_le_bytes(chunk.try_into().unwrap()))
+        .collect())
+}
+
 fn parse_bool(buf: &[u8]) -> Result<Vec<bool>> {
     Ok(buf.iter().map(|b| *b != 0).collect())
+}
+
+fn parse_bitset(buf: &[u8]) -> Result<Vec<Bitset>> {
+    Ok(buf.iter().map(|b| Bitset { bits: *b }).collect())
+}
+
+fn parse_f16(buf: &[u8]) -> Result<Vec<F16>> {
+    if buf.len() % 2 != 0 {
+        return Err(anyhow!("f16 tensor bytes not aligned"));
+    }
+    Ok(buf
+        .chunks_exact(2)
+        .map(|chunk| F16 {
+            bits: u16::from_le_bytes(chunk.try_into().unwrap()),
+        })
+        .collect())
 }
 
 fn read_u32(data: &[u8], cursor: &mut usize) -> Result<u32> {

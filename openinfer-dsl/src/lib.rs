@@ -303,11 +303,19 @@ impl GraphDsl {
 fn match_dtype(dtype: &Ident) -> Result<proc_macro2::TokenStream> {
     let s = dtype.to_string();
     match s.as_str() {
+        "i8" => Ok(quote! { ::openinfer::DType::I8 }),
+        "i16" => Ok(quote! { ::openinfer::DType::I16 }),
         "f32" => Ok(quote! { ::openinfer::DType::F32 }),
         "f64" => Ok(quote! { ::openinfer::DType::F64 }),
+        "u8" => Ok(quote! { ::openinfer::DType::U8 }),
+        "u16" => Ok(quote! { ::openinfer::DType::U16 }),
         "i32" => Ok(quote! { ::openinfer::DType::I32 }),
         "i64" => Ok(quote! { ::openinfer::DType::I64 }),
+        "u32" => Ok(quote! { ::openinfer::DType::U32 }),
+        "u64" => Ok(quote! { ::openinfer::DType::U64 }),
         "bool" => Ok(quote! { ::openinfer::DType::Bool }),
+        "bitset" => Ok(quote! { ::openinfer::DType::Bitset }),
+        "f16" => Ok(quote! { ::openinfer::DType::F16 }),
         _ => Err(syn::Error::new(dtype.span(), "unsupported dtype")),
     }
 }
