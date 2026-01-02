@@ -117,7 +117,7 @@ Build and Run
 - Build with Vulkan enabled:
   - `cargo build -p openinfer --features vulkan`
 - Run the minimal example:
-  - `cargo run --example minimal`
+  - `cargo run --example minimal --features vulkan`
 
 Feature Gating
 --------------
