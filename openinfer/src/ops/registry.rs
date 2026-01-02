@@ -50,6 +50,7 @@ pub fn lookup_kernel(
             input_dtypes,
             attrs,
         ),
+        #[allow(unreachable_patterns)]
         _ => None,
     }
 }

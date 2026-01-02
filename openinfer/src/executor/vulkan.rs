@@ -1,18 +1,67 @@
 use anyhow::{anyhow, Result};
 
-use crate::backend::{DeviceTensor, TensorStorage, VulkanBuffer};
+use std::sync::{Arc, Mutex};
+
+use crate::backend::vulkan::{storage_size_bytes, VulkanRuntime, VulkanShaderRegistry};
+use crate::backend::{DeviceTensor, OpShaderInfo, ShaderRegistry, TensorStorage, VulkanBuffer};
 use crate::graph::{OpAttrs, OpKind};
 use crate::ops::{lookup_kernel, KernelFn};
-use crate::tensor::{DType, TensorValue};
+use crate::tensor::{Bitset, DType, F16, TensorValue};
 
 use super::{Device, DeviceBackend};
 
 #[derive(Debug)]
-pub struct VulkanBackend;
+pub struct VulkanBackend {
+    shaders: VulkanShaderRegistry,
+    runtime: Mutex<Option<Arc<VulkanRuntime>>>,
+}
 
 impl VulkanBackend {
     pub fn new() -> Self {
-        Self
+        let shaders = VulkanShaderRegistry::load_default().unwrap_or_else(|err| {
+            eprintln!("vulkan shaders: {}", err);
+            VulkanShaderRegistry::default()
+        });
+        Self {
+            shaders,
+            runtime: Mutex::new(None),
+        }
+    }
+
+    fn runtime(&self) -> Result<Arc<VulkanRuntime>> {
+        let mut guard = self
+            .runtime
+            .lock()
+            .map_err(|_| anyhow!("vulkan runtime lock poisoned"))?;
+        if let Some(runtime) = guard.as_ref() {
+            return Ok(Arc::clone(runtime));
+        }
+        let runtime = Arc::new(VulkanRuntime::new()?);
+        *guard = Some(Arc::clone(&runtime));
+        Ok(runtime)
+    }
+
+    fn ensure_supported_dtype(&self, dtype: DType) -> Result<()> {
+        let runtime = self.runtime()?;
+        match dtype {
+            DType::I64 | DType::U64 => {
+                if !runtime.supports_i64() {
+                    return Err(anyhow!("vulkan device does not support i64/u64"));
+                }
+            }
+            DType::F32
+            | DType::I8
+            | DType::I16
+            | DType::I32
+            | DType::U8
+            | DType::U16
+            | DType::U32
+            | DType::Bool => {}
+            _ => {
+                return Err(anyhow!("vulkan backend does not support dtype {:?}", dtype));
+            }
+        }
+        Ok(())
     }
 }
 
@@ -22,20 +71,32 @@ impl DeviceBackend for VulkanBackend {
     }
 
     fn alloc(&self, dtype: DType, len: usize) -> Result<TensorStorage> {
-        println!("vulkan alloc: dtype={:?} len={}", dtype, len);
+        let runtime = self.runtime()?;
+        self.ensure_supported_dtype(dtype)?;
+        let size = storage_size_bytes(dtype) * len;
+        let inner = runtime.create_buffer(size)?;
         Ok(TensorStorage::Device(DeviceTensor::Vulkan(VulkanBuffer {
             dtype,
             len,
+            shader: None,
+            inner,
         })))
     }
 
     fn upload(&self, value: TensorValue) -> Result<TensorStorage> {
+        let runtime = self.runtime()?;
         let dtype = value.dtype();
+        self.ensure_supported_dtype(dtype)?;
         let len = value.len();
-        println!("vulkan upload: dtype={:?} len={}", dtype, len);
+        let size = storage_size_bytes(dtype) * len;
+        let inner = runtime.create_buffer(size)?;
+        let bytes = encode_tensor(value);
+        runtime.write_buffer(&inner, &bytes)?;
         Ok(TensorStorage::Device(DeviceTensor::Vulkan(VulkanBuffer {
             dtype,
             len,
+            shader: None,
+            inner,
         })))
     }
 
@@ -43,8 +104,11 @@ impl DeviceBackend for VulkanBackend {
         match value {
             TensorStorage::Host(_) => Err(anyhow!("vulkan backend cannot download host tensor")),
             TensorStorage::Device(DeviceTensor::Vulkan(buf)) => {
-                println!("vulkan download: dtype={:?} len={}", buf.dtype, buf.len);
-                Ok(TensorValue::zeros(buf.dtype, buf.len))
+                let runtime = self.runtime()?;
+                let size = storage_size_bytes(buf.dtype) * buf.len;
+                let mut bytes = vec![0u8; size];
+                runtime.read_buffer(&buf.inner, &mut bytes)?;
+                decode_tensor(buf.dtype, buf.len, &bytes)
             }
         }
     }
@@ -57,25 +121,205 @@ impl DeviceBackend for VulkanBackend {
         tensors: &[TensorStorage],
     ) -> Result<TensorStorage> {
         let input_dtypes: Vec<DType> = tensors.iter().map(|t| t.dtype()).collect();
-        let buffers = to_vulkan_buffers(tensors)?;
+        let shader = self.shaders.shader_for_op(op);
+        if shader.is_none() {
+            eprintln!("vulkan shaders: missing entry for op {}", op.as_str());
+        }
+        let buffers = to_vulkan_buffers(tensors, shader.clone())?;
+        let buffer_refs: Vec<&VulkanBuffer> = buffers.iter().collect();
         let kernel = lookup_kernel(self.device(), op, output_dtype, &input_dtypes, *attrs)
             .ok_or_else(|| anyhow!("unsupported op {}", op.as_str()))?;
         match kernel {
             KernelFn::Vulkan(func) => Ok(TensorStorage::Device(DeviceTensor::Vulkan(
-                (func)(attrs, &buffers)?,
+                (func)(attrs, &buffer_refs)?,
             ))),
             KernelFn::Host(_) => Err(anyhow!("vulkan backend cannot run host kernel")),
         }
     }
 }
 
-fn to_vulkan_buffers<'a>(tensors: &'a [TensorStorage]) -> Result<Vec<&'a VulkanBuffer>> {
+fn to_vulkan_buffers(
+    tensors: &[TensorStorage],
+    shader: Option<Arc<OpShaderInfo>>,
+) -> Result<Vec<VulkanBuffer>> {
     let mut out = Vec::with_capacity(tensors.len());
     for tensor in tensors {
         match tensor {
-            TensorStorage::Device(DeviceTensor::Vulkan(buf)) => out.push(buf),
+            TensorStorage::Device(DeviceTensor::Vulkan(buf)) => {
+                out.push(buf.clone().with_shader(shader.clone()));
+            }
             TensorStorage::Host(_) => return Err(anyhow!("host tensor passed to vulkan backend")),
         }
     }
     Ok(out)
+}
+
+fn encode_tensor(value: TensorValue) -> Vec<u8> {
+    match value {
+        TensorValue::I8(tensor) => tensor
+            .data
+            .iter()
+            .flat_map(|v| (i32::from(*v)).to_le_bytes())
+            .collect(),
+        TensorValue::I16(tensor) => tensor
+            .data
+            .iter()
+            .flat_map(|v| (i32::from(*v)).to_le_bytes())
+            .collect(),
+        TensorValue::I32(tensor) => tensor
+            .data
+            .iter()
+            .flat_map(|v| v.to_le_bytes())
+            .collect(),
+        TensorValue::I64(tensor) => tensor
+            .data
+            .iter()
+            .flat_map(|v| v.to_le_bytes())
+            .collect(),
+        TensorValue::U8(tensor) => tensor
+            .data
+            .iter()
+            .flat_map(|v| u32::from(*v).to_le_bytes())
+            .collect(),
+        TensorValue::U16(tensor) => tensor
+            .data
+            .iter()
+            .flat_map(|v| u32::from(*v).to_le_bytes())
+            .collect(),
+        TensorValue::U32(tensor) => tensor
+            .data
+            .iter()
+            .flat_map(|v| v.to_le_bytes())
+            .collect(),
+        TensorValue::U64(tensor) => tensor
+            .data
+            .iter()
+            .flat_map(|v| v.to_le_bytes())
+            .collect(),
+        TensorValue::F16(tensor) => tensor
+            .data
+            .iter()
+            .flat_map(|v| u32::from(v.bits).to_le_bytes())
+            .collect(),
+        TensorValue::F32(tensor) => tensor
+            .data
+            .iter()
+            .flat_map(|v| v.to_le_bytes())
+            .collect(),
+        TensorValue::F64(tensor) => tensor
+            .data
+            .iter()
+            .flat_map(|v| v.to_le_bytes())
+            .collect(),
+        TensorValue::Bool(tensor) => tensor
+            .data
+            .iter()
+            .flat_map(|v| u32::from(*v as u8).to_le_bytes())
+            .collect(),
+        TensorValue::Bitset(tensor) => tensor
+            .data
+            .iter()
+            .flat_map(|v| u32::from(v.bits).to_le_bytes())
+            .collect(),
+    }
+}
+
+fn decode_tensor(dtype: DType, len: usize, bytes: &[u8]) -> Result<TensorValue> {
+    match dtype {
+        DType::I8 => Ok(TensorValue::I8(crate::tensor::Tensor::new(
+            bytes
+                .chunks_exact(4)
+                .take(len)
+                .map(|chunk| i32::from_le_bytes(chunk.try_into().unwrap()) as i8)
+                .collect(),
+        ))),
+        DType::I16 => Ok(TensorValue::I16(crate::tensor::Tensor::new(
+            bytes
+                .chunks_exact(4)
+                .take(len)
+                .map(|chunk| i32::from_le_bytes(chunk.try_into().unwrap()) as i16)
+                .collect(),
+        ))),
+        DType::I32 => Ok(TensorValue::I32(crate::tensor::Tensor::new(
+            bytes
+                .chunks_exact(4)
+                .take(len)
+                .map(|chunk| i32::from_le_bytes(chunk.try_into().unwrap()))
+                .collect(),
+        ))),
+        DType::I64 => Ok(TensorValue::I64(crate::tensor::Tensor::new(
+            bytes
+                .chunks_exact(8)
+                .take(len)
+                .map(|chunk| i64::from_le_bytes(chunk.try_into().unwrap()))
+                .collect(),
+        ))),
+        DType::U8 => Ok(TensorValue::U8(crate::tensor::Tensor::new(
+            bytes
+                .chunks_exact(4)
+                .take(len)
+                .map(|chunk| u32::from_le_bytes(chunk.try_into().unwrap()) as u8)
+                .collect(),
+        ))),
+        DType::U16 => Ok(TensorValue::U16(crate::tensor::Tensor::new(
+            bytes
+                .chunks_exact(4)
+                .take(len)
+                .map(|chunk| u32::from_le_bytes(chunk.try_into().unwrap()) as u16)
+                .collect(),
+        ))),
+        DType::U32 => Ok(TensorValue::U32(crate::tensor::Tensor::new(
+            bytes
+                .chunks_exact(4)
+                .take(len)
+                .map(|chunk| u32::from_le_bytes(chunk.try_into().unwrap()))
+                .collect(),
+        ))),
+        DType::U64 => Ok(TensorValue::U64(crate::tensor::Tensor::new(
+            bytes
+                .chunks_exact(8)
+                .take(len)
+                .map(|chunk| u64::from_le_bytes(chunk.try_into().unwrap()))
+                .collect(),
+        ))),
+        DType::F16 => Ok(TensorValue::F16(crate::tensor::Tensor::new(
+            bytes
+                .chunks_exact(4)
+                .take(len)
+                .map(|chunk| F16 {
+                    bits: u32::from_le_bytes(chunk.try_into().unwrap()) as u16,
+                })
+                .collect(),
+        ))),
+        DType::F32 => Ok(TensorValue::F32(crate::tensor::Tensor::new(
+            bytes
+                .chunks_exact(4)
+                .take(len)
+                .map(|chunk| f32::from_le_bytes(chunk.try_into().unwrap()))
+                .collect(),
+        ))),
+        DType::F64 => Ok(TensorValue::F64(crate::tensor::Tensor::new(
+            bytes
+                .chunks_exact(8)
+                .take(len)
+                .map(|chunk| f64::from_le_bytes(chunk.try_into().unwrap()))
+                .collect(),
+        ))),
+        DType::Bool => Ok(TensorValue::Bool(crate::tensor::Tensor::new(
+            bytes
+                .chunks_exact(4)
+                .take(len)
+                .map(|chunk| u32::from_le_bytes(chunk.try_into().unwrap()) != 0)
+                .collect(),
+        ))),
+        DType::Bitset => Ok(TensorValue::Bitset(crate::tensor::Tensor::new(
+            bytes
+                .chunks_exact(4)
+                .take(len)
+                .map(|chunk| Bitset {
+                    bits: u32::from_le_bytes(chunk.try_into().unwrap()) as u8,
+                })
+                .collect(),
+        ))),
+    }
 }

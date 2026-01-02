@@ -26,7 +26,7 @@ fn main() -> anyhow::Result<()> {
         }
     };
 
-    let sim = Simulator::new(&model, Device::CpuAvx2)?;
+    let sim = Simulator::new(&model, Device::Vulkan)?;
     let mut exec = sim.make_executor(&g)?;
 
     let mut rng = rand::thread_rng();
