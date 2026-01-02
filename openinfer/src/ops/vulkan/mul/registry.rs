@@ -28,10 +28,10 @@ pub fn lookup_kernel_vulkan_mul(
                         | DType::U32
                         | DType::U64
                         | DType::Bool
-                ) =>
+        ) =>
         {
             Some(KernelFn::Vulkan(device_kernel(
-                mul_generic as fn(&VulkanBuffer, &VulkanBuffer) -> Result<VulkanBuffer>,
+                mul_generic as fn(&OpAttrs, &VulkanBuffer, &VulkanBuffer) -> Result<VulkanBuffer>,
             )))
         }
         _ => None,

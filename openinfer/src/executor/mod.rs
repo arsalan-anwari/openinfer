@@ -9,9 +9,11 @@ use crate::tensor::{DType, Tensor, TensorElement, TensorValue};
 use crate::types::MemoryKind;
 
 mod cpu;
+#[cfg(feature = "vulkan")]
 mod vulkan;
 
 use cpu::CpuBackend;
+#[cfg(feature = "vulkan")]
 use vulkan::VulkanBackend;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -34,11 +36,12 @@ impl Device {
                 any(target_arch = "x86", target_arch = "x86_64"),
                 target_feature = "avx2"
             )),
-            Device::Vulkan => true,
+            Device::Vulkan => cfg!(feature = "vulkan"),
         }
     }
 }
 
+#[allow(unused)]
 pub(crate) trait DeviceBackend {
     fn device(&self) -> Device;
     fn alloc(&self, dtype: DType, len: usize) -> Result<TensorStorage>;
@@ -53,10 +56,13 @@ pub(crate) trait DeviceBackend {
     ) -> Result<TensorStorage>;
 }
 
-fn backend_for(device: Device) -> Box<dyn DeviceBackend> {
+fn backend_for(device: Device) -> Result<Box<dyn DeviceBackend>> {
     match device {
-        Device::Cpu | Device::CpuAvx | Device::CpuAvx2 => Box::new(CpuBackend::new(device)),
-        Device::Vulkan => Box::new(VulkanBackend::new()),
+        Device::Cpu | Device::CpuAvx | Device::CpuAvx2 => Ok(Box::new(CpuBackend::new(device))),
+        #[cfg(feature = "vulkan")]
+        Device::Vulkan => Ok(Box::new(VulkanBackend::new())),
+        #[cfg(not(feature = "vulkan"))]
+        Device::Vulkan => Err(anyhow!("vulkan feature not enabled for this build")),
     }
 }
 
@@ -108,7 +114,7 @@ impl<'a> Executor<'a> {
 
         Ok(Self {
             model,
-            backend: backend_for(device),
+            backend: backend_for(device)?,
             graph: graph.clone(),
             dynamic: HashMap::new(),
             storage,

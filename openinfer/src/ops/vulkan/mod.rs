@@ -8,6 +8,8 @@ use anyhow::{anyhow, Result};
 use std::sync::Arc;
 
 use crate::backend::vulkan::VulkanRuntime;
+use crate::graph::OpAttrs;
+use crate::graph::OpKind;
 use crate::tensor::DType;
 
 pub(crate) fn runtime_from_buffers(
@@ -23,27 +25,30 @@ pub(crate) fn runtime_from_buffers(
     Ok(runtime)
 }
 
-pub(crate) fn entry_point_name(op: &str, dtype: DType) -> Result<&'static str> {
-    let supported = match op {
-        "abs" => matches!(dtype, DType::I8 | DType::I16 | DType::F32 | DType::I32 | DType::I64),
-        "add" | "mul" => matches!(
-            dtype,
-            DType::I8
-                | DType::I16
-                | DType::F32
-                | DType::Bool
-                | DType::U8
-                | DType::U16
-                | DType::I32
-                | DType::U32
-                | DType::I64
-                | DType::U64
-        ),
-        _ => false,
-    };
-    if supported {
-        Ok("main")
-    } else {
-        Err(anyhow!("no Vulkan entry point for dtype {:?}", dtype))
+pub(crate) fn entry_point_name() -> &'static str {
+    "main"
+}
+
+pub(crate) fn spv_target_name(op: OpKind, dtype: DType, attrs: &OpAttrs) -> Result<String> {
+    match op {
+        OpKind::Abs => abs::spv_target_name_abs(dtype, attrs),
+        OpKind::Add => add::spv_target_name_add(dtype, attrs),
+        OpKind::Mul => mul::spv_target_name_mul(dtype, attrs),
+    }
+}
+
+pub(crate) fn dtype_suffix(dtype: DType) -> Option<&'static str> {
+    match dtype {
+        DType::I8 => Some("i8"),
+        DType::I16 => Some("i16"),
+        DType::F32 => Some("f32"),
+        DType::Bool => Some("bool"),
+        DType::U8 => Some("u8"),
+        DType::U16 => Some("u16"),
+        DType::I32 => Some("i32"),
+        DType::U32 => Some("u32"),
+        DType::I64 => Some("i64"),
+        DType::U64 => Some("u64"),
+        _ => None,
     }
 }

@@ -15,7 +15,7 @@ struct VulkanShaderManifest {
 #[derive(Debug, Deserialize)]
 struct VulkanShaderEntry {
     path: String,
-    spv_by_dtype: HashMap<String, String>,
+    spv_dir: String,
 }
 
 fn main() -> Result<()> {
@@ -31,20 +31,24 @@ fn main() -> Result<()> {
     let manifest: VulkanShaderManifest = serde_json::from_str(&contents)
         .with_context(|| format!("failed to parse {}", manifest_path.display()))?;
 
-    for (op_name, entry) in manifest.ops {
+    #[allow(unused_variables)]
+    for (op_name, entry) in &manifest.ops {
         let src_path = manifest_dir.join(&entry.path);
         println!("cargo:rerun-if-changed={}", src_path.display());
 
-        for (dtype, spv_path_str) in entry.spv_by_dtype {
-            let spv_path = manifest_dir.join(&spv_path_str);
+        let spv_dir = manifest_dir.join(&entry.spv_dir);
+        let targets = slang_entry_points(&src_path)
+            .with_context(|| format!("failed to parse entry points for {}", src_path.display()))?;
+        for target in &targets {
+            let spv_path = spv_dir.join(format!("{}.spv", target));
             let should_compile = needs_rebuild(&src_path, &spv_path)?;
             if should_compile {
-                let entry_point = format!("{}_{}", op_name, dtype);
-                compile_slang(&src_path, &spv_path, &entry_point)?;
+                compile_slang(&src_path, &spv_path, target)?;
             }
         }
     }
 
+    write_embedded_module(&manifest_dir, &manifest)?;
     Ok(())
 }
 
@@ -93,4 +97,75 @@ fn compile_slang(src: &Path, spv: &Path, entry_point: &str) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn write_embedded_module(manifest_dir: &Path, manifest: &VulkanShaderManifest) -> Result<()> {
+    let out_dir = PathBuf::from(env::var("OUT_DIR").context("missing OUT_DIR")?);
+    let out_path = out_dir.join("vulkan_spirv.rs");
+
+    let mut contents = String::new();
+    contents.push_str("use std::collections::HashMap;\n\n");
+    contents.push_str("pub fn embedded_spirv_for_op(op: &str) -> HashMap<String, &'static [u8]> {\n");
+    contents.push_str("    let mut map = HashMap::new();\n");
+    contents.push_str("    match op {\n");
+    for (op_name, entry) in &manifest.ops {
+        contents.push_str(&format!("        \"{}\" => {{\n", op_name));
+        let spv_dir = manifest_dir.join(&entry.spv_dir);
+        let targets = slang_entry_points(&manifest_dir.join(&entry.path))
+            .with_context(|| format!("failed to parse entry points for {}", entry.path))?;
+        for target in &targets {
+            let spv_path = spv_dir.join(format!("{}.spv", target));
+            contents.push_str(&format!(
+                "            map.insert(\"{}\".to_string(), &include_bytes!(r\"{}\")[..]);\n",
+                target,
+                spv_path.display()
+            ));
+        }
+        contents.push_str("        }\n");
+    }
+    contents.push_str("        _ => {}\n");
+    contents.push_str("    }\n");
+    contents.push_str("    map\n");
+    contents.push_str("}\n");
+
+    fs::write(&out_path, contents)
+        .with_context(|| format!("failed to write {}", out_path.display()))?;
+    Ok(())
+}
+
+fn slang_entry_points(src: &Path) -> Result<Vec<String>> {
+    let contents = fs::read_to_string(src)
+        .with_context(|| format!("failed to read {}", src.display()))?;
+    let mut targets = Vec::new();
+    let mut awaiting_entry = false;
+    for line in contents.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("[shader(\"compute\")]") {
+            awaiting_entry = true;
+            continue;
+        }
+        if !awaiting_entry {
+            continue;
+        }
+        if trimmed.starts_with('[') || trimmed.is_empty() {
+            continue;
+        }
+        if let Some(idx) = trimmed.find("void ") {
+            let after = &trimmed[idx + 5..];
+            let name = after
+                .split(|c: char| c == '(' || c.is_whitespace())
+                .next()
+                .unwrap_or("");
+            if !name.is_empty() {
+                targets.push(name.to_string());
+                awaiting_entry = false;
+            }
+        }
+    }
+    if targets.is_empty() {
+        return Err(anyhow!("no compute entry points found in {}", src.display()));
+    }
+    targets.sort();
+    targets.dedup();
+    Ok(targets)
 }

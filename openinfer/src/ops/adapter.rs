@@ -1,15 +1,19 @@
 use anyhow::{anyhow, Result};
 
-use crate::backend::VulkanBuffer;
 use crate::graph::OpAttrs;
-use crate::ops::registry::{HostKernel, VulkanKernel};
+use crate::ops::registry::HostKernel;
 use crate::tensor::{TensorElement, TensorValue};
+
+#[cfg(feature = "vulkan")]
+use crate::backend::VulkanBuffer;
+#[cfg(feature = "vulkan")]
+use crate::ops::registry::VulkanKernel;
 
 pub trait CpuKernelAdapter {
     fn call(&self, attrs: &OpAttrs, inputs: &[TensorValue]) -> Result<TensorValue>;
 }
 
-#[cfg_attr(not(feature = "vulkan"), allow(dead_code))]
+#[cfg(feature = "vulkan")]
 pub trait DeviceKernelAdapter {
     fn call(&self, attrs: &OpAttrs, inputs: &[&VulkanBuffer]) -> Result<VulkanBuffer>;
 }
@@ -21,7 +25,7 @@ where
     Box::new(move |attrs, inputs| func.call(attrs, inputs))
 }
 
-#[cfg_attr(not(feature = "vulkan"), allow(dead_code))]
+#[cfg(feature = "vulkan")]
 pub fn device_kernel<K>(func: K) -> VulkanKernel
 where
     K: DeviceKernelAdapter + Send + Sync + 'static,
@@ -362,6 +366,7 @@ impl_cpu_kernel_adapter_attrs!(
     'k
 );
 
+#[cfg(feature = "vulkan")]
 impl<R> DeviceKernelAdapter for for<'a> fn(&'a VulkanBuffer) -> Result<R>
 where
     R: Into<VulkanBuffer>,
@@ -374,6 +379,7 @@ where
     }
 }
 
+#[cfg(feature = "vulkan")]
 impl<R> DeviceKernelAdapter for for<'a, 'b> fn(&'a OpAttrs, &'b VulkanBuffer) -> Result<R>
 where
     R: Into<VulkanBuffer>,
@@ -386,91 +392,101 @@ where
     }
 }
 
-macro_rules! impl_device_kernel_adapter_noattrs {
-    ($count:literal; $($lt:tt),+; $($idx:tt),+) => {
-        impl<R> DeviceKernelAdapter for for<$($lt,)+> fn($( &$lt VulkanBuffer, )+) -> Result<R>
-        where
-            R: Into<VulkanBuffer>,
-        {
-            fn call(&self, _attrs: &OpAttrs, inputs: &[&VulkanBuffer]) -> Result<VulkanBuffer> {
-                if inputs.len() < $count {
-                    return Err(anyhow!("device kernel expects at least {} inputs", $count));
+#[cfg(feature = "vulkan")]
+mod device_kernel_adapters {
+    use anyhow::{anyhow, Result};
+
+    use crate::backend::VulkanBuffer;
+    use crate::graph::OpAttrs;
+
+    use super::DeviceKernelAdapter;
+
+    macro_rules! impl_device_kernel_adapter_noattrs {
+        ($count:literal; $($lt:tt),+; $($idx:tt),+) => {
+            impl<R> DeviceKernelAdapter for for<$($lt,)+> fn($( &$lt VulkanBuffer, )+) -> Result<R>
+            where
+                R: Into<VulkanBuffer>,
+            {
+                fn call(&self, _attrs: &OpAttrs, inputs: &[&VulkanBuffer]) -> Result<VulkanBuffer> {
+                    if inputs.len() < $count {
+                        return Err(anyhow!("device kernel expects at least {} inputs", $count));
+                    }
+                    Ok((self)($( inputs[$idx], )+ )?.into())
                 }
-                Ok((self)($( inputs[$idx], )+ )?.into())
             }
-        }
-    };
-}
+        };
+    }
 
-macro_rules! impl_device_kernel_adapter_attrs {
-    ($count:literal, $attr_lt:tt; $($lt:tt),+; $($idx:tt),+) => {
-        impl<R> DeviceKernelAdapter
-            for for<$attr_lt, $($lt,)+> fn(&$attr_lt OpAttrs, $( &$lt VulkanBuffer, )+) -> Result<R>
-        where
-            R: Into<VulkanBuffer>,
-        {
-            fn call(&self, attrs: &OpAttrs, inputs: &[&VulkanBuffer]) -> Result<VulkanBuffer> {
-                if inputs.len() < $count {
-                    return Err(anyhow!("device kernel expects at least {} inputs", $count));
+    macro_rules! impl_device_kernel_adapter_attrs {
+        ($count:literal, $attr_lt:tt; $($lt:tt),+; $($idx:tt),+) => {
+            impl<R> DeviceKernelAdapter
+                for for<$attr_lt, $($lt,)+> fn(&$attr_lt OpAttrs, $( &$lt VulkanBuffer, )+) -> Result<R>
+            where
+                R: Into<VulkanBuffer>,
+            {
+                fn call(&self, attrs: &OpAttrs, inputs: &[&VulkanBuffer]) -> Result<VulkanBuffer> {
+                    if inputs.len() < $count {
+                        return Err(anyhow!("device kernel expects at least {} inputs", $count));
+                    }
+                    Ok((self)(attrs, $( inputs[$idx], )+ )?.into())
                 }
-                Ok((self)(attrs, $( inputs[$idx], )+ )?.into())
             }
-        }
-    };
+        };
+    }
+
+    impl_device_kernel_adapter_noattrs!(2; 'a, 'b; 0, 1);
+    impl_device_kernel_adapter_noattrs!(3; 'a, 'b, 'c; 0, 1, 2);
+    impl_device_kernel_adapter_noattrs!(4; 'a, 'b, 'c, 'd; 0, 1, 2, 3);
+    impl_device_kernel_adapter_noattrs!(5; 'a, 'b, 'c, 'd, 'e; 0, 1, 2, 3, 4);
+    impl_device_kernel_adapter_noattrs!(6; 'a, 'b, 'c, 'd, 'e, 'f; 0, 1, 2, 3, 4, 5);
+    impl_device_kernel_adapter_noattrs!(
+        7;
+        'a, 'b, 'c, 'd, 'e, 'f, 'g;
+        0, 1, 2, 3, 4, 5, 6
+    );
+    impl_device_kernel_adapter_noattrs!(
+        8;
+        'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h;
+        0, 1, 2, 3, 4, 5, 6, 7
+    );
+    impl_device_kernel_adapter_noattrs!(
+        9;
+        'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h, 'i;
+        0, 1, 2, 3, 4, 5, 6, 7, 8
+    );
+    impl_device_kernel_adapter_noattrs!(
+        10;
+        'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h, 'i, 'j;
+        0, 1, 2, 3, 4, 5, 6, 7, 8, 9
+    );
+
+    impl_device_kernel_adapter_attrs!(2, 'a; 'b, 'c; 0, 1);
+    impl_device_kernel_adapter_attrs!(3, 'a; 'b, 'c, 'd; 0, 1, 2);
+    impl_device_kernel_adapter_attrs!(4, 'a; 'b, 'c, 'd, 'e; 0, 1, 2, 3);
+    impl_device_kernel_adapter_attrs!(5, 'a; 'b, 'c, 'd, 'e, 'f; 0, 1, 2, 3, 4);
+    impl_device_kernel_adapter_attrs!(6, 'a; 'b, 'c, 'd, 'e, 'f, 'g; 0, 1, 2, 3, 4, 5);
+    impl_device_kernel_adapter_attrs!(
+        7,
+        'a;
+        'b, 'c, 'd, 'e, 'f, 'g, 'h;
+        0, 1, 2, 3, 4, 5, 6
+    );
+    impl_device_kernel_adapter_attrs!(
+        8,
+        'a;
+        'b, 'c, 'd, 'e, 'f, 'g, 'h, 'i;
+        0, 1, 2, 3, 4, 5, 6, 7
+    );
+    impl_device_kernel_adapter_attrs!(
+        9,
+        'a;
+        'b, 'c, 'd, 'e, 'f, 'g, 'h, 'i, 'j;
+        0, 1, 2, 3, 4, 5, 6, 7, 8
+    );
+    impl_device_kernel_adapter_attrs!(
+        10,
+        'a;
+        'b, 'c, 'd, 'e, 'f, 'g, 'h, 'i, 'j, 'k;
+        0, 1, 2, 3, 4, 5, 6, 7, 8, 9
+    );
 }
-
-impl_device_kernel_adapter_noattrs!(2; 'a, 'b; 0, 1);
-impl_device_kernel_adapter_noattrs!(3; 'a, 'b, 'c; 0, 1, 2);
-impl_device_kernel_adapter_noattrs!(4; 'a, 'b, 'c, 'd; 0, 1, 2, 3);
-impl_device_kernel_adapter_noattrs!(5; 'a, 'b, 'c, 'd, 'e; 0, 1, 2, 3, 4);
-impl_device_kernel_adapter_noattrs!(6; 'a, 'b, 'c, 'd, 'e, 'f; 0, 1, 2, 3, 4, 5);
-impl_device_kernel_adapter_noattrs!(
-    7;
-    'a, 'b, 'c, 'd, 'e, 'f, 'g;
-    0, 1, 2, 3, 4, 5, 6
-);
-impl_device_kernel_adapter_noattrs!(
-    8;
-    'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h;
-    0, 1, 2, 3, 4, 5, 6, 7
-);
-impl_device_kernel_adapter_noattrs!(
-    9;
-    'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h, 'i;
-    0, 1, 2, 3, 4, 5, 6, 7, 8
-);
-impl_device_kernel_adapter_noattrs!(
-    10;
-    'a, 'b, 'c, 'd, 'e, 'f, 'g, 'h, 'i, 'j;
-    0, 1, 2, 3, 4, 5, 6, 7, 8, 9
-);
-
-impl_device_kernel_adapter_attrs!(2, 'a; 'b, 'c; 0, 1);
-impl_device_kernel_adapter_attrs!(3, 'a; 'b, 'c, 'd; 0, 1, 2);
-impl_device_kernel_adapter_attrs!(4, 'a; 'b, 'c, 'd, 'e; 0, 1, 2, 3);
-impl_device_kernel_adapter_attrs!(5, 'a; 'b, 'c, 'd, 'e, 'f; 0, 1, 2, 3, 4);
-impl_device_kernel_adapter_attrs!(6, 'a; 'b, 'c, 'd, 'e, 'f, 'g; 0, 1, 2, 3, 4, 5);
-impl_device_kernel_adapter_attrs!(
-    7,
-    'a;
-    'b, 'c, 'd, 'e, 'f, 'g, 'h;
-    0, 1, 2, 3, 4, 5, 6
-);
-impl_device_kernel_adapter_attrs!(
-    8,
-    'a;
-    'b, 'c, 'd, 'e, 'f, 'g, 'h, 'i;
-    0, 1, 2, 3, 4, 5, 6, 7
-);
-impl_device_kernel_adapter_attrs!(
-    9,
-    'a;
-    'b, 'c, 'd, 'e, 'f, 'g, 'h, 'i, 'j;
-    0, 1, 2, 3, 4, 5, 6, 7, 8
-);
-impl_device_kernel_adapter_attrs!(
-    10,
-    'a;
-    'b, 'c, 'd, 'e, 'f, 'g, 'h, 'i, 'j, 'k;
-    0, 1, 2, 3, 4, 5, 6, 7, 8, 9
-);

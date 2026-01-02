@@ -786,6 +786,22 @@ std::fs::write("graph.json", serde_json::to_string_pretty(&json)?)?;
 
 ---
 
+## Backend Documentation
+
+See backend-specific docs for implementation details and extension points:
+
+- `docs/vulkan-interop.md`
+
+---
+
+## Supported Ops
+
+For a current list of supported ops and per-backend dtype coverage, see:
+
+- `docs/ops.md`
+
+---
+
 ## Synthesis
 
 Once validated, the same graph can be synthezised to source code with:

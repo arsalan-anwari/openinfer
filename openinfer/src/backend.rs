@@ -6,18 +6,30 @@ use serde_json::Value;
 use crate::graph::OpKind;
 use crate::tensor::{DType, TensorValue};
 
+#[cfg(feature = "vulkan")]
 pub mod vulkan;
 
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct OpShaderInfo {
-    pub path: String,
-    pub spv_paths_by_dtype: HashMap<DType, String>,
-    pub push_constants_size: usize,
-    pub settings: HashMap<String, Value>,
-    pub spv_by_dtype: HashMap<DType, &'static [u8]>,
+#[cfg(not(feature = "vulkan"))]
+pub mod vulkan {
+    #[derive(Debug)]
+    pub struct VulkanBufferInner;
+
+    #[derive(Debug)]
+    #[allow(unused)]
+    pub struct VulkanRuntime;
 }
 
+#[derive(Debug, Clone)]
+#[allow(dead_code)]
+pub struct OpShaderInfo {
+    pub path: String,
+    pub spv_dir: String,
+    pub push_constants_size: usize,
+    pub settings: HashMap<String, Value>,
+    pub spv_by_target: HashMap<String, &'static [u8]>,
+}
+
+#[allow(unused)]
 pub trait ShaderRegistry {
     fn shader_for_op(&self, op: OpKind) -> Option<Arc<OpShaderInfo>>;
 }
@@ -27,10 +39,12 @@ pub struct VulkanBuffer {
     pub dtype: DType,
     pub len: usize,
     pub shader: Option<Arc<OpShaderInfo>>,
+    #[allow(unused)]
     pub inner: Arc<crate::backend::vulkan::VulkanBufferInner>,
 }
 
 #[derive(Debug, Clone)]
+#[allow(unused)]
 pub enum DeviceTensor {
     Vulkan(VulkanBuffer),
 }
@@ -38,6 +52,7 @@ pub enum DeviceTensor {
 #[derive(Debug, Clone)]
 pub enum TensorStorage {
     Host(TensorValue),
+    #[allow(unused)]
     Device(DeviceTensor),
 }
 
@@ -58,18 +73,17 @@ impl TensorStorage {
     }
 }
 
+#[allow(unused)]
 impl VulkanBuffer {
     pub fn with_shader(mut self, shader: Option<Arc<OpShaderInfo>>) -> Self {
         self.shader = shader;
         self
     }
 
-    #[allow(unused)]
     pub fn shader_info(&self) -> Option<&OpShaderInfo> {
         self.shader.as_deref()
     }
 
-    #[allow(unused)]
     pub fn shader_setting_bool(&self, key: &str) -> Option<bool> {
         self.shader_info()?
             .settings
@@ -77,7 +91,7 @@ impl VulkanBuffer {
             .and_then(|value| value.as_bool())
     }
 
-    pub fn spv_bytes_for_dtype(&self, dtype: DType) -> Option<&'static [u8]> {
-        self.shader_info()?.spv_by_dtype.get(&dtype).copied()
+    pub fn spv_bytes_for_target(&self, target: &str) -> Option<&'static [u8]> {
+        self.shader_info()?.spv_by_target.get(target).copied()
     }
 }

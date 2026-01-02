@@ -15,4 +15,7 @@ mod adapter;
 pub use registry::{lookup_kernel, KernelFn};
 
 #[allow(unused_imports)]
-pub use adapter::{cpu_kernel, device_kernel, CpuKernelAdapter, DeviceKernelAdapter};
+pub use adapter::{cpu_kernel, CpuKernelAdapter};
+#[cfg(feature = "vulkan")]
+#[allow(unused_imports)]
+pub use adapter::{device_kernel, DeviceKernelAdapter};

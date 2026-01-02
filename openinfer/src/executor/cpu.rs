@@ -51,6 +51,7 @@ impl DeviceBackend for CpuBackend {
             .ok_or_else(|| anyhow!("unsupported op {}", op.as_str()))?;
         match kernel {
             KernelFn::Host(func) => Ok(TensorStorage::Host((func)(attrs, &host)?)),
+            #[cfg(feature = "vulkan")]
             KernelFn::Vulkan(_) => Err(anyhow!("host backend cannot run device kernel")),
         }
     }

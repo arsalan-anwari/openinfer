@@ -19,7 +19,7 @@ pub struct VulkanRuntime {
     descriptor_pool: vk::DescriptorPool,
     descriptor_set_layout: vk::DescriptorSetLayout,
     pipeline_layout: vk::PipelineLayout,
-    pipelines: Mutex<HashMap<(OpKind, DType), vk::Pipeline>>,
+    pipelines: Mutex<HashMap<(OpKind, DType, String), vk::Pipeline>>,
     supports_i64: bool,
 }
 
@@ -210,10 +210,12 @@ impl VulkanRuntime {
         Ok(())
     }
 
+    #[allow(unused)]
     pub fn dispatch(
         &self,
         op: OpKind,
         dtype: DType,
+        pipeline_key: &str,
         entry_point: &str,
         spirv: &[u8],
         input0: &VulkanBufferInner,
@@ -225,7 +227,7 @@ impl VulkanRuntime {
         if len == 0 {
             return Ok(());
         }
-        let pipeline = self.pipeline_for_op(op, dtype, entry_point, spirv)?;
+        let pipeline = self.pipeline_for_op(op, dtype, pipeline_key, entry_point, spirv)?;
         let descriptor_set = self.allocate_descriptor_set()?;
 
         let buffer_infos = [
@@ -361,11 +363,13 @@ impl VulkanRuntime {
         &self,
         op: OpKind,
         dtype: DType,
+        pipeline_key: &str,
         entry_point: &str,
         spirv: &[u8],
     ) -> Result<vk::Pipeline> {
         let mut pipelines = self.pipelines.lock().map_err(|_| anyhow!("pipeline mutex poisoned"))?;
-        if let Some(pipeline) = pipelines.get(&(op, dtype)) {
+        let key = (op, dtype, pipeline_key.to_string());
+        if let Some(pipeline) = pipelines.get(&key) {
             return Ok(*pipeline);
         }
 
@@ -388,11 +392,12 @@ impl VulkanRuntime {
             result[0]
         };
         unsafe { self.device.destroy_shader_module(shader_module, None) };
-        pipelines.insert((op, dtype), pipeline);
+        pipelines.insert(key, pipeline);
         Ok(pipeline)
     }
 }
 
+#[allow(unused)]
 impl VulkanBufferInner {
     pub fn runtime(&self) -> &Arc<VulkanRuntime> {
         &self.runtime
