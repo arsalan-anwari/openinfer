@@ -442,27 +442,64 @@ Just like a prefix table in `volatile` and `constant` you can create a table lay
 
 This will essentially make a `n` dimensional table for any tensor layout. The table can either be fixed size (for the indices of `n`) or it can dynamically grow. 
 
-This depends on the attributes you set. By default prefix cache will be dynamic. 
+This depends on the attributes you set. By default prefix cache will be dynamic.
 
-The layout of the prefix cache can also be table like or just a 1D array, which affects how you access elements. See examples below.  
+See examples below.  
 
 ```rust
 persistent { 
-    A(i): f32[D] @flat;
+    A(i): f32[D] @table;
     B(i, j): f32[D] @table;
     C(i): f16[D, H] @table;
-    D(i, j): f16[D, H] @table @fixed(1024, 256);
+    D(i, j): f16[D, H] @table @fixed(i=1024, j=256);
 
-    // Example of KV cache with [H, Dh] matrix for each attention head and token. 
+    // Example of KV[H, Dh] matrix for each attention head and token. 
     K(l, t): f16[H, Dh] @table;
     V(l, t): f16[H, Dh] @table;
 }
 ```
-- `A`: A growable 1D table of size `f32[i * D]`, accessed like `A[0..i*D-1] -> f32`.
-- `B`: A growable `i` * `j` table of size `f32[i * j * D]`, accessed like `B[0..i-1][0..j-1] -> f32[D]`.
-- `C`: A growable 1D table of size `f16[i * D * H]`, accessed like `C[0..i-1] -> f16[D, H]`.
-- `D`: A fixed size `i=1024 * j=256` table of size `f16[1024 * 256 * D * H]`, accessed like `D[i: 0..1024-1][j: 0..256-1] -> f16[D, H]`. 
+- `A`: A growable 1D table with `f32[i * D]` elements, accessed like `A[0..i] -> f32[D]`.
+- `B`: A growable 2D table with `f32[i * j * D]` elements, accessed like `B[0..i, 0..j] -> f32[D]`.
+- `C`: A growable 1D table with `f16[i * D * H]` elements, accessed like `C[0..i] -> f16[D, H]`.
+- `D`: A fixed size 2D table table with `f16[1024 * 256 * D * H]` elements, accessed like `D[0..1024-1, 0..256-1] -> f16[D, H]`. 
 
+#### Indicess slice access
+You can also access a slice of the table entries. 
+
+For example lets say in a previous step you used `A[10]`, then the prefix cache will contain a table of size `f32[10, D]` (10 columns of D rows). Then in the current step you can access slices of this table like:
+- `A[] -> f32[10, D] == A[0..9]`
+- `A[0..5] -> f32[5, D]`
+- `A[2..5] -> f32[3, D]`
+- `A[-3] -> f32[7, D] == A[6..9]`
+
+### Autodim cache
+In some instances its preferable to have a matrix with an initial fixed size dimension which can grow dynamically in the multiple inference steps. For example in modern LLMs the `Key` and `Value` matrices from previous steps are reused so they dont need to be recomputed. This means the new weights are appended as new columns and rows of the exisiting matrices. 
+
+OpenInfer implement this as a prefix cache using special attribute named `@auto_dim({indices})`. Here you can specificy indicides which are mapped to the dimensions of the tensor. Each inference step a new dimension is allocated for the listed indices in `@auto_dim()`. 
+
+Beware that that access patterns with slices are different than with regular table prefixes, but you can still set the max size of these indices and you can optionally combine autodum with a regular table layout. 
+
+See examples below:
+```rust
+persistent { 
+    A(i, j): f32[D, H] @auto_dim(i, j);
+    B(i, j): f32[D, H] @auto_dim(i, j) @fixed(i=1024, j=256);
+    C(l, i, j): f32[D, H] @table @auto_dim(i, j);
+}
+```
+
+- `A`: A growable 2D matrix with `f32[D + i * H + j]` elements, which can be accessed like:
+  * `A[0..D+i, ] -> f32[H]`
+  * `A[, 0..H+j] -> f32[D]`
+  * `A[0..D+i, 0..H+j] -> {i: f32[H+j], j: f32[D+i]}`
+  * `A[i, ] -> f32[j]`
+  * `A[, j] -> f32[i]`
+  * `A[i, j] -> f32[i, j]`
+  * `A[] -> f32[D+i, H+j]`
+
+- `B`: Same as `A` but matrix can only be of maximum size `[D+1024, H+256]`.
+
+- `C`: A growable 1D table containing a 2D matrix of size `f32[l * D + i * H + j]`, which has a similar access pattern as `A` but just with an additional index `l` in the beginning like `C[l, i, j]. Essentially you are creating a table of size `l` which contains multiple growable matrices with dimension `f32[D + i, H + j]`. The same sules for Indices slices apply here so using `C[0..4, i, j]` with return a multi-rank tensors with `[4 * i * j]` elements. 
 
 ---
 
@@ -825,10 +862,10 @@ The synthesizer accepts either:
 ```rust
 use openinfer::{Synthesizer, Device};
 
-let dev = Device::GPU().api("vulkan");
+let dev = Device::Vulkan;
 let synth = Synthesizer::new(dev);
 
-let plan = synth.synthesize(&model, &g)?;
+let plan = synth.synthesize(&model, &graph)?;
 plan.emit("build/out")?;
 ```
 
@@ -837,14 +874,14 @@ plan.emit("build/out")?;
 ```rust
 use openinfer::{Synthesizer, Graph, Device};
 
-let dev = Device::GPU().api("vulkan");
+let dev = Device::Vulkan;
 let synth = Synthesizer::new(dev);
 
 let graph_txt = std::fs::read_to_string("build/graph.json")?;
 let graph_json = serde_json::from_str(&graph_txt)?;
-let g = Graph::from_json(graph_json)?;
+let graph = Graph::from_json(graph_json)?;
 
-let plan = synth.synthesize(&model, &g)?;
+let plan = synth.synthesize(&model, &graph)?;
 plan.emit("build/out")?;
 ```
 
