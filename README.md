@@ -470,7 +470,7 @@ For example lets say in a previous step you used `A[10]`, then the prefix cache 
 - `A[] -> f32[10, D] == A[0..9]`
 - `A[0..5] -> f32[5, D]`
 - `A[2..5] -> f32[3, D]`
-- `A[-3] -> f32[7, D] == A[6..9]`
+- `A[0..-3] -> f32[7, D] == A[0..6]`
 
 ### Autodim cache
 In some instances its preferable to have a matrix with an initial fixed size dimension which can grow dynamically in the multiple inference steps. For example in modern LLMs the `Key` and `Value` matrices from previous steps are reused so they dont need to be recomputed. This means the new weights are appended as new columns and rows of the exisiting matrices. 
