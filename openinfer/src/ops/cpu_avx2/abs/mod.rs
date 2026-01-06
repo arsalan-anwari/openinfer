@@ -7,12 +7,14 @@ use std::arch::x86_64::{
 };
 
 use crate::tensor::{Bitset, F16};
+use crate::timer::Timer;
 
 pub mod registry;
 
-pub fn abs_f32(a: &[f32]) -> Result<Vec<f32>> {
+pub fn abs_f32(a: &[f32], thread_id: u32) -> Result<Vec<f32>> {
     let len = a.len();
     let mut out = vec![0.0f32; len];
+    Timer::start(thread_id);
     unsafe {
         let mut i = 0usize;
         let out_ptr = out.as_mut_ptr();
@@ -29,12 +31,14 @@ pub fn abs_f32(a: &[f32]) -> Result<Vec<f32>> {
             i += 1;
         }
     }
+    Timer::stop(thread_id);
     Ok(out)
 }
 
-pub fn abs_i8(a: &[i8]) -> Result<Vec<i8>> {
+pub fn abs_i8(a: &[i8], thread_id: u32) -> Result<Vec<i8>> {
     let len = a.len();
     let mut out = vec![0i8; len];
+    Timer::start(thread_id);
     unsafe {
         let mut i = 0usize;
         let out_ptr = out.as_mut_ptr();
@@ -49,12 +53,14 @@ pub fn abs_i8(a: &[i8]) -> Result<Vec<i8>> {
             i += 1;
         }
     }
+    Timer::stop(thread_id);
     Ok(out)
 }
 
-pub fn abs_i16(a: &[i16]) -> Result<Vec<i16>> {
+pub fn abs_i16(a: &[i16], thread_id: u32) -> Result<Vec<i16>> {
     let len = a.len();
     let mut out = vec![0i16; len];
+    Timer::start(thread_id);
     unsafe {
         let mut i = 0usize;
         let out_ptr = out.as_mut_ptr();
@@ -69,12 +75,14 @@ pub fn abs_i16(a: &[i16]) -> Result<Vec<i16>> {
             i += 1;
         }
     }
+    Timer::stop(thread_id);
     Ok(out)
 }
 
-pub fn abs_f64(a: &[f64]) -> Result<Vec<f64>> {
+pub fn abs_f64(a: &[f64], thread_id: u32) -> Result<Vec<f64>> {
     let len = a.len();
     let mut out = vec![0.0f64; len];
+    Timer::start(thread_id);
     unsafe {
         let mut i = 0usize;
         let out_ptr = out.as_mut_ptr();
@@ -91,20 +99,28 @@ pub fn abs_f64(a: &[f64]) -> Result<Vec<f64>> {
             i += 1;
         }
     }
+    Timer::stop(thread_id);
     Ok(out)
 }
 
-pub fn abs_u8(a: &[u8]) -> Result<Vec<u8>> {
-    Ok(a.to_vec())
+pub fn abs_u8(a: &[u8], thread_id: u32) -> Result<Vec<u8>> {
+    let out = a.to_vec();
+    Timer::start(thread_id);
+    Timer::stop(thread_id);
+    Ok(out)
 }
 
-pub fn abs_u16(a: &[u16]) -> Result<Vec<u16>> {
-    Ok(a.to_vec())
+pub fn abs_u16(a: &[u16], thread_id: u32) -> Result<Vec<u16>> {
+    let out = a.to_vec();
+    Timer::start(thread_id);
+    Timer::stop(thread_id);
+    Ok(out)
 }
 
-pub fn abs_i32(a: &[i32]) -> Result<Vec<i32>> {
+pub fn abs_i32(a: &[i32], thread_id: u32) -> Result<Vec<i32>> {
     let len = a.len();
     let mut out = vec![0i32; len];
+    Timer::start(thread_id);
     unsafe {
         let mut i = 0usize;
         let out_ptr = out.as_mut_ptr();
@@ -119,12 +135,14 @@ pub fn abs_i32(a: &[i32]) -> Result<Vec<i32>> {
             i += 1;
         }
     }
+    Timer::stop(thread_id);
     Ok(out)
 }
 
-pub fn abs_i64(a: &[i64]) -> Result<Vec<i64>> {
+pub fn abs_i64(a: &[i64], thread_id: u32) -> Result<Vec<i64>> {
     let len = a.len();
     let mut out = vec![0i64; len];
+    Timer::start(thread_id);
     unsafe {
         let mut i = 0usize;
         let out_ptr = out.as_mut_ptr();
@@ -143,25 +161,35 @@ pub fn abs_i64(a: &[i64]) -> Result<Vec<i64>> {
             i += 1;
         }
     }
+    Timer::stop(thread_id);
     Ok(out)
 }
 
-pub fn abs_u32(a: &[u32]) -> Result<Vec<u32>> {
-    Ok(a.to_vec())
+pub fn abs_u32(a: &[u32], thread_id: u32) -> Result<Vec<u32>> {
+    let out = a.to_vec();
+    Timer::start(thread_id);
+    Timer::stop(thread_id);
+    Ok(out)
 }
 
-pub fn abs_u64(a: &[u64]) -> Result<Vec<u64>> {
-    Ok(a.to_vec())
+pub fn abs_u64(a: &[u64], thread_id: u32) -> Result<Vec<u64>> {
+    let out = a.to_vec();
+    Timer::start(thread_id);
+    Timer::stop(thread_id);
+    Ok(out)
 }
 
-pub fn abs_bool(a: &[bool]) -> Result<Vec<bool>> {
-    Ok(a.to_vec())
+pub fn abs_bool(a: &[bool], thread_id: u32) -> Result<Vec<bool>> {
+    let out = a.to_vec();
+    Timer::start(thread_id);
+    Timer::stop(thread_id);
+    Ok(out)
 }
 
-pub fn abs_bitset(a: &[Bitset]) -> Result<Vec<Bitset>> {
-    crate::ops::cpu::abs::abs_bitset(a)
+pub fn abs_bitset(a: &[Bitset], thread_id: u32) -> Result<Vec<Bitset>> {
+    crate::ops::cpu::abs::abs_bitset(a, thread_id)
 }
 
-pub fn abs_f16(a: &[F16]) -> Result<Vec<F16>> {
-    crate::ops::cpu::abs::abs_f16(a)
+pub fn abs_f16(a: &[F16], thread_id: u32) -> Result<Vec<F16>> {
+    crate::ops::cpu::abs::abs_f16(a, thread_id)
 }

@@ -167,21 +167,96 @@ Runtime op selection flows through `Executor::exec_op`:
 This dispatch is centralized in `openinfer/src/ops/registry.rs`, which forwards
 to device-specific registries (e.g. `openinfer/src/ops/cpu/registry.rs`).
 
-### Example serialized node
+### Example serialized graph
 
-`Node` and `NodeKind` derive serde `Serialize`. The default enum encoding is
-externally tagged. A serialized `Op` node looks like:
-
+> `examples/rust/out/minimal-graph.json`
 ```json
 {
-  "index": 1,
-  "uuid": "e0f4f6c2-88a2-4a34-8d20-4e9d6d5f8f78",
-  "kind": {
-    "Op": {
-      "op": "Add",
-      "attrs": "None",
-      "inputs": ["x", "a"],
-      "output": "t0"
+  "blocks": {
+    "entry": {
+      "name": "entry",
+      "nodes": [
+        {
+          "index": 0,
+          "kind": {
+            "Assign": {
+              "dims": [
+                "B"
+              ],
+              "dtype": "F32",
+              "name": "t0"
+            }
+          },
+          "uuid": "06133eae-65c0-4e27-a7c3-4a6add5406b8"
+        },
+        {
+          "index": 1,
+          "kind": {
+            "Op": {
+              "attrs": "None",
+              "inputs": [
+                "x",
+                "a"
+              ],
+              "op": "Add",
+              "output": "t0"
+            }
+          },
+          "uuid": "8895eff0-b5a7-42c4-8acd-b3c6330ddc19"
+        },
+        {
+          "index": 2,
+          "kind": {
+            "Op": {
+              "attrs": "None",
+              "inputs": [
+                "y",
+                "t0"
+              ],
+              "op": "Mul",
+              "output": "y"
+            }
+          },
+          "uuid": "bc609943-4c7c-4782-8a49-9248a37da8bc"
+        },
+        {
+          "index": 3,
+          "kind": "Return",
+          "uuid": "32131024-3b2d-4877-a27c-25369e7840d6"
+        }
+      ]
+    }
+  },
+  "next_index": 4,
+  "vars": {
+    "a": {
+      "dims": [
+        "B"
+      ],
+      "dtype": "F32",
+      "init": null,
+      "kind": "Volatile",
+      "name": "a"
+    },
+    "x": {
+      "dims": [
+        "B"
+      ],
+      "dtype": "F32",
+      "init": null,
+      "kind": "Dynamic",
+      "name": "x"
+    },
+    "y": {
+      "dims": [
+        "B"
+      ],
+      "dtype": "F32",
+      "init": {
+        "F32": 5.0
+      },
+      "kind": "Volatile",
+      "name": "y"
     }
   }
 }

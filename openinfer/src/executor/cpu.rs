@@ -44,13 +44,14 @@ impl DeviceBackend for CpuBackend {
         attrs: &OpAttrs,
         output_dtype: DType,
         tensors: &[TensorStorage],
+        thread_id: u32,
     ) -> Result<TensorStorage> {
         let input_dtypes: Vec<DType> = tensors.iter().map(|t| t.dtype()).collect();
         let host = to_host_tensors(tensors)?;
         let kernel = lookup_kernel(self.device, op, output_dtype, &input_dtypes, *attrs)
             .ok_or_else(|| anyhow!("unsupported op {}", op.as_str()))?;
         match kernel {
-            KernelFn::Host(func) => Ok(TensorStorage::Host((func)(attrs, &host)?)),
+            KernelFn::Host(func) => Ok(TensorStorage::Host((func)(attrs, &host, thread_id)?)),
             #[cfg(feature = "vulkan")]
             KernelFn::Vulkan(_) => Err(anyhow!("host backend cannot run device kernel")),
         }

@@ -5,10 +5,11 @@ use crate::backend::VulkanBuffer;
 use crate::graph::OpAttrs;
 use crate::graph::OpKind;
 use crate::tensor::DType;
+use crate::timer::Timer;
 
 pub mod registry;
 
-pub fn mul_generic(attrs: &OpAttrs, a: &VulkanBuffer, b: &VulkanBuffer) -> Result<VulkanBuffer> {
+pub fn mul_generic(attrs: &OpAttrs, a: &VulkanBuffer, b: &VulkanBuffer, thread_id: u32) -> Result<VulkanBuffer> {
     let strict_shapes = a.shader_setting_bool("strict_shapes").unwrap_or(true);
     if strict_shapes && a.len != b.len {
         return Err(anyhow!("mul op shape mismatch"));
@@ -30,7 +31,8 @@ pub fn mul_generic(attrs: &OpAttrs, a: &VulkanBuffer, b: &VulkanBuffer) -> Resul
         .ok_or_else(|| anyhow!("missing SPIR-V target {} for mul op", target))?;
     let output_size = storage_size_bytes(a.dtype) * len;
     let output_inner = runtime.create_buffer(output_size)?;
-    runtime.dispatch(
+    Timer::start(thread_id);
+    let dispatch_result = runtime.dispatch(
         OpKind::Mul,
         a.dtype,
         &target,
@@ -41,7 +43,9 @@ pub fn mul_generic(attrs: &OpAttrs, a: &VulkanBuffer, b: &VulkanBuffer) -> Resul
         &output_inner,
         0,
         len,
-    )?;
+    );
+    Timer::stop(thread_id);
+    dispatch_result?;
     Ok(VulkanBuffer {
         dtype: a.dtype,
         len,

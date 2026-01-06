@@ -4,10 +4,11 @@ use crate::executor::Device;
 use crate::graph::{OpAttrs, OpKind};
 use crate::tensor::{DType, TensorValue};
 
-pub type HostKernel = Box<dyn Fn(&OpAttrs, &[TensorValue]) -> Result<TensorValue> + Send + Sync>;
+pub type HostKernel =
+    Box<dyn Fn(&OpAttrs, &[TensorValue], u32) -> Result<TensorValue> + Send + Sync>;
 #[cfg(feature = "vulkan")]
 pub type VulkanKernel =
-    Box<dyn Fn(&OpAttrs, &[&crate::backend::VulkanBuffer]) -> Result<crate::backend::VulkanBuffer> + Send + Sync>;
+    Box<dyn Fn(&OpAttrs, &[&crate::backend::VulkanBuffer], u32) -> Result<crate::backend::VulkanBuffer> + Send + Sync>;
 
 pub enum KernelFn {
     Host(HostKernel),

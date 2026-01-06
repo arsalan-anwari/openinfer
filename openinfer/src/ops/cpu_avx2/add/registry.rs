@@ -16,45 +16,45 @@ pub fn lookup_kernel_cpu_avx2_add(
 ) -> Option<KernelFn> {
     match (output_dtype, input_dtypes, attrs) {
         (DType::I8, [DType::I8, DType::I8], OpAttrs::None) => Some(KernelFn::Host(cpu_kernel(
-            add_i8 as fn(&[i8], &[i8]) -> Result<Vec<i8>>,
+            add_i8 as fn(&[i8], &[i8] , u32) -> Result<Vec<i8>>,
         ))),
         (DType::I16, [DType::I16, DType::I16], OpAttrs::None) => Some(KernelFn::Host(cpu_kernel(
-            add_i16 as fn(&[i16], &[i16]) -> Result<Vec<i16>>,
+            add_i16 as fn(&[i16], &[i16] , u32) -> Result<Vec<i16>>,
         ))),
         (DType::F32, [DType::F32, DType::F32], OpAttrs::None) => Some(KernelFn::Host(cpu_kernel(
-            add_f32 as fn(&[f32], &[f32]) -> Result<Vec<f32>>,
+            add_f32 as fn(&[f32], &[f32] , u32) -> Result<Vec<f32>>,
         ))),
         (DType::F64, [DType::F64, DType::F64], OpAttrs::None) => Some(KernelFn::Host(cpu_kernel(
-            add_f64 as fn(&[f64], &[f64]) -> Result<Vec<f64>>,
+            add_f64 as fn(&[f64], &[f64] , u32) -> Result<Vec<f64>>,
         ))),
         (DType::U8, [DType::U8, DType::U8], OpAttrs::None) => Some(KernelFn::Host(cpu_kernel(
-            add_u8 as fn(&[u8], &[u8]) -> Result<Vec<u8>>,
+            add_u8 as fn(&[u8], &[u8] , u32) -> Result<Vec<u8>>,
         ))),
         (DType::U16, [DType::U16, DType::U16], OpAttrs::None) => Some(KernelFn::Host(cpu_kernel(
-            add_u16 as fn(&[u16], &[u16]) -> Result<Vec<u16>>,
+            add_u16 as fn(&[u16], &[u16] , u32) -> Result<Vec<u16>>,
         ))),
         (DType::I32, [DType::I32, DType::I32], OpAttrs::None) => Some(KernelFn::Host(cpu_kernel(
-            add_i32 as fn(&[i32], &[i32]) -> Result<Vec<i32>>,
+            add_i32 as fn(&[i32], &[i32] , u32) -> Result<Vec<i32>>,
         ))),
         (DType::I64, [DType::I64, DType::I64], OpAttrs::None) => Some(KernelFn::Host(cpu_kernel(
-            add_i64 as fn(&[i64], &[i64]) -> Result<Vec<i64>>,
+            add_i64 as fn(&[i64], &[i64] , u32) -> Result<Vec<i64>>,
         ))),
         (DType::U32, [DType::U32, DType::U32], OpAttrs::None) => Some(KernelFn::Host(cpu_kernel(
-            add_u32 as fn(&[u32], &[u32]) -> Result<Vec<u32>>,
+            add_u32 as fn(&[u32], &[u32] , u32) -> Result<Vec<u32>>,
         ))),
         (DType::U64, [DType::U64, DType::U64], OpAttrs::None) => Some(KernelFn::Host(cpu_kernel(
-            add_u64 as fn(&[u64], &[u64]) -> Result<Vec<u64>>,
+            add_u64 as fn(&[u64], &[u64] , u32) -> Result<Vec<u64>>,
         ))),
         (DType::Bool, [DType::Bool, DType::Bool], OpAttrs::None) => Some(KernelFn::Host(cpu_kernel(
-            add_bool as fn(&[bool], &[bool]) -> Result<Vec<bool>>,
+            add_bool as fn(&[bool], &[bool] , u32) -> Result<Vec<bool>>,
         ))),
         (DType::Bitset, [DType::Bitset, DType::Bitset], OpAttrs::None) => {
             Some(KernelFn::Host(cpu_kernel(
-                add_bitset as fn(&[crate::tensor::Bitset], &[crate::tensor::Bitset]) -> Result<Vec<crate::tensor::Bitset>>,
+                add_bitset as fn(&[crate::tensor::Bitset], &[crate::tensor::Bitset] , u32) -> Result<Vec<crate::tensor::Bitset>>,
             )))
         }
         (DType::F16, [DType::F16, DType::F16], OpAttrs::None) => Some(KernelFn::Host(cpu_kernel(
-            add_f16 as fn(&[crate::tensor::F16], &[crate::tensor::F16]) -> Result<Vec<crate::tensor::F16>>,
+            add_f16 as fn(&[crate::tensor::F16], &[crate::tensor::F16] , u32) -> Result<Vec<crate::tensor::F16>>,
         ))),
         _ => None,
     }

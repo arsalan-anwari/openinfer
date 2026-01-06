@@ -772,30 +772,29 @@ Simulation is designed to validate **logic and structure**, not raw performance.
 ### Step through nodes with logging + timing
 
 ```rust
-use openinfer::{Simulator, Device, TraceLevel};
+use openinfer::{
+  fetch_executor, format_truncated, graph, insert_executor, 
+  Device, ModelLoader, Simulator
+};
 
-let mut sim = SimSession::new(&model, Device::Cpu)?
-    .with_trace(TraceLevel::Verbose)
-    .with_timing(true);
+...
 
+let sim = Simulator::new(&model, Device::Cpu)?;
 let mut exec = sim.make_executor(&g)?;
-insert_executor!(exec, { x: vec![1.0, 2.0, 3.0, ...] });
+insert_executor!(exec, { x: input });
 
-while exec.is_running() {
-    let ev = exec.next_node()?;
-
-    fetch_executor!(exec, { z: f32 });
-
-    // Typical step event info
-    // - block/op identifiers
-    // - input/output shapes
-    // - duration (if enabled)
+// This is equivalent to what happens when you call exec.step().
+for mut node in exec.iterate() {
+    let ev = node.event.clone();
+    fetch_executor!(node, { y: f32 });
+    let y_str = format_truncated(&y.data);
+    let y_pad = format!("{:<width$}", y_str, width = 32);
     println!(
-        "z={} -- [{}] {} :: {}  ({} µs)",
-        z.data,
-        ev.kind,          // BlockEnter | OpExecute | BlockExit | ...
-        ev.block_name,    // "entry" etc.
-        ev.op_name,       // "matmul" etc. (empty for non-op events)
+        "y={} -- [{}] {} :: {} ({})",
+        y_pad,
+        ev.kind,
+        ev.block_name,
+        ev.op_name,
         ev.micros
     );
 }
@@ -808,17 +807,64 @@ let trace = exec.trace();
 std::fs::write("build/trace.json", serde_json::to_string_pretty(&trace)?)?;
 ```
 
+Example of a trace output:
+```json
+[
+  {
+    "block_name": "entry",
+    "node_index": 0,
+    "node_uuid": "f4137d97-0919-4f73-9839-dd74367f943c",
+    "kind": "Assign",
+    "params": [],
+    "output": ["t0"],
+    "micros": [0, 0, 0]
+  },
+  {
+    "block_name": "entry",
+    "node_index": 1,
+    "node_uuid": "53b7184e-4b0f-492d-8d93-9274d52617a6",
+    "kind": "OpExecute",
+    "params": ["x", "a"],
+    "output": ["t0"],
+    "micros": [0, 31, 788]
+  },
+  {
+    "block_name": "entry",
+    "node_index": 2,
+    "node_uuid": "16ce2716-d6fc-4136-bd6f-1b8d5a66669e",
+    "kind": "OpExecute",
+    "params": ["y", "t0"],
+    "output": ["y"],
+    "micros": [0, 30, 12]
+  },
+  {
+    "block_name": "entry",
+    "node_index": 3,
+    "node_uuid": "8500432b-f1c3-4d14-86de-af5c8f97506b",
+    "kind": "Return",
+    "params": [],
+    "output": [],
+    "micros": [0, 0, 0]
+  }
+]
+```
+
 ---
 
-## Graph Serialization
+## Graph (De)Serialization
 
 Graphs are plain Rust objects and can be serialized to JSON.
 
+Serialization (see `examples/rust/serialize.rs`):
 ```rust
-use openinfer::ir::GraphJson;
+let json = GraphSerialize::json(&g)?;
+std::fs::write("minimal-graph.json", serde_json::to_string_pretty(&json)?)?;
+```
 
-let json: GraphJson = g.to_json()?;
-std::fs::write("graph.json", serde_json::to_string_pretty(&json)?)?;
+Deserialization (see `examples/rust/deserialize.rs`):
+```rust
+let value = serde_json::from_str(&graph_txt)?;
+let g = GraphDeserialize::from_json(value)?;
 ```
 
 ---
@@ -864,22 +910,6 @@ use openinfer::{Synthesizer, Device};
 
 let dev = Device::Vulkan;
 let synth = Synthesizer::new(dev);
-
-let plan = synth.synthesize(&model, &graph)?;
-plan.emit("build/out")?;
-```
-
-#### From JSON
-
-```rust
-use openinfer::{Synthesizer, Graph, Device};
-
-let dev = Device::Vulkan;
-let synth = Synthesizer::new(dev);
-
-let graph_txt = std::fs::read_to_string("build/graph.json")?;
-let graph_json = serde_json::from_str(&graph_txt)?;
-let graph = Graph::from_json(graph_json)?;
 
 let plan = synth.synthesize(&model, &graph)?;
 plan.emit("build/out")?;

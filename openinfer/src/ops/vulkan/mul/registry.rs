@@ -31,7 +31,7 @@ pub fn lookup_kernel_vulkan_mul(
         ) =>
         {
             Some(KernelFn::Vulkan(device_kernel(
-                mul_generic as fn(&OpAttrs, &VulkanBuffer, &VulkanBuffer) -> Result<VulkanBuffer>,
+                mul_generic as fn(&OpAttrs, &VulkanBuffer, &VulkanBuffer , u32) -> Result<VulkanBuffer>,
             )))
         }
         _ => None,

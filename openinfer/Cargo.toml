@@ -25,3 +25,19 @@ serde_json = "1"
 [[example]]
 name = "minimal"
 path = "../examples/rust/minimal.rs"
+
+[[example]]
+name = "graph_nodes_traverse"
+path = "../examples/rust/graph_nodes_traverse.rs"
+
+[[example]]
+name = "trace_example"
+path = "../examples/rust/trace_example.rs"
+
+[[example]]
+name = "serialize"
+path = "../examples/rust/serialize.rs"
+
+[[example]]
+name = "deserialize"
+path = "../examples/rust/deserialize.rs"

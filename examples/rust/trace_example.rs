@@ -1,6 +1,4 @@
-use openinfer::{
-    graph, fetch_executor, insert_executor, Device, ModelLoader, Simulator,
-};
+use openinfer::{graph, insert_executor, Device, ModelLoader, Simulator};
 use rand::Rng;
 use std::path::Path;
 
@@ -37,13 +35,15 @@ fn main() -> anyhow::Result<()> {
             base + (i as f32 * 0.001)
         })
         .collect();
-
     insert_executor!(exec, { x: input });
+
     exec.step()?;
 
-    fetch_executor!(exec, { y: f32 });
-    println!("y[0..100] = {:?}", &y.data[..100.min(y.len())]);
+    let trace = exec.trace();
+    let out_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../examples/rust/out");
+    std::fs::create_dir_all(&out_dir)?;
+    let out_path = out_dir.join("trace_example.json");
+    std::fs::write(out_path, serde_json::to_string_pretty(&trace)?)?;
 
     Ok(())
 }
-

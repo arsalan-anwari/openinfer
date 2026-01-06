@@ -1,5 +1,5 @@
 use openinfer::{
-    graph, fetch_executor, insert_executor, Device, ModelLoader, Simulator,
+    fetch_executor, format_truncated, graph, insert_executor, Device, ModelLoader, Simulator,
 };
 use rand::Rng;
 use std::path::Path;
@@ -37,13 +37,22 @@ fn main() -> anyhow::Result<()> {
             base + (i as f32 * 0.001)
         })
         .collect();
-
     insert_executor!(exec, { x: input });
-    exec.step()?;
 
-    fetch_executor!(exec, { y: f32 });
-    println!("y[0..100] = {:?}", &y.data[..100.min(y.len())]);
+    for mut node in exec.iterate() {
+        let ev = node.event.clone();
+        fetch_executor!(node, { y: f32 });
+        let y_str = format_truncated(&y.data);
+        let y_pad = format!("{:<width$}", y_str, width = 32);
+        println!(
+            "y={} -- [{}] {} :: {} ({})",
+            y_pad,
+            ev.kind,
+            ev.block_name,
+            ev.op_name,
+            ev.micros
+        );
+    }
 
     Ok(())
 }
-

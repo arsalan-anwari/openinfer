@@ -13,10 +13,7 @@ macro_rules! insert_executor {
 macro_rules! fetch_executor {
     ($exec:expr, { $($name:ident : $ty:ty),* $(,)? }) => {
         $( let $name: ::openinfer::Tensor<$ty> = $exec
-            .fetch_typed::<$ty>(stringify!($name))
-            .unwrap_or_else(|err| {
-                panic!("fetch_executor failed for {}: {}", stringify!($name), err)
-            }); )*
+            .fetch_typed_or_empty::<$ty>(stringify!($name)); )*
     };
 }
 

@@ -119,6 +119,7 @@ impl DeviceBackend for VulkanBackend {
         attrs: &OpAttrs,
         output_dtype: DType,
         tensors: &[TensorStorage],
+        thread_id: u32,
     ) -> Result<TensorStorage> {
         let input_dtypes: Vec<DType> = tensors.iter().map(|t| t.dtype()).collect();
         let shader = self.shaders.shader_for_op(op);
@@ -131,7 +132,7 @@ impl DeviceBackend for VulkanBackend {
             .ok_or_else(|| anyhow!("unsupported op {}", op.as_str()))?;
         match kernel {
             KernelFn::Vulkan(func) => Ok(TensorStorage::Device(DeviceTensor::Vulkan(
-                (func)(attrs, &buffer_refs)?,
+                (func)(attrs, &buffer_refs, thread_id)?,
             ))),
             KernelFn::Host(_) => Err(anyhow!("vulkan backend cannot run host kernel")),
         }

@@ -5,11 +5,12 @@ use crate::backend::VulkanBuffer;
 use crate::graph::OpAttrs;
 use crate::graph::OpKind;
 use crate::tensor::DType;
+use crate::timer::Timer;
 use anyhow::anyhow;
 
 pub mod registry;
 
-pub fn abs_generic(attrs: &OpAttrs, a: &VulkanBuffer) -> Result<VulkanBuffer> {
+pub fn abs_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: u32) -> Result<VulkanBuffer> {
     let runtime = super::runtime_from_buffers(a, None)?;
     let unsigned_identity = a.shader_setting_bool("abs_unsigned_is_identity").unwrap_or(true);
     if unsigned_identity
@@ -22,6 +23,8 @@ pub fn abs_generic(attrs: &OpAttrs, a: &VulkanBuffer) -> Result<VulkanBuffer> {
                 | crate::tensor::DType::Bool
         )
     {
+        Timer::start(thread_id);
+        Timer::stop(thread_id);
         return Ok(VulkanBuffer {
             dtype: a.dtype,
             len: a.len,
@@ -37,7 +40,8 @@ pub fn abs_generic(attrs: &OpAttrs, a: &VulkanBuffer) -> Result<VulkanBuffer> {
     let spirv = a
         .spv_bytes_for_target(&target)
         .ok_or_else(|| anyhow::anyhow!("missing SPIR-V target {} for abs op", target))?;
-    runtime.dispatch(
+    Timer::start(thread_id);
+    let dispatch_result = runtime.dispatch(
         OpKind::Abs,
         a.dtype,
         &target,
@@ -48,7 +52,9 @@ pub fn abs_generic(attrs: &OpAttrs, a: &VulkanBuffer) -> Result<VulkanBuffer> {
         &output_inner,
         flags,
         a.len,
-    )?;
+    );
+    Timer::stop(thread_id);
+    dispatch_result?;
     Ok(VulkanBuffer {
         dtype: a.dtype,
         len: a.len,
