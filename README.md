@@ -769,6 +769,9 @@ Simulation mode:
 
 Simulation is designed to validate **logic and structure**, not raw performance.
 
+By default, the simulator does not print trace output or time ops. Enable
+`with_trace()` for trace logging and `with_timer()` for timing data.
+
 ### Step through nodes with logging + timing
 
 ```rust
@@ -779,11 +782,13 @@ use openinfer::{
 
 ...
 
-let sim = Simulator::new(&model, Device::Cpu)?;
+let sim = Simulator::new(&model, Device::Cpu)?
+  .with_trace()
+  .with_timer();
 let mut exec = sim.make_executor(&g)?;
 insert_executor!(exec, { x: input });
 
-// This is equivalent to what happens when you call exec.step().
+// This is equivalent to what happens when you call exec.step() with tracing enabled.
 for mut node in exec.iterate() {
     let ev = node.event.clone();
     fetch_executor!(node, { y: f32 });
@@ -803,6 +808,12 @@ for mut node in exec.iterate() {
 ### Export a simulator trace
 
 ```rust
+let sim = Simulator::new(&model, Device::Cpu)?
+  .with_trace()
+  .with_timer();
+let mut exec = sim.make_executor(&g)?;
+insert_executor!(exec, { x: input });
+exec.run_step()?;
 let trace = exec.trace();
 std::fs::write("build/trace.json", serde_json::to_string_pretty(&trace)?)?;
 ```

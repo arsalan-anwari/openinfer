@@ -41,3 +41,7 @@ path = "../examples/rust/serialize.rs"
 [[example]]
 name = "deserialize"
 path = "../examples/rust/deserialize.rs"
+
+[[example]]
+name = "relu"
+path = "../examples/rust/relu.rs"

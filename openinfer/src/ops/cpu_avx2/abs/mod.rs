@@ -11,7 +11,7 @@ use crate::timer::Timer;
 
 pub mod registry;
 
-pub fn abs_f32(a: &[f32], thread_id: u32) -> Result<Vec<f32>> {
+pub fn abs_f32(a: &[f32], thread_id: usize) -> Result<Vec<f32>> {
     let len = a.len();
     let mut out = vec![0.0f32; len];
     Timer::start(thread_id);
@@ -35,7 +35,7 @@ pub fn abs_f32(a: &[f32], thread_id: u32) -> Result<Vec<f32>> {
     Ok(out)
 }
 
-pub fn abs_i8(a: &[i8], thread_id: u32) -> Result<Vec<i8>> {
+pub fn abs_i8(a: &[i8], thread_id: usize) -> Result<Vec<i8>> {
     let len = a.len();
     let mut out = vec![0i8; len];
     Timer::start(thread_id);
@@ -57,7 +57,7 @@ pub fn abs_i8(a: &[i8], thread_id: u32) -> Result<Vec<i8>> {
     Ok(out)
 }
 
-pub fn abs_i16(a: &[i16], thread_id: u32) -> Result<Vec<i16>> {
+pub fn abs_i16(a: &[i16], thread_id: usize) -> Result<Vec<i16>> {
     let len = a.len();
     let mut out = vec![0i16; len];
     Timer::start(thread_id);
@@ -79,7 +79,7 @@ pub fn abs_i16(a: &[i16], thread_id: u32) -> Result<Vec<i16>> {
     Ok(out)
 }
 
-pub fn abs_f64(a: &[f64], thread_id: u32) -> Result<Vec<f64>> {
+pub fn abs_f64(a: &[f64], thread_id: usize) -> Result<Vec<f64>> {
     let len = a.len();
     let mut out = vec![0.0f64; len];
     Timer::start(thread_id);
@@ -103,21 +103,21 @@ pub fn abs_f64(a: &[f64], thread_id: u32) -> Result<Vec<f64>> {
     Ok(out)
 }
 
-pub fn abs_u8(a: &[u8], thread_id: u32) -> Result<Vec<u8>> {
+pub fn abs_u8(a: &[u8], thread_id: usize) -> Result<Vec<u8>> {
     let out = a.to_vec();
     Timer::start(thread_id);
     Timer::stop(thread_id);
     Ok(out)
 }
 
-pub fn abs_u16(a: &[u16], thread_id: u32) -> Result<Vec<u16>> {
+pub fn abs_u16(a: &[u16], thread_id: usize) -> Result<Vec<u16>> {
     let out = a.to_vec();
     Timer::start(thread_id);
     Timer::stop(thread_id);
     Ok(out)
 }
 
-pub fn abs_i32(a: &[i32], thread_id: u32) -> Result<Vec<i32>> {
+pub fn abs_i32(a: &[i32], thread_id: usize) -> Result<Vec<i32>> {
     let len = a.len();
     let mut out = vec![0i32; len];
     Timer::start(thread_id);
@@ -139,7 +139,7 @@ pub fn abs_i32(a: &[i32], thread_id: u32) -> Result<Vec<i32>> {
     Ok(out)
 }
 
-pub fn abs_i64(a: &[i64], thread_id: u32) -> Result<Vec<i64>> {
+pub fn abs_i64(a: &[i64], thread_id: usize) -> Result<Vec<i64>> {
     let len = a.len();
     let mut out = vec![0i64; len];
     Timer::start(thread_id);
@@ -165,31 +165,31 @@ pub fn abs_i64(a: &[i64], thread_id: u32) -> Result<Vec<i64>> {
     Ok(out)
 }
 
-pub fn abs_u32(a: &[u32], thread_id: u32) -> Result<Vec<u32>> {
+pub fn abs_u32(a: &[u32], thread_id: usize) -> Result<Vec<u32>> {
     let out = a.to_vec();
     Timer::start(thread_id);
     Timer::stop(thread_id);
     Ok(out)
 }
 
-pub fn abs_u64(a: &[u64], thread_id: u32) -> Result<Vec<u64>> {
+pub fn abs_u64(a: &[u64], thread_id: usize) -> Result<Vec<u64>> {
     let out = a.to_vec();
     Timer::start(thread_id);
     Timer::stop(thread_id);
     Ok(out)
 }
 
-pub fn abs_bool(a: &[bool], thread_id: u32) -> Result<Vec<bool>> {
+pub fn abs_bool(a: &[bool], thread_id: usize) -> Result<Vec<bool>> {
     let out = a.to_vec();
     Timer::start(thread_id);
     Timer::stop(thread_id);
     Ok(out)
 }
 
-pub fn abs_bitset(a: &[Bitset], thread_id: u32) -> Result<Vec<Bitset>> {
+pub fn abs_bitset(a: &[Bitset], thread_id: usize) -> Result<Vec<Bitset>> {
     crate::ops::cpu::abs::abs_bitset(a, thread_id)
 }
 
-pub fn abs_f16(a: &[F16], thread_id: u32) -> Result<Vec<F16>> {
+pub fn abs_f16(a: &[F16], thread_id: usize) -> Result<Vec<F16>> {
     crate::ops::cpu::abs::abs_f16(a, thread_id)
 }

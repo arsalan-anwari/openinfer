@@ -10,7 +10,7 @@ use anyhow::anyhow;
 
 pub mod registry;
 
-pub fn abs_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: u32) -> Result<VulkanBuffer> {
+pub fn abs_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: usize) -> Result<VulkanBuffer> {
     let runtime = super::runtime_from_buffers(a, None)?;
     let unsigned_identity = a.shader_setting_bool("abs_unsigned_is_identity").unwrap_or(true);
     if unsigned_identity
@@ -41,6 +41,7 @@ pub fn abs_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: u32) -> Result<
         .spv_bytes_for_target(&target)
         .ok_or_else(|| anyhow::anyhow!("missing SPIR-V target {} for abs op", target))?;
     Timer::start(thread_id);
+    let push = [a.len as u32, flags, 0, 0];
     let dispatch_result = runtime.dispatch(
         OpKind::Abs,
         a.dtype,
@@ -50,7 +51,7 @@ pub fn abs_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: u32) -> Result<
         &a.inner,
         &a.inner,
         &output_inner,
-        flags,
+        push,
         a.len,
     );
     Timer::stop(thread_id);
@@ -65,11 +66,11 @@ pub fn abs_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: u32) -> Result<
 
 pub(crate) fn spv_target_name_abs(dtype: DType, attrs: &OpAttrs) -> Result<String> {
     match (dtype, attrs) {
-        (DType::I8, OpAttrs::None)
-        | (DType::I16, OpAttrs::None)
-        | (DType::F32, OpAttrs::None)
-        | (DType::I32, OpAttrs::None)
-        | (DType::I64, OpAttrs::None) => Ok(format!("abs_{}", super::dtype_suffix(dtype).unwrap())),
+        (DType::I8, &OpAttrs::None)
+        | (DType::I16, &OpAttrs::None)
+        | (DType::F32, &OpAttrs::None)
+        | (DType::I32, &OpAttrs::None)
+        | (DType::I64, &OpAttrs::None) => Ok(format!("abs_{}", super::dtype_suffix(dtype).unwrap())),
         _ => Err(anyhow!(
             "no Vulkan SPIR-V target for abs dtype {:?}, attrs {:?}",
             dtype,

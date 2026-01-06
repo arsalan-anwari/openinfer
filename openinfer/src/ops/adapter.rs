@@ -10,7 +10,7 @@ use crate::backend::VulkanBuffer;
 use crate::ops::registry::VulkanKernel;
 
 pub trait CpuKernelAdapter {
-    fn call(&self, attrs: &OpAttrs, inputs: &[TensorValue], thread_id: u32) -> Result<TensorValue>;
+    fn call(&self, attrs: &OpAttrs, inputs: &[TensorValue], thread_id: usize) -> Result<TensorValue>;
 }
 
 #[cfg(feature = "vulkan")]
@@ -19,7 +19,7 @@ pub trait DeviceKernelAdapter {
         &self,
         attrs: &OpAttrs,
         inputs: &[&VulkanBuffer],
-        thread_id: u32,
+        thread_id: usize,
     ) -> Result<VulkanBuffer>;
 }
 
@@ -38,12 +38,12 @@ where
     Box::new(move |attrs, inputs, thread_id| func.call(attrs, inputs, thread_id))
 }
 
-impl<A, R> CpuKernelAdapter for for<'a> fn(&'a [A], u32) -> Result<R>
+impl<A, R> CpuKernelAdapter for for<'a> fn(&'a [A], usize) -> Result<R>
 where
     A: TensorElement + Clone + 'static,
     R: Into<TensorValue>,
 {
-    fn call(&self, _attrs: &OpAttrs, inputs: &[TensorValue], thread_id: u32) -> Result<TensorValue> {
+    fn call(&self, _attrs: &OpAttrs, inputs: &[TensorValue], thread_id: usize) -> Result<TensorValue> {
         let a = inputs
             .get(0)
             .ok_or_else(|| anyhow!("cpu kernel expects at least 1 input"))?;
@@ -53,12 +53,12 @@ where
     }
 }
 
-impl<A, R> CpuKernelAdapter for for<'a, 'b> fn(&'a OpAttrs, &'b [A], u32) -> Result<R>
+impl<A, R> CpuKernelAdapter for for<'a, 'b> fn(&'a OpAttrs, &'b [A], usize) -> Result<R>
 where
     A: TensorElement + Clone + 'static,
     R: Into<TensorValue>,
 {
-    fn call(&self, attrs: &OpAttrs, inputs: &[TensorValue], thread_id: u32) -> Result<TensorValue> {
+    fn call(&self, attrs: &OpAttrs, inputs: &[TensorValue], thread_id: usize) -> Result<TensorValue> {
         let a = inputs
             .get(0)
             .ok_or_else(|| anyhow!("cpu kernel expects at least 1 input"))?;
@@ -70,12 +70,12 @@ where
 
 macro_rules! impl_cpu_kernel_adapter_noattrs {
     ($count:literal, $(($var:ident, $T:ident, $lt:tt, $idx:tt)),+; $($all_lt:tt),+) => {
-        impl<$($T,)+ R> CpuKernelAdapter for for<$($all_lt,)+> fn($( &$lt [$T], )+ u32) -> Result<R>
+        impl<$($T,)+ R> CpuKernelAdapter for for<$($all_lt,)+> fn($( &$lt [$T], )+ usize) -> Result<R>
         where
             $($T: TensorElement + Clone + 'static,)+
             R: Into<TensorValue>,
         {
-            fn call(&self, _attrs: &OpAttrs, inputs: &[TensorValue], thread_id: u32) -> Result<TensorValue> {
+            fn call(&self, _attrs: &OpAttrs, inputs: &[TensorValue], thread_id: usize) -> Result<TensorValue> {
                 if inputs.len() < $count {
                     return Err(anyhow!("cpu kernel expects at least {} inputs", $count));
                 }
@@ -92,12 +92,12 @@ macro_rules! impl_cpu_kernel_adapter_noattrs {
 macro_rules! impl_cpu_kernel_adapter_attrs {
     ($count:literal, $attr_lt:tt, $(($var:ident, $T:ident, $lt:tt, $idx:tt)),+; $($all_lt:tt),+) => {
         impl<$($T,)+ R> CpuKernelAdapter
-            for for<$attr_lt, $($all_lt,)+> fn(&$attr_lt OpAttrs, $( &$lt [$T], )+ u32) -> Result<R>
+            for for<$attr_lt, $($all_lt,)+> fn(&$attr_lt OpAttrs, $( &$lt [$T], )+ usize) -> Result<R>
         where
             $($T: TensorElement + Clone + 'static,)+
             R: Into<TensorValue>,
         {
-            fn call(&self, attrs: &OpAttrs, inputs: &[TensorValue], thread_id: u32) -> Result<TensorValue> {
+            fn call(&self, attrs: &OpAttrs, inputs: &[TensorValue], thread_id: usize) -> Result<TensorValue> {
                 if inputs.len() < $count {
                     return Err(anyhow!("cpu kernel expects at least {} inputs", $count));
                 }
@@ -372,7 +372,7 @@ impl_cpu_kernel_adapter_attrs!(
 );
 
 #[cfg(feature = "vulkan")]
-impl<R> DeviceKernelAdapter for for<'a> fn(&'a VulkanBuffer, u32) -> Result<R>
+impl<R> DeviceKernelAdapter for for<'a> fn(&'a VulkanBuffer, usize) -> Result<R>
 where
     R: Into<VulkanBuffer>,
 {
@@ -380,7 +380,7 @@ where
         &self,
         _attrs: &OpAttrs,
         inputs: &[&VulkanBuffer],
-        thread_id: u32,
+        thread_id: usize,
     ) -> Result<VulkanBuffer> {
         let a = inputs
             .get(0)
@@ -390,7 +390,7 @@ where
 }
 
 #[cfg(feature = "vulkan")]
-impl<R> DeviceKernelAdapter for for<'a, 'b> fn(&'a OpAttrs, &'b VulkanBuffer, u32) -> Result<R>
+impl<R> DeviceKernelAdapter for for<'a, 'b> fn(&'a OpAttrs, &'b VulkanBuffer, usize) -> Result<R>
 where
     R: Into<VulkanBuffer>,
 {
@@ -398,7 +398,7 @@ where
         &self,
         attrs: &OpAttrs,
         inputs: &[&VulkanBuffer],
-        thread_id: u32,
+        thread_id: usize,
     ) -> Result<VulkanBuffer> {
         let a = inputs
             .get(0)
@@ -418,7 +418,7 @@ mod device_kernel_adapters {
 
     macro_rules! impl_device_kernel_adapter_noattrs {
         ($count:literal; $($lt:tt),+; $($idx:tt),+) => {
-            impl<R> DeviceKernelAdapter for for<$($lt,)+> fn($( &$lt VulkanBuffer, )+ u32) -> Result<R>
+            impl<R> DeviceKernelAdapter for for<$($lt,)+> fn($( &$lt VulkanBuffer, )+ usize) -> Result<R>
             where
                 R: Into<VulkanBuffer>,
             {
@@ -426,7 +426,7 @@ mod device_kernel_adapters {
                     &self,
                     _attrs: &OpAttrs,
                     inputs: &[&VulkanBuffer],
-                    thread_id: u32,
+                    thread_id: usize,
                 ) -> Result<VulkanBuffer> {
                     if inputs.len() < $count {
                         return Err(anyhow!("device kernel expects at least {} inputs", $count));
@@ -440,7 +440,7 @@ mod device_kernel_adapters {
     macro_rules! impl_device_kernel_adapter_attrs {
         ($count:literal, $attr_lt:tt; $($lt:tt),+; $($idx:tt),+) => {
             impl<R> DeviceKernelAdapter
-                for for<$attr_lt, $($lt,)+> fn(&$attr_lt OpAttrs, $( &$lt VulkanBuffer, )+ u32) -> Result<R>
+                for for<$attr_lt, $($lt,)+> fn(&$attr_lt OpAttrs, $( &$lt VulkanBuffer, )+ usize) -> Result<R>
             where
                 R: Into<VulkanBuffer>,
             {
@@ -448,7 +448,7 @@ mod device_kernel_adapters {
                     &self,
                     attrs: &OpAttrs,
                     inputs: &[&VulkanBuffer],
-                    thread_id: u32,
+                    thread_id: usize,
                 ) -> Result<VulkanBuffer> {
                     if inputs.len() < $count {
                         return Err(anyhow!("device kernel expects at least {} inputs", $count));

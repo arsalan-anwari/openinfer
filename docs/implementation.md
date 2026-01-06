@@ -5,6 +5,13 @@ loaded and consumed lazily, how model variables are linked to DSL declarations,
 and how ops are selected at runtime. The goal is to help new contributors follow
 the execution path from `graph!{}` to kernel selection.
 
+## Simulator Tracing and Timing
+
+The simulator does not emit trace logs or time ops by default. Enable tracing
+and timing explicitly on construction, for example
+`Simulator::new(&model, Device::Cpu)?.with_trace().with_timer()`. Trace events
+are only stored when tracing is enabled.
+
 ## DSL Parsing -> Graph
 
 The DSL lives in `openinfer-dsl/src/lib.rs` and is implemented as a procedural

@@ -1,6 +1,7 @@
 pub mod abs;
 pub mod add;
 pub mod mul;
+pub mod relu;
 pub mod registry;
 
 use crate::backend::VulkanBuffer;
@@ -34,6 +35,7 @@ pub(crate) fn spv_target_name(op: OpKind, dtype: DType, attrs: &OpAttrs) -> Resu
         OpKind::Abs => abs::spv_target_name_abs(dtype, attrs),
         OpKind::Add => add::spv_target_name_add(dtype, attrs),
         OpKind::Mul => mul::spv_target_name_mul(dtype, attrs),
+        OpKind::Relu => relu::spv_target_name_relu(dtype, attrs),
     }
 }
 

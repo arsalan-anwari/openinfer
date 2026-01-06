@@ -46,7 +46,7 @@ impl VulkanShaderRegistry {
             })?;
         let mut ops = HashMap::new();
         for (name, entry) in manifest.ops {
-            if !matches!(name.as_str(), "abs" | "add" | "mul") {
+            if !matches!(name.as_str(), "abs" | "add" | "mul" | "relu") {
                 continue;
             }
             let spv_by_target = embedded_spirv::embedded_spirv_for_op(name.as_str());

@@ -24,7 +24,9 @@ fn main() -> anyhow::Result<()> {
         }
     };
 
-    let sim = Simulator::new(&model, Device::Cpu)?;
+    let sim = Simulator::new(&model, Device::Cpu)?
+        .with_trace()
+        .with_timer();
     let mut exec = sim.make_executor(&g)?;
 
     let mut rng = rand::thread_rng();

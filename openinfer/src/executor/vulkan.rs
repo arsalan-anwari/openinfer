@@ -119,7 +119,7 @@ impl DeviceBackend for VulkanBackend {
         attrs: &OpAttrs,
         output_dtype: DType,
         tensors: &[TensorStorage],
-        thread_id: u32,
+        thread_id: usize,
     ) -> Result<TensorStorage> {
         let input_dtypes: Vec<DType> = tensors.iter().map(|t| t.dtype()).collect();
         let shader = self.shaders.shader_for_op(op);
@@ -128,7 +128,7 @@ impl DeviceBackend for VulkanBackend {
         }
         let buffers = to_vulkan_buffers(tensors, shader.clone())?;
         let buffer_refs: Vec<&VulkanBuffer> = buffers.iter().collect();
-        let kernel = lookup_kernel(self.device(), op, output_dtype, &input_dtypes, *attrs)
+        let kernel = lookup_kernel(self.device(), op, output_dtype, &input_dtypes, attrs)
             .ok_or_else(|| anyhow!("unsupported op {}", op.as_str()))?;
         match kernel {
             KernelFn::Vulkan(func) => Ok(TensorStorage::Device(DeviceTensor::Vulkan(

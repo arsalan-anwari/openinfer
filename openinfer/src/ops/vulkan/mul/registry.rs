@@ -10,10 +10,10 @@ use super::mul_generic;
 pub fn lookup_kernel_vulkan_mul(
     output_dtype: DType,
     input_dtypes: &[DType],
-    attrs: OpAttrs,
+    attrs: &OpAttrs,
 ) -> Option<KernelFn> {
     match (output_dtype, input_dtypes, attrs) {
-        (out, [a, b], OpAttrs::None)
+        (out, [a, b], &OpAttrs::None)
             if out == *a
                 && *a == *b
                 && matches!(
@@ -31,7 +31,7 @@ pub fn lookup_kernel_vulkan_mul(
         ) =>
         {
             Some(KernelFn::Vulkan(device_kernel(
-                mul_generic as fn(&OpAttrs, &VulkanBuffer, &VulkanBuffer , u32) -> Result<VulkanBuffer>,
+                mul_generic as fn(&OpAttrs, &VulkanBuffer, &VulkanBuffer , usize) -> Result<VulkanBuffer>,
             )))
         }
         _ => None,

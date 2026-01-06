@@ -1,12 +1,13 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::marker::PhantomData;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use anyhow::{anyhow, Result};
 use serde::ser::{Serialize, SerializeStruct, Serializer};
 
 use crate::backend::TensorStorage;
-use crate::graph::{describe_node, Graph, NodeKind, OpAttrs, OpKind};
+use crate::graph::{describe_node, AttrValue, Graph, NodeKind, OpAttrs, OpKind};
 use crate::model_loader::ModelLoader;
 use crate::tensor::{DType, Tensor, TensorElement, TensorValue};
 use crate::timer::Timer;
@@ -20,6 +21,8 @@ mod vulkan;
 use cpu::CpuBackend;
 #[cfg(feature = "vulkan")]
 use vulkan::VulkanBackend;
+
+static NEXT_THREAD_ID: AtomicUsize = AtomicUsize::new(0);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Device {
@@ -58,7 +61,7 @@ pub(crate) trait DeviceBackend {
         attrs: &OpAttrs,
         output_dtype: DType,
         tensors: &[TensorStorage],
-        thread_id: u32,
+        thread_id: usize,
     ) -> Result<TensorStorage>;
 }
 
@@ -76,6 +79,8 @@ fn backend_for(device: Device) -> Result<Box<dyn DeviceBackend>> {
 pub struct Simulator<'a> {
     model: &'a ModelLoader,
     device: Device,
+    trace_enabled: bool,
+    timer_enabled: bool,
 }
 
 impl<'a> Simulator<'a> {
@@ -83,11 +88,32 @@ impl<'a> Simulator<'a> {
         if !device.is_supported() {
             return Err(anyhow!("device {:?} not supported for this build", device));
         }
-        Ok(Self { model, device })
+        Ok(Self {
+            model,
+            device,
+            trace_enabled: false,
+            timer_enabled: false,
+        })
+    }
+
+    pub fn with_trace(mut self) -> Self {
+        self.trace_enabled = true;
+        self
+    }
+
+    pub fn with_timer(mut self) -> Self {
+        self.timer_enabled = true;
+        self
     }
 
     pub fn make_executor(&self, graph: &Graph) -> Result<Executor<'a>> {
-        Executor::new(self.model, self.device, graph)
+        Executor::new(
+            self.model,
+            self.device,
+            graph,
+            self.trace_enabled,
+            self.timer_enabled,
+        )
     }
 }
 
@@ -109,11 +135,18 @@ pub struct Executor<'a> {
     next_node: usize,
     block_name: String,
     trace_events: Vec<TraceEvent>,
-    thread_id: u32,
+    trace_enabled: bool,
+    thread_id: usize,
 }
 
 impl<'a> Executor<'a> {
-    pub(crate) fn new(model: &'a ModelLoader, device: Device, graph: &Graph) -> Result<Self> {
+    pub(crate) fn new(
+        model: &'a ModelLoader,
+        device: Device,
+        graph: &Graph,
+        trace_enabled: bool,
+        timer_enabled: bool,
+    ) -> Result<Self> {
         let mut storage = HashMap::new();
         let mut kinds = HashMap::new();
         for (name, decl) in &graph.vars {
@@ -123,6 +156,8 @@ impl<'a> Executor<'a> {
             }
         }
 
+        let thread_id = NEXT_THREAD_ID.fetch_add(1, Ordering::Relaxed);
+        Timer::set_enabled(thread_id, timer_enabled);
         Ok(Self {
             model,
             backend: backend_for(device)?,
@@ -135,7 +170,8 @@ impl<'a> Executor<'a> {
             next_node: 0,
             block_name: "entry".to_string(),
             trace_events: Vec::new(),
-            thread_id: 0,
+            trace_enabled,
+            thread_id,
         })
     }
 
@@ -229,7 +265,7 @@ impl<'a> Executor<'a> {
                 inputs,
                 output,
             } => {
-                self.exec_op(*op, *attrs, inputs, output)?;
+                self.exec_op(*op, attrs, inputs, output)?;
                 let (micros, micros_parts) = Timer::elapsed(self.thread_id)
                     .map(format_duration_ns)
                     .unwrap_or_else(|| (String::new(), [0, 0, 0]));
@@ -270,7 +306,9 @@ impl<'a> Executor<'a> {
         self.next_node = 0;
         while self.is_running() {
             let event = self.next_node()?;
-            println!("{}", format_step_line(&event));
+            if self.trace_enabled {
+                println!("{}", format_step_line(&event));
+            }
         }
         Ok(())
     }
@@ -289,14 +327,21 @@ impl<'a> Executor<'a> {
     fn exec_op(
         &mut self,
         op: OpKind,
-        attrs: OpAttrs,
+        attrs: &OpAttrs,
         inputs: &[String],
         output: &str,
     ) -> Result<()> {
         let mut tensors = Vec::new();
         for input in inputs {
+            if self.kinds.get(input) == Some(&MemoryKind::Constant) {
+                return Err(anyhow!("cannot use constant memory in ops: {}", input));
+            }
             tensors.push(self.get_tensor(input)?);
         }
+        if self.kinds.get(output) == Some(&MemoryKind::Constant) {
+            return Err(anyhow!("cannot write to constant memory: {}", output));
+        }
+        let resolved_attrs = self.resolve_op_attrs(attrs)?;
         let output_dtype = match self.graph.vars.get(output) {
             Some(var) => var.dtype,
             None => tensors
@@ -307,7 +352,7 @@ impl<'a> Executor<'a> {
 
         let result = self
             .backend
-            .exec_op(op, &attrs, output_dtype, &tensors, self.thread_id)?;
+            .exec_op(op, &resolved_attrs, output_dtype, &tensors, self.thread_id)?;
 
         if self.kinds.get(output) == Some(&MemoryKind::Dynamic) {
             self.dynamic.insert(output.to_string(), result);
@@ -316,6 +361,38 @@ impl<'a> Executor<'a> {
                 .insert(output.to_string(), StoredTensor::Data(result));
         }
         Ok(())
+    }
+
+    fn resolve_op_attrs(&mut self, attrs: &OpAttrs) -> Result<OpAttrs> {
+        match attrs {
+            OpAttrs::None => Ok(OpAttrs::None),
+            OpAttrs::Relu {
+                negative_slope,
+                clamp_max,
+            } => Ok(OpAttrs::Relu {
+                negative_slope: AttrValue::Literal(self.resolve_attr_value(negative_slope)?),
+                clamp_max: AttrValue::Literal(self.resolve_attr_value(clamp_max)?),
+            }),
+        }
+    }
+
+    fn resolve_attr_value(&mut self, value: &AttrValue) -> Result<f32> {
+        match value {
+            AttrValue::Literal(val) => Ok(*val),
+            AttrValue::Var(name) => match self.kinds.get(name) {
+                Some(MemoryKind::Constant) => {
+                    let tensor = self.get_tensor(name)?;
+                    let host = self.backend.download(tensor)?;
+                    tensor_scalar_to_f32(&host, name)
+                }
+                Some(kind) => Err(anyhow!(
+                    "op setting must reference constant memory: {} is {:?}",
+                    name,
+                    kind
+                )),
+                None => Err(anyhow!("unknown variable: {}", name)),
+            },
+        }
     }
 
     fn get_tensor(&mut self, name: &str) -> Result<TensorStorage> {
@@ -384,7 +461,9 @@ impl<'a> Executor<'a> {
     }
 
     fn record_event(&mut self, event: TraceEvent) -> TraceEvent {
-        self.trace_events.push(event.clone());
+        if self.trace_enabled {
+            self.trace_events.push(event.clone());
+        }
         event
     }
 }
@@ -432,17 +511,44 @@ fn format_duration_ns(ns: u128) -> (String, [u64; 3]) {
     let rem_ms = (ns % 1_000_000) as u64;
     let us = rem_ms / 1_000;
     let ns = rem_ms % 1_000;
-    (
-        format!("{} ms {} \u{00B5}s {} ns", ms, us, ns),
-        [ms, us, ns],
-    )
+    (format!("{}ms {}us {}ns", ms, us, ns), [ms, us, ns])
 }
 
 fn format_step_line(event: &TraceEvent) -> String {
-    format!(
-        "{} {} [{}] -- {}",
-        event.node_index, event.node_uuid, event.block_name, event.node_desc
-    )
+    match event.kind {
+        TraceEventKind::OpExecute => format!(
+            "{} {} [{}] -- {} -- ({})",
+            event.node_index, event.node_uuid, event.block_name, event.node_desc, event.micros
+        ),
+        _ => format!(
+            "{} {} [{}] -- {}",
+            event.node_index, event.node_uuid, event.block_name, event.node_desc
+        ),
+    }
+}
+
+fn tensor_scalar_to_f32(value: &TensorValue, name: &str) -> Result<f32> {
+    if value.len() != 1 {
+        return Err(anyhow!("op setting {} must be a scalar value", name));
+    }
+    match value {
+        TensorValue::F32(tensor) => Ok(tensor.data[0]),
+        TensorValue::F64(tensor) => Ok(tensor.data[0] as f32),
+        TensorValue::I8(tensor) => Ok(tensor.data[0] as f32),
+        TensorValue::I16(tensor) => Ok(tensor.data[0] as f32),
+        TensorValue::I32(tensor) => Ok(tensor.data[0] as f32),
+        TensorValue::I64(tensor) => Ok(tensor.data[0] as f32),
+        TensorValue::U8(tensor) => Ok(tensor.data[0] as f32),
+        TensorValue::U16(tensor) => Ok(tensor.data[0] as f32),
+        TensorValue::U32(tensor) => Ok(tensor.data[0] as f32),
+        TensorValue::U64(tensor) => Ok(tensor.data[0] as f32),
+        TensorValue::Bool(tensor) => Ok(if tensor.data[0] { 1.0 } else { 0.0 }),
+        TensorValue::F16(_) | TensorValue::Bitset(_) => Err(anyhow!(
+            "op setting {} has unsupported dtype {:?}",
+            name,
+            value.dtype()
+        )),
+    }
 }
 
 impl Serialize for TraceEvent {

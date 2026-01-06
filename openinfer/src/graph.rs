@@ -12,6 +12,7 @@ pub enum OpKind {
     Add,
     Mul,
     Abs,
+    Relu,
 }
 
 impl OpKind {
@@ -20,13 +21,24 @@ impl OpKind {
             OpKind::Add => "add",
             OpKind::Mul => "mul",
             OpKind::Abs => "abs",
+            OpKind::Relu => "relu",
         }
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum AttrValue {
+    Literal(f32),
+    Var(String),
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum OpAttrs {
     None,
+    Relu {
+        negative_slope: AttrValue,
+        clamp_max: AttrValue,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

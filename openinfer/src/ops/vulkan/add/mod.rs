@@ -9,7 +9,7 @@ use crate::timer::Timer;
 
 pub mod registry;
 
-pub fn add_generic(attrs: &OpAttrs, a: &VulkanBuffer, b: &VulkanBuffer, thread_id: u32) -> Result<VulkanBuffer> {
+pub fn add_generic(attrs: &OpAttrs, a: &VulkanBuffer, b: &VulkanBuffer, thread_id: usize) -> Result<VulkanBuffer> {
     let strict_shapes = a.shader_setting_bool("strict_shapes").unwrap_or(true);
     if strict_shapes && a.len != b.len {
         return Err(anyhow!("add op shape mismatch"));
@@ -32,6 +32,7 @@ pub fn add_generic(attrs: &OpAttrs, a: &VulkanBuffer, b: &VulkanBuffer, thread_i
     let output_size = storage_size_bytes(a.dtype) * len;
     let output_inner = runtime.create_buffer(output_size)?;
     Timer::start(thread_id);
+    let push = [len as u32, 0, 0, 0];
     let dispatch_result = runtime.dispatch(
         OpKind::Add,
         a.dtype,
@@ -41,7 +42,7 @@ pub fn add_generic(attrs: &OpAttrs, a: &VulkanBuffer, b: &VulkanBuffer, thread_i
         &a.inner,
         &b.inner,
         &output_inner,
-        0,
+        push,
         len,
     );
     Timer::stop(thread_id);
@@ -56,16 +57,16 @@ pub fn add_generic(attrs: &OpAttrs, a: &VulkanBuffer, b: &VulkanBuffer, thread_i
 
 pub(crate) fn spv_target_name_add(dtype: DType, attrs: &OpAttrs) -> Result<String> {
     match (dtype, attrs) {
-        (DType::I8, OpAttrs::None)
-        | (DType::I16, OpAttrs::None)
-        | (DType::F32, OpAttrs::None)
-        | (DType::Bool, OpAttrs::None)
-        | (DType::U8, OpAttrs::None)
-        | (DType::U16, OpAttrs::None)
-        | (DType::I32, OpAttrs::None)
-        | (DType::U32, OpAttrs::None)
-        | (DType::I64, OpAttrs::None)
-        | (DType::U64, OpAttrs::None) => Ok(format!("add_{}", super::dtype_suffix(dtype).unwrap())),
+        (DType::I8, &OpAttrs::None)
+        | (DType::I16, &OpAttrs::None)
+        | (DType::F32, &OpAttrs::None)
+        | (DType::Bool, &OpAttrs::None)
+        | (DType::U8, &OpAttrs::None)
+        | (DType::U16, &OpAttrs::None)
+        | (DType::I32, &OpAttrs::None)
+        | (DType::U32, &OpAttrs::None)
+        | (DType::I64, &OpAttrs::None)
+        | (DType::U64, &OpAttrs::None) => Ok(format!("add_{}", super::dtype_suffix(dtype).unwrap())),
         _ => Err(anyhow!(
             "no Vulkan SPIR-V target for add dtype {:?}, attrs {:?}",
             dtype,

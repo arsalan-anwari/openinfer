@@ -5,10 +5,10 @@ use crate::graph::{OpAttrs, OpKind};
 use crate::tensor::{DType, TensorValue};
 
 pub type HostKernel =
-    Box<dyn Fn(&OpAttrs, &[TensorValue], u32) -> Result<TensorValue> + Send + Sync>;
+    Box<dyn Fn(&OpAttrs, &[TensorValue], usize) -> Result<TensorValue> + Send + Sync>;
 #[cfg(feature = "vulkan")]
 pub type VulkanKernel =
-    Box<dyn Fn(&OpAttrs, &[&crate::backend::VulkanBuffer], u32) -> Result<crate::backend::VulkanBuffer> + Send + Sync>;
+    Box<dyn Fn(&OpAttrs, &[&crate::backend::VulkanBuffer], usize) -> Result<crate::backend::VulkanBuffer> + Send + Sync>;
 
 pub enum KernelFn {
     Host(HostKernel),
@@ -21,7 +21,7 @@ pub fn lookup_kernel(
     op: OpKind,
     output_dtype: DType,
     input_dtypes: &[DType],
-    attrs: OpAttrs,
+    attrs: &OpAttrs,
 ) -> Option<KernelFn> {
     match device {
         Device::Cpu => super::cpu::registry::lookup_kernel_cpu(

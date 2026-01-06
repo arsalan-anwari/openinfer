@@ -221,7 +221,7 @@ impl VulkanRuntime {
         input0: &VulkanBufferInner,
         input1: &VulkanBufferInner,
         output: &VulkanBufferInner,
-        flags: u32,
+        push: [u32; 4],
         len: usize,
     ) -> Result<()> {
         if len == 0 {
@@ -298,7 +298,6 @@ impl VulkanRuntime {
                 std::slice::from_ref(&descriptor_set),
                 &[],
             );
-            let push = [len as u32, flags, 0, 0];
             let push_bytes = std::slice::from_raw_parts(push.as_ptr().cast::<u8>(), 16);
             self.device.cmd_push_constants(
                 command_buffer,

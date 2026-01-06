@@ -6,6 +6,7 @@ use syn::{braced, parenthesized, Ident, LitInt, Token};
 mod kw {
     syn::custom_keyword!(dynamic);
     syn::custom_keyword!(volatile);
+    syn::custom_keyword!(constant);
     syn::custom_keyword!(block);
     syn::custom_keyword!(assign);
     syn::custom_keyword!(op);
@@ -38,6 +39,7 @@ struct MemorySection {
 enum MemoryKindToken {
     Dynamic,
     Volatile,
+    Constant,
 }
 
 struct VarDecl {
@@ -77,14 +79,32 @@ struct AssignNode {
 struct OpNode {
     name: Ident,
     inputs: Vec<Ident>,
+    settings: Vec<OpSetting>,
     output: Ident,
+}
+
+#[derive(Clone)]
+struct OpSetting {
+    name: Ident,
+    value: OpAttrValue,
+}
+
+#[derive(Clone)]
+enum OpAttrValue {
+    Literal(f32),
+    Var(Ident),
+}
+
+enum OpArg {
+    Input(Ident),
+    Setting(OpSetting),
 }
 
 impl Parse for GraphDsl {
     fn parse(input: ParseStream) -> Result<Self> {
         let mut sections = Vec::new();
         while !input.is_empty() {
-            if input.peek(kw::dynamic) || input.peek(kw::volatile) {
+            if input.peek(kw::dynamic) || input.peek(kw::volatile) || input.peek(kw::constant) {
                 sections.push(Section::Memory(input.parse()?));
             } else if input.peek(kw::block) {
                 sections.push(Section::Block(input.parse()?));
@@ -101,9 +121,12 @@ impl Parse for MemorySection {
         let kind = if input.peek(kw::dynamic) {
             input.parse::<kw::dynamic>()?;
             MemoryKindToken::Dynamic
-        } else {
+        } else if input.peek(kw::volatile) {
             input.parse::<kw::volatile>()?;
             MemoryKindToken::Volatile
+        } else {
+            input.parse::<kw::constant>()?;
+            MemoryKindToken::Constant
         };
 
         let content;
@@ -164,9 +187,22 @@ impl Parse for Node {
             let content;
             parenthesized!(content in input);
             let mut inputs = Vec::new();
+            let mut settings = Vec::new();
+            let mut seen_setting = false;
             while !content.is_empty() {
-                let ident: Ident = content.parse()?;
-                inputs.push(ident);
+                let arg = parse_op_arg(&content)?;
+                match arg {
+                    OpArg::Input(ident) => {
+                        if seen_setting {
+                            return Err(content.error("positional args must come before settings"));
+                        }
+                        inputs.push(ident);
+                    }
+                    OpArg::Setting(setting) => {
+                        seen_setting = true;
+                        settings.push(setting);
+                    }
+                }
                 if content.peek(Token![,]) {
                     content.parse::<Token![,]>()?;
                 }
@@ -175,7 +211,12 @@ impl Parse for Node {
             input.parse::<Token![>]>()?;
             let output: Ident = input.parse()?;
             input.parse::<Token![;]>()?;
-            Ok(Node::Op(OpNode { name, inputs, output }))
+            Ok(Node::Op(OpNode {
+                name,
+                inputs,
+                settings,
+                output,
+            }))
         } else if input.peek(Token![return]) {
             input.parse::<Token![return]>()?;
             input.parse::<Token![;]>()?;
@@ -224,6 +265,56 @@ fn parse_init(input: ParseStream) -> Result<Option<InitValue>> {
     }
 }
 
+fn parse_op_arg(input: ParseStream) -> Result<OpArg> {
+    let name: Ident = input.parse()?;
+    if input.peek(Token![=]) {
+        input.parse::<Token![=]>()?;
+        let value = parse_op_attr_value(input)?;
+        Ok(OpArg::Setting(OpSetting { name, value }))
+    } else {
+        Ok(OpArg::Input(name))
+    }
+}
+
+fn parse_op_attr_value(input: ParseStream) -> Result<OpAttrValue> {
+    let negative = if input.peek(Token![-]) {
+        input.parse::<Token![-]>()?;
+        true
+    } else {
+        false
+    };
+
+    if input.peek(syn::LitFloat) {
+        let lit: syn::LitFloat = input.parse()?;
+        let mut value: f32 = lit.base10_parse()?;
+        if negative {
+            value = -value;
+        }
+        return Ok(OpAttrValue::Literal(value));
+    }
+    if input.peek(LitInt) {
+        let lit: LitInt = input.parse()?;
+        let mut value: f32 = lit.base10_parse::<i64>()? as f32;
+        if negative {
+            value = -value;
+        }
+        return Ok(OpAttrValue::Literal(value));
+    }
+    if input.peek(Ident) {
+        let ident: Ident = input.parse()?;
+        if negative {
+            return Err(input.error("unexpected '-' before identifier"));
+        }
+        let name = ident.to_string();
+        if name == "inf" {
+            return Ok(OpAttrValue::Literal(f32::INFINITY));
+        }
+        return Ok(OpAttrValue::Var(ident));
+    }
+
+    Err(input.error("expected literal or identifier for op setting"))
+}
+
 impl GraphDsl {
     fn expand(self) -> Result<TokenStream> {
         let mut stmts = Vec::new();
@@ -236,6 +327,7 @@ impl GraphDsl {
                     let kind_expr = match mem.kind {
                         MemoryKindToken::Dynamic => quote! { ::openinfer::MemoryKind::Dynamic },
                         MemoryKindToken::Volatile => quote! { ::openinfer::MemoryKind::Volatile },
+                        MemoryKindToken::Constant => quote! { ::openinfer::MemoryKind::Constant },
                     };
                     for var in mem.vars {
                         let name = var.name.to_string();
@@ -271,10 +363,11 @@ impl GraphDsl {
                                     quote! { #s.to_string() }
                                 });
                                 let output = op.output.to_string();
+                                let attrs = op_attrs_expr(&op.name, &op.settings)?;
                                 quote! {
                                     ::openinfer::NodeKind::Op {
                                         op: #kind,
-                                        attrs: ::openinfer::OpAttrs::None,
+                                        attrs: #attrs,
                                         inputs: vec![#(#inputs),*],
                                         output: #output.to_string(),
                                     }
@@ -326,7 +419,87 @@ fn match_opkind(op: &Ident) -> Result<proc_macro2::TokenStream> {
         "add" => Ok(quote! { ::openinfer::OpKind::Add }),
         "mul" => Ok(quote! { ::openinfer::OpKind::Mul }),
         "abs" => Ok(quote! { ::openinfer::OpKind::Abs }),
+        "relu" => Ok(quote! { ::openinfer::OpKind::Relu }),
         _ => Err(syn::Error::new(op.span(), "unsupported op")),
+    }
+}
+
+fn op_attrs_expr(op: &Ident, settings: &[OpSetting]) -> Result<proc_macro2::TokenStream> {
+    let name = op.to_string();
+    match name.as_str() {
+        "relu" => {
+            let mut negative_slope: Option<OpAttrValue> = None;
+            let mut clamp_max: Option<OpAttrValue> = None;
+            for setting in settings {
+                let key = setting.name.to_string();
+                match key.as_str() {
+                    "negative_slope" => {
+                        if negative_slope.is_some() {
+                            return Err(syn::Error::new(
+                                setting.name.span(),
+                                "duplicate relu setting: negative_slope",
+                            ));
+                        }
+                        negative_slope = Some(setting.value.clone());
+                    }
+                    "clamp_max" => {
+                        if clamp_max.is_some() {
+                            return Err(syn::Error::new(
+                                setting.name.span(),
+                                "duplicate relu setting: clamp_max",
+                            ));
+                        }
+                        clamp_max = Some(setting.value.clone());
+                    }
+                    _ => {
+                        return Err(syn::Error::new(
+                            setting.name.span(),
+                            "unsupported relu setting",
+                        ))
+                    }
+                }
+            }
+            let negative_slope =
+                negative_slope.unwrap_or_else(|| OpAttrValue::Literal(0.0));
+            let clamp_max =
+                clamp_max.unwrap_or_else(|| OpAttrValue::Literal(f32::INFINITY));
+            let negative_slope_expr = attr_value_expr(&negative_slope);
+            let clamp_max_expr = attr_value_expr(&clamp_max);
+            Ok(quote! {
+                ::openinfer::OpAttrs::Relu {
+                    negative_slope: #negative_slope_expr,
+                    clamp_max: #clamp_max_expr,
+                }
+            })
+        }
+        _ => {
+            if settings.is_empty() {
+                Ok(quote! { ::openinfer::OpAttrs::None })
+            } else {
+                Err(syn::Error::new(op.span(), "op does not support settings"))
+            }
+        }
+    }
+}
+
+fn attr_value_expr(value: &OpAttrValue) -> proc_macro2::TokenStream {
+    match value {
+        OpAttrValue::Literal(val) => {
+            if val.is_infinite() {
+                if val.is_sign_negative() {
+                    quote! { ::openinfer::AttrValue::Literal(::std::f32::NEG_INFINITY) }
+                } else {
+                    quote! { ::openinfer::AttrValue::Literal(::std::f32::INFINITY) }
+                }
+            } else {
+                let lit = proc_macro2::Literal::f32_unsuffixed(*val);
+                quote! { ::openinfer::AttrValue::Literal(#lit) }
+            }
+        }
+        OpAttrValue::Var(ident) => {
+            let s = ident.to_string();
+            quote! { ::openinfer::AttrValue::Var(#s.to_string()) }
+        }
     }
 }
 

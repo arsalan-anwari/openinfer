@@ -17,6 +17,11 @@
       "path": "src/ops/vulkan/mul/mul.slang",
       "spv_dir": "src/ops/vulkan/mul/bin",
       "push_constants_size": 16
+    },
+    "relu": {
+      "path": "src/ops/vulkan/relu/relu.slang",
+      "spv_dir": "src/ops/vulkan/relu/bin",
+      "push_constants_size": 16
     }
   }
 }

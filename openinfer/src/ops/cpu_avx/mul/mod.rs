@@ -12,7 +12,7 @@ use crate::timer::Timer;
 
 pub mod registry;
 
-pub fn mul_f32(a: &[f32], b: &[f32], thread_id: u32) -> Result<Vec<f32>> {
+pub fn mul_f32(a: &[f32], b: &[f32], thread_id: usize) -> Result<Vec<f32>> {
     if a.len() != b.len() {
         return Err(anyhow!("mul op shape mismatch"));
     }
@@ -38,7 +38,7 @@ pub fn mul_f32(a: &[f32], b: &[f32], thread_id: u32) -> Result<Vec<f32>> {
     Ok(out)
 }
 
-pub fn mul_i8(a: &[i8], b: &[i8], thread_id: u32) -> Result<Vec<i8>> {
+pub fn mul_i8(a: &[i8], b: &[i8], thread_id: usize) -> Result<Vec<i8>> {
     if a.len() != b.len() {
         return Err(anyhow!("mul op shape mismatch"));
     }
@@ -76,7 +76,7 @@ pub fn mul_i8(a: &[i8], b: &[i8], thread_id: u32) -> Result<Vec<i8>> {
     Ok(out)
 }
 
-pub fn mul_i16(a: &[i16], b: &[i16], thread_id: u32) -> Result<Vec<i16>> {
+pub fn mul_i16(a: &[i16], b: &[i16], thread_id: usize) -> Result<Vec<i16>> {
     if a.len() != b.len() {
         return Err(anyhow!("mul op shape mismatch"));
     }
@@ -102,7 +102,7 @@ pub fn mul_i16(a: &[i16], b: &[i16], thread_id: u32) -> Result<Vec<i16>> {
     Ok(out)
 }
 
-pub fn mul_f64(a: &[f64], b: &[f64], thread_id: u32) -> Result<Vec<f64>> {
+pub fn mul_f64(a: &[f64], b: &[f64], thread_id: usize) -> Result<Vec<f64>> {
     if a.len() != b.len() {
         return Err(anyhow!("mul op shape mismatch"));
     }
@@ -128,7 +128,7 @@ pub fn mul_f64(a: &[f64], b: &[f64], thread_id: u32) -> Result<Vec<f64>> {
     Ok(out)
 }
 
-pub fn mul_u8(a: &[u8], b: &[u8], thread_id: u32) -> Result<Vec<u8>> {
+pub fn mul_u8(a: &[u8], b: &[u8], thread_id: usize) -> Result<Vec<u8>> {
     if a.len() != b.len() {
         return Err(anyhow!("mul op shape mismatch"));
     }
@@ -164,7 +164,7 @@ pub fn mul_u8(a: &[u8], b: &[u8], thread_id: u32) -> Result<Vec<u8>> {
     Ok(out)
 }
 
-pub fn mul_u16(a: &[u16], b: &[u16], thread_id: u32) -> Result<Vec<u16>> {
+pub fn mul_u16(a: &[u16], b: &[u16], thread_id: usize) -> Result<Vec<u16>> {
     if a.len() != b.len() {
         return Err(anyhow!("mul op shape mismatch"));
     }
@@ -190,7 +190,7 @@ pub fn mul_u16(a: &[u16], b: &[u16], thread_id: u32) -> Result<Vec<u16>> {
     Ok(out)
 }
 
-pub fn mul_i32(a: &[i32], b: &[i32], thread_id: u32) -> Result<Vec<i32>> {
+pub fn mul_i32(a: &[i32], b: &[i32], thread_id: usize) -> Result<Vec<i32>> {
     if a.len() != b.len() {
         return Err(anyhow!("mul op shape mismatch"));
     }
@@ -216,7 +216,7 @@ pub fn mul_i32(a: &[i32], b: &[i32], thread_id: u32) -> Result<Vec<i32>> {
     Ok(out)
 }
 
-pub fn mul_i64(a: &[i64], b: &[i64], thread_id: u32) -> Result<Vec<i64>> {
+pub fn mul_i64(a: &[i64], b: &[i64], thread_id: usize) -> Result<Vec<i64>> {
     if a.len() != b.len() {
         return Err(anyhow!("mul op shape mismatch"));
     }
@@ -249,7 +249,7 @@ pub fn mul_i64(a: &[i64], b: &[i64], thread_id: u32) -> Result<Vec<i64>> {
     Ok(out)
 }
 
-pub fn mul_u32(a: &[u32], b: &[u32], thread_id: u32) -> Result<Vec<u32>> {
+pub fn mul_u32(a: &[u32], b: &[u32], thread_id: usize) -> Result<Vec<u32>> {
     if a.len() != b.len() {
         return Err(anyhow!("mul op shape mismatch"));
     }
@@ -275,7 +275,7 @@ pub fn mul_u32(a: &[u32], b: &[u32], thread_id: u32) -> Result<Vec<u32>> {
     Ok(out)
 }
 
-pub fn mul_u64(a: &[u64], b: &[u64], thread_id: u32) -> Result<Vec<u64>> {
+pub fn mul_u64(a: &[u64], b: &[u64], thread_id: usize) -> Result<Vec<u64>> {
     if a.len() != b.len() {
         return Err(anyhow!("mul op shape mismatch"));
     }
@@ -308,7 +308,7 @@ pub fn mul_u64(a: &[u64], b: &[u64], thread_id: u32) -> Result<Vec<u64>> {
     Ok(out)
 }
 
-pub fn mul_bool(a: &[bool], b: &[bool], thread_id: u32) -> Result<Vec<bool>> {
+pub fn mul_bool(a: &[bool], b: &[bool], thread_id: usize) -> Result<Vec<bool>> {
     if a.len() != b.len() {
         return Err(anyhow!("mul op shape mismatch"));
     }
@@ -334,10 +334,10 @@ pub fn mul_bool(a: &[bool], b: &[bool], thread_id: u32) -> Result<Vec<bool>> {
     Ok(out)
 }
 
-pub fn mul_bitset(a: &[Bitset], b: &[Bitset], thread_id: u32) -> Result<Vec<Bitset>> {
+pub fn mul_bitset(a: &[Bitset], b: &[Bitset], thread_id: usize) -> Result<Vec<Bitset>> {
     crate::ops::cpu::mul::mul_bitset(a, b, thread_id)
 }
 
-pub fn mul_f16(a: &[F16], b: &[F16], thread_id: u32) -> Result<Vec<F16>> {
+pub fn mul_f16(a: &[F16], b: &[F16], thread_id: usize) -> Result<Vec<F16>> {
     crate::ops::cpu::mul::mul_f16(a, b, thread_id)
 }
