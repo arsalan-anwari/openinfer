@@ -4,10 +4,7 @@ use crate::graph::OpAttrs;
 use crate::ops::{cpu_kernel, KernelFn};
 use crate::tensor::DType;
 
-use super::{
-    mul_bitset, mul_bool, mul_f16, mul_f32, mul_f64, mul_i16, mul_i32, mul_i64, mul_i8, mul_u16,
-    mul_u32, mul_u64, mul_u8,
-};
+use super::{mul_bool, mul_f32, mul_f64, mul_i16, mul_i32, mul_i64, mul_i8, mul_u16, mul_u32, mul_u64, mul_u8};
 
 pub fn lookup_kernel_cpu_avx_mul(
     output_dtype: DType,
@@ -47,14 +44,6 @@ pub fn lookup_kernel_cpu_avx_mul(
         ))),
         (DType::Bool, [DType::Bool, DType::Bool], &OpAttrs::None) => Some(KernelFn::Host(cpu_kernel(
             mul_bool as fn(&[bool], &[bool] , usize) -> Result<Vec<bool>>,
-        ))),
-        (DType::Bitset, [DType::Bitset, DType::Bitset], &OpAttrs::None) => {
-            Some(KernelFn::Host(cpu_kernel(
-                mul_bitset as fn(&[crate::tensor::Bitset], &[crate::tensor::Bitset] , usize) -> Result<Vec<crate::tensor::Bitset>>,
-            )))
-        }
-        (DType::F16, [DType::F16, DType::F16], &OpAttrs::None) => Some(KernelFn::Host(cpu_kernel(
-            mul_f16 as fn(&[crate::tensor::F16], &[crate::tensor::F16] , usize) -> Result<Vec<crate::tensor::F16>>,
         ))),
         _ => None,
     }

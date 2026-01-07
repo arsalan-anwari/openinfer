@@ -24,10 +24,10 @@ fn main() -> anyhow::Result<()> {
         }
     };
 
-    let sim = Simulator::new(&model, Device::Cpu)?
+    let sim = Simulator::new(&model, &g, Device::Cpu)?
         .with_trace()
         .with_timer();
-    let mut exec = sim.make_executor(&g)?;
+    let mut exec = sim.make_executor()?;
 
     let mut rng = rand::thread_rng();
     let len = model.size_of("B")?;

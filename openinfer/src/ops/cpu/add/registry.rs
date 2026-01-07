@@ -4,10 +4,7 @@ use crate::graph::OpAttrs;
 use crate::ops::{cpu_kernel, KernelFn};
 use crate::tensor::DType;
 
-use super::{
-    add_bitset, add_bool, add_f16, add_f32, add_f64, add_i16, add_i32, add_i64, add_i8,
-    add_u16, add_u32, add_u64, add_u8,
-};
+use super::{add_bool, add_f32, add_f64, add_i16, add_i32, add_i64, add_i8, add_u16, add_u32, add_u64, add_u8};
 
 pub fn lookup_kernel_cpu_add(
     output_dtype: DType,
@@ -47,14 +44,6 @@ pub fn lookup_kernel_cpu_add(
         ))),
         (DType::Bool, [DType::Bool, DType::Bool], &OpAttrs::None) => Some(KernelFn::Host(cpu_kernel(
             add_bool as fn(&[bool], &[bool] , usize) -> Result<Vec<bool>>,
-        ))),
-        (DType::Bitset, [DType::Bitset, DType::Bitset], &OpAttrs::None) => {
-            Some(KernelFn::Host(cpu_kernel(
-                add_bitset as fn(&[crate::tensor::Bitset], &[crate::tensor::Bitset] , usize) -> Result<Vec<crate::tensor::Bitset>>,
-            )))
-        }
-        (DType::F16, [DType::F16, DType::F16], &OpAttrs::None) => Some(KernelFn::Host(cpu_kernel(
-            add_f16 as fn(&[crate::tensor::F16], &[crate::tensor::F16] , usize) -> Result<Vec<crate::tensor::F16>>,
         ))),
         _ => None,
     }

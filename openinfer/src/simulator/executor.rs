@@ -5,117 +5,61 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use anyhow::{anyhow, Result};
 use serde::ser::{Serialize, SerializeStruct, Serializer};
+use uuid::Uuid;
 
 use crate::backend::TensorStorage;
 use crate::graph::{describe_node, AttrValue, Graph, NodeKind, OpAttrs, OpKind};
 use crate::model_loader::ModelLoader;
-use crate::tensor::{DType, Tensor, TensorElement, TensorValue};
+use crate::tensor::{Tensor, TensorElement, TensorValue};
 use crate::timer::Timer;
 use crate::types::MemoryKind;
-use uuid::Uuid;
 
-mod cpu;
-#[cfg(feature = "vulkan")]
-mod vulkan;
-
-use cpu::CpuBackend;
-#[cfg(feature = "vulkan")]
-use vulkan::VulkanBackend;
+use super::{backend_for, Device, DeviceBackend};
 
 static NEXT_THREAD_ID: AtomicUsize = AtomicUsize::new(0);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Device {
-    Cpu,
-    CpuAvx,
-    CpuAvx2,
-    Vulkan,
+pub trait Fetchable: Sized {
+    fn fetch(exec: &mut Executor, name: &str) -> Result<Self>;
 }
 
-impl Device {
-    pub fn is_supported(&self) -> bool {
-        match self {
-            Device::Cpu => true,
-            Device::CpuAvx => cfg!(all(
-                any(target_arch = "x86", target_arch = "x86_64"),
-                target_feature = "avx"
-            )),
-            Device::CpuAvx2 => cfg!(all(
-                any(target_arch = "x86", target_arch = "x86_64"),
-                target_feature = "avx2"
-            )),
-            Device::Vulkan => cfg!(feature = "vulkan"),
+impl Fetchable for TensorValue {
+    fn fetch(exec: &mut Executor, name: &str) -> Result<Self> {
+        exec.fetch_raw(name)
+    }
+}
+
+impl<T: TensorElement> Fetchable for Tensor<T> {
+    fn fetch(exec: &mut Executor, name: &str) -> Result<Self> {
+        exec.ensure_tensor_decl(name)?;
+        exec.fetch_typed(name)
+    }
+}
+
+macro_rules! impl_fetch_scalar {
+    ($ty:ty, $func:path) => {
+        impl Fetchable for $ty {
+            fn fetch(exec: &mut Executor, name: &str) -> Result<Self> {
+                exec.ensure_scalar_decl(name)?;
+                let value = exec.fetch_raw(name)?;
+                $func(&value, name)
+            }
         }
-    }
+    };
 }
 
-#[allow(unused)]
-pub(crate) trait DeviceBackend {
-    fn device(&self) -> Device;
-    fn alloc(&self, dtype: DType, len: usize) -> Result<TensorStorage>;
-    fn upload(&self, value: TensorValue) -> Result<TensorStorage>;
-    fn download(&self, value: TensorStorage) -> Result<TensorValue>;
-    fn exec_op(
-        &self,
-        op: OpKind,
-        attrs: &OpAttrs,
-        output_dtype: DType,
-        tensors: &[TensorStorage],
-        thread_id: usize,
-    ) -> Result<TensorStorage>;
-}
-
-fn backend_for(device: Device) -> Result<Box<dyn DeviceBackend>> {
-    match device {
-        Device::Cpu | Device::CpuAvx | Device::CpuAvx2 => Ok(Box::new(CpuBackend::new(device))),
-        #[cfg(feature = "vulkan")]
-        Device::Vulkan => Ok(Box::new(VulkanBackend::new())),
-        #[cfg(not(feature = "vulkan"))]
-        Device::Vulkan => Err(anyhow!("vulkan feature not enabled for this build")),
-    }
-}
-
-#[derive(Debug)]
-pub struct Simulator<'a> {
-    model: &'a ModelLoader,
-    device: Device,
-    trace_enabled: bool,
-    timer_enabled: bool,
-}
-
-impl<'a> Simulator<'a> {
-    pub fn new(model: &'a ModelLoader, device: Device) -> Result<Self> {
-        if !device.is_supported() {
-            return Err(anyhow!("device {:?} not supported for this build", device));
-        }
-        Ok(Self {
-            model,
-            device,
-            trace_enabled: false,
-            timer_enabled: false,
-        })
-    }
-
-    pub fn with_trace(mut self) -> Self {
-        self.trace_enabled = true;
-        self
-    }
-
-    pub fn with_timer(mut self) -> Self {
-        self.timer_enabled = true;
-        self
-    }
-
-    pub fn make_executor(&self, graph: &Graph) -> Result<Executor<'a>> {
-        Executor::new(
-            self.model,
-            self.device,
-            graph,
-            self.trace_enabled,
-            self.timer_enabled,
-        )
-    }
-}
+impl_fetch_scalar!(f32, tensor_scalar_to_f32);
+impl_fetch_scalar!(f64, tensor_scalar_to_f64);
+impl_fetch_scalar!(i8, tensor_scalar_to_i8);
+impl_fetch_scalar!(i16, tensor_scalar_to_i16);
+impl_fetch_scalar!(i32, tensor_scalar_to_i32);
+impl_fetch_scalar!(i64, tensor_scalar_to_i64);
+impl_fetch_scalar!(u8, tensor_scalar_to_u8);
+impl_fetch_scalar!(u16, tensor_scalar_to_u16);
+impl_fetch_scalar!(u32, tensor_scalar_to_u32);
+impl_fetch_scalar!(u64, tensor_scalar_to_u64);
+impl_fetch_scalar!(bool, tensor_scalar_to_bool);
+impl_fetch_scalar!(crate::tensor::F16, tensor_scalar_to_f16);
+impl_fetch_scalar!(crate::tensor::Bitset, tensor_scalar_to_bitset);
 
 #[derive(Debug, Clone)]
 enum StoredTensor {
@@ -143,7 +87,7 @@ impl<'a> Executor<'a> {
     pub(crate) fn new(
         model: &'a ModelLoader,
         device: Device,
-        graph: &Graph,
+        graph: Graph,
         trace_enabled: bool,
         timer_enabled: bool,
     ) -> Result<Self> {
@@ -161,7 +105,7 @@ impl<'a> Executor<'a> {
         Ok(Self {
             model,
             backend: backend_for(device)?,
-            graph: graph.clone(),
+            graph,
             dynamic: HashMap::new(),
             storage,
             kinds,
@@ -176,9 +120,32 @@ impl<'a> Executor<'a> {
     }
 
     pub fn insert_dynamic<T: Into<TensorValue>>(&mut self, name: &str, data: T) -> Result<()> {
+        let decl = self
+            .graph
+            .vars
+            .get(name)
+            .ok_or_else(|| anyhow!("unknown variable: {}", name))?;
         match self.kinds.get(name) {
             Some(MemoryKind::Dynamic) => {
-                let uploaded = self.backend.upload(data.into())?;
+                let value: TensorValue = data.into();
+                let expected_len = self.model.resolve_len(&decl.dims)?;
+                if value.len() != expected_len {
+                    return Err(anyhow!(
+                        "dynamic variable {} expects {} values, got {}",
+                        name,
+                        expected_len,
+                        value.len()
+                    ));
+                }
+                if value.dtype() != decl.dtype {
+                    return Err(anyhow!(
+                        "dynamic variable {} expects dtype {:?}, got {:?}",
+                        name,
+                        decl.dtype,
+                        value.dtype()
+                    ));
+                }
+                let uploaded = self.backend.upload(value)?;
                 self.dynamic.insert(name.to_string(), uploaded);
                 Ok(())
             }
@@ -187,7 +154,11 @@ impl<'a> Executor<'a> {
         }
     }
 
-    pub fn fetch(&mut self, name: &str) -> Result<TensorValue> {
+    pub fn fetch<T: Fetchable>(&mut self, name: &str) -> Result<T> {
+        T::fetch(self, name)
+    }
+
+    fn fetch_raw(&mut self, name: &str) -> Result<TensorValue> {
         match self.kinds.get(name) {
             Some(MemoryKind::Dynamic) => self
                 .dynamic
@@ -203,14 +174,33 @@ impl<'a> Executor<'a> {
     }
 
     pub fn fetch_typed<T: TensorElement>(&mut self, name: &str) -> Result<Tensor<T>> {
-        let value = self.fetch(name)?;
+        let value = self.fetch_raw(name)?;
         T::from_value(&value)
             .ok_or_else(|| anyhow!("dtype mismatch for fetched tensor {}", name))
     }
 
-    pub fn fetch_typed_or_empty<T: TensorElement>(&mut self, name: &str) -> Tensor<T> {
-        self.fetch_typed::<T>(name)
-            .unwrap_or_else(|_| Tensor::new(Vec::new()))
+    fn ensure_scalar_decl(&self, name: &str) -> Result<()> {
+        let decl = self
+            .graph
+            .vars
+            .get(name)
+            .ok_or_else(|| anyhow!("unknown variable: {}", name))?;
+        if !decl.dims.is_empty() {
+            return Err(anyhow!("variable {} is not a scalar", name));
+        }
+        Ok(())
+    }
+
+    fn ensure_tensor_decl(&self, name: &str) -> Result<()> {
+        let decl = self
+            .graph
+            .vars
+            .get(name)
+            .ok_or_else(|| anyhow!("unknown variable: {}", name))?;
+        if decl.dims.is_empty() {
+            return Err(anyhow!("variable {} is a scalar", name));
+        }
+        Ok(())
     }
 
     pub fn run_step(&mut self) -> Result<()> {
@@ -333,9 +323,6 @@ impl<'a> Executor<'a> {
     ) -> Result<()> {
         let mut tensors = Vec::new();
         for input in inputs {
-            if self.kinds.get(input) == Some(&MemoryKind::Constant) {
-                return Err(anyhow!("cannot use constant memory in ops: {}", input));
-            }
             tensors.push(self.get_tensor(input)?);
         }
         if self.kinds.get(output) == Some(&MemoryKind::Constant) {
@@ -383,7 +370,7 @@ impl<'a> Executor<'a> {
                 Some(MemoryKind::Constant) => {
                     let tensor = self.get_tensor(name)?;
                     let host = self.backend.download(tensor)?;
-                    tensor_scalar_to_f32(&host, name)
+                    tensor_scalar_to_f32_lossy(&host, name)
                 }
                 Some(kind) => Err(anyhow!(
                     "op setting must reference constant memory: {} is {:?}",
@@ -527,10 +514,23 @@ fn format_step_line(event: &TraceEvent) -> String {
     }
 }
 
-fn tensor_scalar_to_f32(value: &TensorValue, name: &str) -> Result<f32> {
+fn ensure_scalar_len(value: &TensorValue, name: &str) -> Result<()> {
     if value.len() != 1 {
-        return Err(anyhow!("op setting {} must be a scalar value", name));
+        return Err(anyhow!("{} must be a scalar value", name));
     }
+    Ok(())
+}
+
+fn tensor_scalar_to_f32(value: &TensorValue, name: &str) -> Result<f32> {
+    ensure_scalar_len(value, name)?;
+    match value {
+        TensorValue::F32(tensor) => Ok(tensor.data[0]),
+        _ => Err(anyhow!("expected f32 scalar for {}", name)),
+    }
+}
+
+fn tensor_scalar_to_f32_lossy(value: &TensorValue, name: &str) -> Result<f32> {
+    ensure_scalar_len(value, name)?;
     match value {
         TensorValue::F32(tensor) => Ok(tensor.data[0]),
         TensorValue::F64(tensor) => Ok(tensor.data[0] as f32),
@@ -543,11 +543,104 @@ fn tensor_scalar_to_f32(value: &TensorValue, name: &str) -> Result<f32> {
         TensorValue::U32(tensor) => Ok(tensor.data[0] as f32),
         TensorValue::U64(tensor) => Ok(tensor.data[0] as f32),
         TensorValue::Bool(tensor) => Ok(if tensor.data[0] { 1.0 } else { 0.0 }),
-        TensorValue::F16(_) | TensorValue::Bitset(_) => Err(anyhow!(
-            "op setting {} has unsupported dtype {:?}",
-            name,
-            value.dtype()
-        )),
+        TensorValue::F16(tensor) => Ok(tensor.data[0].to_f32()),
+        TensorValue::Bitset(tensor) => Ok(tensor.data[0].bits as f32),
+    }
+}
+
+fn tensor_scalar_to_f64(value: &TensorValue, name: &str) -> Result<f64> {
+    ensure_scalar_len(value, name)?;
+    match value {
+        TensorValue::F64(tensor) => Ok(tensor.data[0]),
+        _ => Err(anyhow!("expected f64 scalar for {}", name)),
+    }
+}
+
+fn tensor_scalar_to_i8(value: &TensorValue, name: &str) -> Result<i8> {
+    ensure_scalar_len(value, name)?;
+    match value {
+        TensorValue::I8(tensor) => Ok(tensor.data[0]),
+        _ => Err(anyhow!("expected i8 scalar for {}", name)),
+    }
+}
+
+fn tensor_scalar_to_i16(value: &TensorValue, name: &str) -> Result<i16> {
+    ensure_scalar_len(value, name)?;
+    match value {
+        TensorValue::I16(tensor) => Ok(tensor.data[0]),
+        _ => Err(anyhow!("expected i16 scalar for {}", name)),
+    }
+}
+
+fn tensor_scalar_to_i32(value: &TensorValue, name: &str) -> Result<i32> {
+    ensure_scalar_len(value, name)?;
+    match value {
+        TensorValue::I32(tensor) => Ok(tensor.data[0]),
+        _ => Err(anyhow!("expected i32 scalar for {}", name)),
+    }
+}
+
+fn tensor_scalar_to_i64(value: &TensorValue, name: &str) -> Result<i64> {
+    ensure_scalar_len(value, name)?;
+    match value {
+        TensorValue::I64(tensor) => Ok(tensor.data[0]),
+        _ => Err(anyhow!("expected i64 scalar for {}", name)),
+    }
+}
+
+fn tensor_scalar_to_u8(value: &TensorValue, name: &str) -> Result<u8> {
+    ensure_scalar_len(value, name)?;
+    match value {
+        TensorValue::U8(tensor) => Ok(tensor.data[0]),
+        _ => Err(anyhow!("expected u8 scalar for {}", name)),
+    }
+}
+
+fn tensor_scalar_to_u16(value: &TensorValue, name: &str) -> Result<u16> {
+    ensure_scalar_len(value, name)?;
+    match value {
+        TensorValue::U16(tensor) => Ok(tensor.data[0]),
+        _ => Err(anyhow!("expected u16 scalar for {}", name)),
+    }
+}
+
+fn tensor_scalar_to_u32(value: &TensorValue, name: &str) -> Result<u32> {
+    ensure_scalar_len(value, name)?;
+    match value {
+        TensorValue::U32(tensor) => Ok(tensor.data[0]),
+        _ => Err(anyhow!("expected u32 scalar for {}", name)),
+    }
+}
+
+fn tensor_scalar_to_u64(value: &TensorValue, name: &str) -> Result<u64> {
+    ensure_scalar_len(value, name)?;
+    match value {
+        TensorValue::U64(tensor) => Ok(tensor.data[0]),
+        _ => Err(anyhow!("expected u64 scalar for {}", name)),
+    }
+}
+
+fn tensor_scalar_to_bool(value: &TensorValue, name: &str) -> Result<bool> {
+    ensure_scalar_len(value, name)?;
+    match value {
+        TensorValue::Bool(tensor) => Ok(tensor.data[0]),
+        _ => Err(anyhow!("expected bool scalar for {}", name)),
+    }
+}
+
+fn tensor_scalar_to_f16(value: &TensorValue, name: &str) -> Result<crate::tensor::F16> {
+    ensure_scalar_len(value, name)?;
+    match value {
+        TensorValue::F16(tensor) => Ok(tensor.data[0]),
+        _ => Err(anyhow!("expected f16 scalar for {}", name)),
+    }
+}
+
+fn tensor_scalar_to_bitset(value: &TensorValue, name: &str) -> Result<crate::tensor::Bitset> {
+    ensure_scalar_len(value, name)?;
+    match value {
+        TensorValue::Bitset(tensor) => Ok(tensor.data[0]),
+        _ => Err(anyhow!("expected bitset scalar for {}", name)),
     }
 }
 

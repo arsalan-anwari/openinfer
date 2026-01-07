@@ -80,7 +80,7 @@ Adding a New Vulkan Op
    - `openinfer/src/ops/vulkan/<op>/mod.rs` should call `runtime.dispatch(...)`.
    - `openinfer/src/ops/vulkan/<op>/registry.rs` should register the Vulkan kernel.
 5) Ensure dtype support is enforced:
-   - `openinfer/src/executor/vulkan.rs` has `ensure_supported_dtype(...)`.
+   - `openinfer/src/backend/vulkan/mod.rs` has `ensure_supported_dtype(...)`.
    - Return a clean error if the dtype is not supported on the current GPU.
 
 Common Kernel Launcher Pattern
@@ -102,7 +102,7 @@ Target Naming
 
 Notes and Limitations
 ---------------------
-- DType support is limited to the set allowed in `executor/vulkan.rs`.
+- DType support is limited to the set allowed in `openinfer/src/backend/vulkan/mod.rs`.
   Unsupported dtypes return an error before kernel dispatch.
 - `abs` for unsigned/bool can be short-circuited in Rust without launching
   a kernel (see `openinfer/src/ops/vulkan/abs/mod.rs`).

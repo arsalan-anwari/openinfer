@@ -1,6 +1,6 @@
 pub use openinfer_dsl::graph;
 
-mod executor;
+mod simulator;
 mod backend;
 mod graph;
 mod macros;
@@ -12,7 +12,7 @@ mod timer;
 mod formatting;
 mod graph_serde;
 
-pub use executor::{Device, Executor, Simulator, TraceEvent, TraceEventKind};
+pub use simulator::{Device, Executor, Fetchable, Simulator, TraceEvent, TraceEventKind};
 pub use graph::{AttrValue, Block, Graph, Node, NodeKind, OpAttrs, OpKind};
 pub use graph_serde::{GraphDeserialize, GraphSerialize};
 pub use model_loader::ModelLoader;

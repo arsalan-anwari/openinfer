@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use crate::executor::Device;
+use crate::simulator::Device;
 use crate::graph::{OpAttrs, OpKind};
 use crate::tensor::{DType, TensorValue};
 

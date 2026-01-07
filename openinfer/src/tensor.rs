@@ -11,6 +11,77 @@ pub struct F16 {
     pub bits: u16,
 }
 
+impl F16 {
+    pub fn from_f32(value: f32) -> Self {
+        let bits = value.to_bits();
+        let sign = ((bits >> 16) & 0x8000) as u16;
+        let exp = ((bits >> 23) & 0xff) as i32;
+        let mant = bits & 0x7fffff;
+        let f16_bits = match exp {
+            0 => sign,
+            255 => {
+                if mant == 0 {
+                    sign | 0x7c00
+                } else {
+                    sign | 0x7c00 | ((mant >> 13) as u16) | 1
+                }
+            }
+            _ => {
+                let exp16 = exp - 127 + 15;
+                if exp16 >= 0x1f {
+                    sign | 0x7c00
+                } else if exp16 <= 0 {
+                    if exp16 < -10 {
+                        sign
+                    } else {
+                        let mant16 = mant | 0x800000;
+                        let shift = (14 - exp16) as u32;
+                        let mut half = (mant16 >> shift) as u16;
+                        if (mant16 >> (shift - 1)) & 1 != 0 {
+                            half = half.wrapping_add(1);
+                        }
+                        sign | half
+                    }
+                } else {
+                    let mut half = ((exp16 as u16) << 10) | ((mant >> 13) as u16);
+                    if (mant >> 12) & 1 != 0 {
+                        half = half.wrapping_add(1);
+                    }
+                    sign | half
+                }
+            }
+        };
+        Self { bits: f16_bits }
+    }
+
+    pub fn to_f32(self) -> f32 {
+        let sign = ((self.bits & 0x8000) as u32) << 16;
+        let exp = (self.bits >> 10) & 0x1f;
+        let mant = (self.bits & 0x03ff) as u32;
+        let bits = if exp == 0 {
+            if mant == 0 {
+                sign
+            } else {
+                let mut mant = mant;
+                let mut exp = -1i32;
+                while (mant & 0x0400) == 0 {
+                    mant <<= 1;
+                    exp -= 1;
+                }
+                mant &= 0x03ff;
+                let exp32 = (exp + 1 + 127 - 15) as u32;
+                sign | (exp32 << 23) | (mant << 13)
+            }
+        } else if exp == 0x1f {
+            sign | 0x7f800000 | (mant << 13)
+        } else {
+            let exp32 = (exp as u32) + (127 - 15);
+            sign | (exp32 << 23) | (mant << 13)
+        };
+        f32::from_bits(bits)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Tensor<T> {
     pub data: Vec<T>,
@@ -502,5 +573,83 @@ impl From<Vec<F16>> for TensorValue {
 impl From<Tensor<F16>> for TensorValue {
     fn from(value: Tensor<F16>) -> Self {
         TensorValue::F16(value)
+    }
+}
+
+impl From<i8> for TensorValue {
+    fn from(value: i8) -> Self {
+        TensorValue::I8(Tensor::new(vec![value]))
+    }
+}
+
+impl From<i16> for TensorValue {
+    fn from(value: i16) -> Self {
+        TensorValue::I16(Tensor::new(vec![value]))
+    }
+}
+
+impl From<i32> for TensorValue {
+    fn from(value: i32) -> Self {
+        TensorValue::I32(Tensor::new(vec![value]))
+    }
+}
+
+impl From<i64> for TensorValue {
+    fn from(value: i64) -> Self {
+        TensorValue::I64(Tensor::new(vec![value]))
+    }
+}
+
+impl From<u8> for TensorValue {
+    fn from(value: u8) -> Self {
+        TensorValue::U8(Tensor::new(vec![value]))
+    }
+}
+
+impl From<u16> for TensorValue {
+    fn from(value: u16) -> Self {
+        TensorValue::U16(Tensor::new(vec![value]))
+    }
+}
+
+impl From<u32> for TensorValue {
+    fn from(value: u32) -> Self {
+        TensorValue::U32(Tensor::new(vec![value]))
+    }
+}
+
+impl From<u64> for TensorValue {
+    fn from(value: u64) -> Self {
+        TensorValue::U64(Tensor::new(vec![value]))
+    }
+}
+
+impl From<f32> for TensorValue {
+    fn from(value: f32) -> Self {
+        TensorValue::F32(Tensor::new(vec![value]))
+    }
+}
+
+impl From<f64> for TensorValue {
+    fn from(value: f64) -> Self {
+        TensorValue::F64(Tensor::new(vec![value]))
+    }
+}
+
+impl From<bool> for TensorValue {
+    fn from(value: bool) -> Self {
+        TensorValue::Bool(Tensor::new(vec![value]))
+    }
+}
+
+impl From<Bitset> for TensorValue {
+    fn from(value: Bitset) -> Self {
+        TensorValue::Bitset(Tensor::new(vec![value]))
+    }
+}
+
+impl From<F16> for TensorValue {
+    fn from(value: F16) -> Self {
+        TensorValue::F16(Tensor::new(vec![value]))
     }
 }

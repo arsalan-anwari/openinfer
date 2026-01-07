@@ -1,6 +1,5 @@
 use anyhow::{anyhow, Result};
 
-use crate::tensor::{Bitset, F16};
 use crate::timer::Timer;
 
 pub mod registry;
@@ -146,18 +145,4 @@ pub fn add_bool(a: &[bool], b: &[bool], thread_id: usize) -> Result<Vec<bool>> {
     }
     Timer::stop(thread_id);
     Ok(out)
-}
-
-pub fn add_bitset(_a: &[Bitset], _b: &[Bitset], thread_id: usize) -> Result<Vec<Bitset>> {
-    println!("cpu add_bitset: stub");
-    Timer::start(thread_id);
-    Timer::stop(thread_id);
-    Ok(Vec::new())
-}
-
-pub fn add_f16(_a: &[F16], _b: &[F16], thread_id: usize) -> Result<Vec<F16>> {
-    println!("cpu add_f16: stub");
-    Timer::start(thread_id);
-    Timer::stop(thread_id);
-    Ok(Vec::new())
 }

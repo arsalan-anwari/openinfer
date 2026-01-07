@@ -5,7 +5,6 @@ use std::arch::x86_64::{
     _mm_loadu_si128, _mm_or_si128, _mm_storeu_si128,
 };
 
-use crate::tensor::{Bitset, F16};
 use crate::timer::Timer;
 
 pub mod registry;
@@ -294,12 +293,4 @@ pub fn add_bool(a: &[bool], b: &[bool], thread_id: usize) -> Result<Vec<bool>> {
     }
     Timer::stop(thread_id);
     Ok(out)
-}
-
-pub fn add_bitset(a: &[Bitset], b: &[Bitset], thread_id: usize) -> Result<Vec<Bitset>> {
-    crate::ops::cpu::add::add_bitset(a, b, thread_id)
-}
-
-pub fn add_f16(a: &[F16], b: &[F16], thread_id: usize) -> Result<Vec<F16>> {
-    crate::ops::cpu::add::add_f16(a, b, thread_id)
 }

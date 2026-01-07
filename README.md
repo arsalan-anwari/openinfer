@@ -151,7 +151,7 @@ a: f32[B] = {3.4324, 53.24324, 2334.2345 ...}
 > minimal.rs
 ```rust
 use openinfer::{
-    graph, fetch_executor, insert_executor, Device, ModelLoader, Simulator,
+    graph, fetch_executor, insert_executor, Device, ModelLoader, Simulator, Tensor,
 };
 use rand::Rng;
 
@@ -176,8 +176,8 @@ fn main() -> anyhow::Result<()> {
         }
     };
 
-    let sim = Simulator::new(&model, Device::Cpu)?;
-    let mut exec = sim.make_executor(&g)?;
+    let sim = Simulator::new(&model, &g, Device::Cpu)?;
+    let mut exec = sim.make_executor()?;
 
     let mut rng = rand::thread_rng();
     let len = model.size_of("B")?;
@@ -191,7 +191,7 @@ fn main() -> anyhow::Result<()> {
     insert_executor!(exec, { x: input });
     exec.run_step()?;
 
-    fetch_executor!(exec, { y: f32 });
+    fetch_executor!(exec, { y: Tensor<f32> });
     println!("y[0..100] = {:?}", &y.data[..100.min(y.len())]);
 
     Ok(())
@@ -208,22 +208,27 @@ These macros bridge between user data and the executor. Use the panic-on-error v
 
 ```rust
 insert_executor!(exec, { x: vec![1.0, 2.0, 3.0] });
-fetch_executor!(exec, { y: f32 });
+fetch_executor!(exec, { y: Tensor<f32> });
 println!("y = {:?}", y.data);
+fetch_executor!(exec, { negative_slope: f32 });
+println!("negative_slope = {}", negative_slope);
 ```
 
 ```rust
 try_insert_executor!(exec, { x: vec![1.0, 2.0, 3.0] })?;
-let y = try_fetch_executor!(exec, { y: f32 })?;
+let y: Tensor<f32> = try_fetch_executor!(exec, { y: Tensor<f32> })?;
 println!("y = {:?}", y.data);
 ```
 
 ```rust
-let (y, z) = try_fetch_executor!(exec, { y: f32, z: i64 })?;
-println!("y = {:?}, z = {:?}", y.data, z.data);
+let (y, z) = (
+    try_fetch_executor!(exec, { y: Tensor<f32> })?,
+    try_fetch_executor!(exec, { z: i64 })?,
+);
+println!("y = {:?}, z = {:?}", y.data, z);
 ```
 
-> The `*_fetch_*` macros require you to specify the type of the tensor you want to load as type information of the graph nodes is loaded during runtime, but the macro runs at compile time. This means you wont know which data type the Tensor is you want to return. You could alternative omit the type hint and use it like `{y}`, but then you need to explicitly turn the TensorWrapper to a Tensor using `y.as_{type}()`. 
+> The `*_fetch_*` macros support optional type hints. If you omit the type, Rust will try to infer it from usage. Scalars (no dims) return native values like `f32` instead of `Tensor<f32>`.
 
 ---
 
@@ -430,6 +435,9 @@ persistent {
     cache: f16[H, H];
 }
 ```
+`@init(...)` literals must match the declared dtype: float literals for `f16/f32/f64`,
+integer literals for integer/bool/bitset types. For example, `@init(5)` is invalid
+for `f32`; use `@init(5.0)` instead.
 Properties:
 
 * Cache lives outside `block entry`
@@ -636,8 +644,8 @@ graph! {
 Running the graph multiple times advances the cache.
 
 ```rust
-let mut sim = Simulator::new(&model, Device::Cpu)?;
-let exec = sim.make_executor(&g)?;
+let mut sim = Simulator::new(&model, &g, Device::Cpu)?;
+let exec = sim.make_executor()?;
 
 insert_executor!(exec, { x: first_token });
 exec.run_step()?;
@@ -768,6 +776,9 @@ Simulation mode:
 * Prioritizes correctness and debuggability
 
 Simulation is designed to validate **logic and structure**, not raw performance.
+The simulator validates the graph against the model at construction time (dtype
+compatibility, constant mutation, scalar-only attributes, sizevar resolution),
+and `make_executor()` reuses the validated graph.
 
 By default, the simulator does not print trace output or time ops. Enable
 `with_trace()` for trace logging and `with_timer()` for timing data.
@@ -777,21 +788,21 @@ By default, the simulator does not print trace output or time ops. Enable
 ```rust
 use openinfer::{
   fetch_executor, format_truncated, graph, insert_executor, 
-  Device, ModelLoader, Simulator
+  Device, ModelLoader, Simulator, Tensor
 };
 
 ...
 
-let sim = Simulator::new(&model, Device::Cpu)?
+let sim = Simulator::new(&model, &g, Device::Cpu)?
   .with_trace()
   .with_timer();
-let mut exec = sim.make_executor(&g)?;
+let mut exec = sim.make_executor()?;
 insert_executor!(exec, { x: input });
 
 // This is equivalent to what happens when you call exec.step() with tracing enabled.
 for mut node in exec.iterate() {
     let ev = node.event.clone();
-    fetch_executor!(node, { y: f32 });
+    fetch_executor!(node, { y: Tensor<f32> });
     let y_str = format_truncated(&y.data);
     let y_pad = format!("{:<width$}", y_str, width = 32);
     println!(
@@ -808,10 +819,10 @@ for mut node in exec.iterate() {
 ### Export a simulator trace
 
 ```rust
-let sim = Simulator::new(&model, Device::Cpu)?
+let sim = Simulator::new(&model, &g, Device::Cpu)?
   .with_trace()
   .with_timer();
-let mut exec = sim.make_executor(&g)?;
+let mut exec = sim.make_executor()?;
 insert_executor!(exec, { x: input });
 exec.run_step()?;
 let trace = exec.trace();

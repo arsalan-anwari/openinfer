@@ -8,6 +8,7 @@ use crate::tensor::{DType, TensorValue};
 
 #[cfg(feature = "vulkan")]
 pub mod vulkan;
+pub mod cpu;
 
 #[cfg(not(feature = "vulkan"))]
 pub mod vulkan {

@@ -1,4 +1,4 @@
-use openinfer::{fetch_executor, graph, insert_executor, Device, ModelLoader, Simulator};
+use openinfer::{fetch_executor, graph, insert_executor, Device, ModelLoader, Simulator, Tensor};
 use rand::Rng;
 use std::path::Path;
 
@@ -26,8 +26,8 @@ fn main() -> anyhow::Result<()> {
         }
     };
 
-    let sim = Simulator::new(&model, Device::CpuAvx2)?;
-    let mut exec = sim.make_executor(&g)?;
+    let sim = Simulator::new(&model, &g, Device::CpuAvx2)?;
+    let mut exec = sim.make_executor()?;
 
     let mut rng = rand::thread_rng();
     let len = model.size_of("B")?;
@@ -41,10 +41,10 @@ fn main() -> anyhow::Result<()> {
     insert_executor!(exec, { x: input });
     exec.step()?;
 
-    fetch_executor!(exec, { y: f32, negative_slope: f32, clamp_max: f32 });
+    fetch_executor!(exec, { y: Tensor<f32>, negative_slope: f32, clamp_max: f32 });
     println!(
         "relu settings: negative_slope={}, clamp_max={}",
-        negative_slope.data[0], clamp_max.data[0]
+        negative_slope, clamp_max
     );
     println!("y[0..100] = {:?}", &y.data[..100.min(y.len())]);
 

@@ -1,5 +1,6 @@
 use openinfer::{
     fetch_executor, format_truncated, graph, insert_executor, Device, ModelLoader, Simulator,
+    Tensor,
 };
 use rand::Rng;
 use std::path::Path;
@@ -26,8 +27,8 @@ fn main() -> anyhow::Result<()> {
         }
     };
 
-    let sim = Simulator::new(&model, Device::Cpu)?.with_timer();
-    let mut exec = sim.make_executor(&g)?;
+    let sim = Simulator::new(&model, &g, Device::Cpu)?.with_timer();
+    let mut exec = sim.make_executor()?;
 
     let mut rng = rand::thread_rng();
     let len = model.size_of("B")?;
@@ -41,7 +42,7 @@ fn main() -> anyhow::Result<()> {
 
     for mut node in exec.iterate() {
         let ev = node.event.clone();
-        fetch_executor!(node, { y: f32 });
+        fetch_executor!(node, { y: Tensor<f32> });
         let y_str = format_truncated(&y.data);
         let y_pad = format!("{:<width$}", y_str, width = 32);
         println!(

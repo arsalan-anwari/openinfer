@@ -1,5 +1,5 @@
 use openinfer::{
-    graph, fetch_executor, insert_executor, Device, ModelLoader, Simulator,
+    graph, fetch_executor, insert_executor, Device, ModelLoader, Simulator, Tensor,
 };
 use rand::Rng;
 use std::path::Path;
@@ -26,8 +26,8 @@ fn main() -> anyhow::Result<()> {
         }
     };
 
-    let sim = Simulator::new(&model, Device::Cpu)?;
-    let mut exec = sim.make_executor(&g)?;
+    let sim = Simulator::new(&model, &g, Device::Cpu)?;
+    let mut exec = sim.make_executor()?;
 
     let mut rng = rand::thread_rng();
     let len = model.size_of("B")?;
@@ -41,9 +41,8 @@ fn main() -> anyhow::Result<()> {
     insert_executor!(exec, { x: input });
     exec.step()?;
 
-    fetch_executor!(exec, { y: f32 });
+    fetch_executor!(exec, { y: Tensor<f32> });
     println!("y[0..100] = {:?}", &y.data[..100.min(y.len())]);
 
     Ok(())
 }
-

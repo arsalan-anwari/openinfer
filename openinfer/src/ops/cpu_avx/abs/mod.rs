@@ -6,7 +6,6 @@ use std::arch::x86_64::{
     _mm_storeu_si128, _mm_sub_epi16, _mm_sub_epi32, _mm_sub_epi64, _mm_sub_epi8, _mm_xor_si128,
 };
 
-use crate::tensor::{Bitset, F16};
 use crate::timer::Timer;
 
 pub mod registry;
@@ -191,12 +190,4 @@ pub fn abs_bool(a: &[bool], thread_id: usize) -> Result<Vec<bool>> {
     Timer::start(thread_id);
     Timer::stop(thread_id);
     Ok(out)
-}
-
-pub fn abs_bitset(a: &[Bitset], thread_id: usize) -> Result<Vec<Bitset>> {
-    crate::ops::cpu::abs::abs_bitset(a, thread_id)
-}
-
-pub fn abs_f16(a: &[F16], thread_id: usize) -> Result<Vec<F16>> {
-    crate::ops::cpu::abs::abs_f16(a, thread_id)
 }

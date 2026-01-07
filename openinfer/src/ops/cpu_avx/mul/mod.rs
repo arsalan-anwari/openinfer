@@ -7,7 +7,6 @@ use std::arch::x86_64::{
     _mm_unpacklo_epi8,
 };
 
-use crate::tensor::{Bitset, F16};
 use crate::timer::Timer;
 
 pub mod registry;
@@ -332,12 +331,4 @@ pub fn mul_bool(a: &[bool], b: &[bool], thread_id: usize) -> Result<Vec<bool>> {
     }
     Timer::stop(thread_id);
     Ok(out)
-}
-
-pub fn mul_bitset(a: &[Bitset], b: &[Bitset], thread_id: usize) -> Result<Vec<Bitset>> {
-    crate::ops::cpu::mul::mul_bitset(a, b, thread_id)
-}
-
-pub fn mul_f16(a: &[F16], b: &[F16], thread_id: usize) -> Result<Vec<F16>> {
-    crate::ops::cpu::mul::mul_f16(a, b, thread_id)
 }

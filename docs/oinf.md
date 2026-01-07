@@ -139,6 +139,8 @@ If HAS_DATA is 0, `data_offset` and `data_nbytes` are 0.
 
 Tensor data blobs are raw little-endian values in row-major order. BOOL tensors
 store one byte per element.
+Scalars are encoded with `ndim = 0` and an empty dims list; they have a single
+element in the data blob.
 
 ## Text Illustration
 
@@ -179,6 +181,8 @@ python verify_oinf.py res/minimal_model.oinf
 `dataclass_to_oinf.py` can serialize any Python dataclass instance into an OINF
 file. You can pass a module path to a dataclass and optionally provide JSON data
 for its fields.
+If you need a scalar tensor (not metadata), wrap the value with `TensorSpec`
+so it is emitted into the tensor table with `ndim = 0`.
 
 Minimal example (matches `examples/python/minimal_oinf.py`):
 

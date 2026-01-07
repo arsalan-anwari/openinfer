@@ -3,9 +3,8 @@ use anyhow::{anyhow, Result};
 use crate::backend::{DeviceTensor, TensorStorage};
 use crate::graph::{OpAttrs, OpKind};
 use crate::ops::{lookup_kernel, KernelFn};
+use crate::simulator::{Device, DeviceBackend};
 use crate::tensor::{DType, TensorValue};
-
-use super::{Device, DeviceBackend};
 
 #[derive(Debug)]
 pub struct CpuBackend {

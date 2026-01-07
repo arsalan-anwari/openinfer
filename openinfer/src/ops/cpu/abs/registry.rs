@@ -4,10 +4,7 @@ use crate::graph::OpAttrs;
 use crate::ops::{cpu_kernel, KernelFn};
 use crate::tensor::DType;
 
-use super::{
-    abs_bitset, abs_bool, abs_f16, abs_f32, abs_f64, abs_i16, abs_i32, abs_i64, abs_i8, abs_u16,
-    abs_u32, abs_u64, abs_u8,
-};
+use super::{abs_bool, abs_f32, abs_f64, abs_i16, abs_i32, abs_i64, abs_i8, abs_u16, abs_u32, abs_u64, abs_u8};
 
 pub fn lookup_kernel_cpu_abs(
     output_dtype: DType,
@@ -47,12 +44,6 @@ pub fn lookup_kernel_cpu_abs(
         ))),
         (DType::Bool, [DType::Bool], &OpAttrs::None) => Some(KernelFn::Host(cpu_kernel(
             abs_bool as fn(&[bool] , usize) -> Result<Vec<bool>>,
-        ))),
-        (DType::Bitset, [DType::Bitset], &OpAttrs::None) => Some(KernelFn::Host(cpu_kernel(
-            abs_bitset as fn(&[crate::tensor::Bitset] , usize) -> Result<Vec<crate::tensor::Bitset>>,
-        ))),
-        (DType::F16, [DType::F16], &OpAttrs::None) => Some(KernelFn::Host(cpu_kernel(
-            abs_f16 as fn(&[crate::tensor::F16] , usize) -> Result<Vec<crate::tensor::F16>>,
         ))),
         _ => None,
     }

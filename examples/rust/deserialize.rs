@@ -1,4 +1,6 @@
-use openinfer::{fetch_executor, insert_executor, Device, GraphDeserialize, ModelLoader, Simulator};
+use openinfer::{
+    fetch_executor, insert_executor, Device, GraphDeserialize, ModelLoader, Simulator, Tensor,
+};
 use rand::Rng;
 use std::path::Path;
 
@@ -12,8 +14,8 @@ fn main() -> anyhow::Result<()> {
     let graph_json = serde_json::from_str(&graph_txt)?;
     let g = GraphDeserialize::from_json(graph_json)?;
 
-    let sim = Simulator::new(&model, Device::Cpu)?;
-    let mut exec = sim.make_executor(&g)?;
+    let sim = Simulator::new(&model, &g, Device::Cpu)?.with_trace();
+    let mut exec = sim.make_executor()?;
 
     let mut rng = rand::thread_rng();
     let len = model.size_of("B")?;
@@ -27,7 +29,7 @@ fn main() -> anyhow::Result<()> {
 
     exec.step()?;
 
-    fetch_executor!(exec, { y: f32 });
+    fetch_executor!(exec, { y: Tensor<f32> });
     println!("y[0..100] = {:?}", &y.data[..100.min(y.len())]);
 
     Ok(())

@@ -52,6 +52,15 @@ pub fn relu_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: usize) -> Resu
 pub(crate) fn spv_target_name_relu(dtype: DType, attrs: &OpAttrs) -> Result<String> {
     match (dtype, attrs) {
         (DType::F32, &OpAttrs::Relu { .. }) => Ok("relu_f32".to_string()),
+        (DType::I8, &OpAttrs::Relu { .. }) => Ok("relu_i8".to_string()),
+        (DType::I16, &OpAttrs::Relu { .. }) => Ok("relu_i16".to_string()),
+        (DType::I32, &OpAttrs::Relu { .. }) => Ok("relu_i32".to_string()),
+        (DType::I64, &OpAttrs::Relu { .. }) => Ok("relu_i64".to_string()),
+        (DType::U8, &OpAttrs::Relu { .. }) => Ok("relu_u8".to_string()),
+        (DType::U16, &OpAttrs::Relu { .. }) => Ok("relu_u16".to_string()),
+        (DType::U32, &OpAttrs::Relu { .. }) => Ok("relu_u32".to_string()),
+        (DType::U64, &OpAttrs::Relu { .. }) => Ok("relu_u64".to_string()),
+        (DType::Bool, &OpAttrs::Relu { .. }) => Ok("relu_bool".to_string()),
         _ => Err(anyhow!(
             "no Vulkan SPIR-V target for relu dtype {:?}, attrs {:?}",
             dtype,

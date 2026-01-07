@@ -9,8 +9,12 @@ the execution path from `graph!{}` to kernel selection.
 
 The simulator does not emit trace logs or time ops by default. Enable tracing
 and timing explicitly on construction, for example
-`Simulator::new(&model, Device::Cpu)?.with_trace().with_timer()`. Trace events
-are only stored when tracing is enabled.
+`Simulator::new(&model, &graph, Device::Cpu)?.with_trace().with_timer()`. Trace events
+are only stored when tracing is enabled. The simulator retains the validated
+graph, so `make_executor()` no longer needs it as an argument.
+During construction the simulator validates the graph against the model (sizevars,
+dtype compatibility, constant mutation, scalar-only attributes) and stores the
+validated graph for executor creation.
 
 ## DSL Parsing -> Graph
 
@@ -116,7 +120,7 @@ This becomes `ModelLoader.vars: HashMap<String, VarInfo>`.
 
 ### Lazy loading path
 
-Lazy access happens in the `Executor` (`openinfer/src/executor/mod.rs`):
+Lazy access happens in the `Executor` (`openinfer/src/simulator/executor.rs`):
 
 1. `Executor::new` sets non-dynamic variables to `StoredTensor::Unloaded`.
 2. When an op needs an input, `Executor::get_tensor` is called.
