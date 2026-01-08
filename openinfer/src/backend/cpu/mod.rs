@@ -2,9 +2,9 @@ use anyhow::{anyhow, Result};
 
 use crate::backend::{DeviceTensor, TensorStorage};
 use crate::graph::{OpAttrs, OpKind};
-use crate::ops::{lookup_kernel, KernelFn};
+use crate::ops::{broadcast_enabled, lookup_kernel, KernelFn};
 use crate::simulator::{Device, DeviceBackend};
-use crate::tensor::{DType, TensorValue};
+use crate::tensor::{broadcast_shapes, broadcast_value_to_shape, DType, TensorValue};
 
 #[derive(Debug)]
 pub struct CpuBackend {
@@ -46,7 +46,26 @@ impl DeviceBackend for CpuBackend {
         thread_id: usize,
     ) -> Result<TensorStorage> {
         let input_dtypes: Vec<DType> = tensors.iter().map(|t| t.dtype()).collect();
-        let host = to_host_tensors(tensors)?;
+        let mut host = to_host_tensors(tensors)?;
+        if host.len() > 1 {
+            if broadcast_enabled(op, self.device) {
+                let mut out_shape = host[0].shape().to_vec();
+                for value in host.iter().skip(1) {
+                    out_shape = broadcast_shapes(&out_shape, value.shape())?;
+                }
+                host = host
+                    .iter()
+                    .map(|value| broadcast_value_to_shape(value, &out_shape))
+                    .collect::<Result<Vec<_>>>()?;
+            } else {
+                let first = host[0].shape();
+                for value in host.iter().skip(1) {
+                    if value.shape() != first {
+                        return Err(anyhow!("op {} requires identical input shapes on {:?}", op.as_str(), self.device));
+                    }
+                }
+            }
+        }
         let kernel = lookup_kernel(self.device, op, output_dtype, &input_dtypes, attrs)
             .ok_or_else(|| anyhow!("unsupported op {}", op.as_str()))?;
         match kernel {

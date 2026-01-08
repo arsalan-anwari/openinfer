@@ -1032,8 +1032,9 @@ The DSL describes **intent**, not implementation.
 
 OpenInfer is in early development.
 
-Parsing of the DSL has begun, final touches on changing the DSL specs will be made before parsing to graph layout is finalized. 
-Implementations for Ops on CPU and GPU are already developed in C, just need porting to Rust and integration with this codebase. 
+Progress checklist:
+
+- `docs/progress.md`
 
 ---
 

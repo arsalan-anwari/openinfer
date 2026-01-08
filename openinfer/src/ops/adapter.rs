@@ -2,9 +2,7 @@ use anyhow::{anyhow, Result};
 
 use crate::graph::OpAttrs;
 use crate::ops::registry::HostKernel;
-use crate::tensor::{
-    broadcast_shapes, broadcast_to_vec, Tensor, TensorElement, TensorOptions, TensorValue,
-};
+use crate::tensor::{Tensor, TensorElement, TensorOptions, TensorValue};
 
 #[cfg(feature = "vulkan")]
 use crate::backend::VulkanBuffer;
@@ -79,7 +77,7 @@ where
 }
 
 macro_rules! impl_cpu_kernel_adapter_noattrs {
-    ($count:literal, $out:ident, $(($var:ident, $T:ident, $lt:tt, $idx:tt)),+; $($all_lt:tt),+) => {
+    ($count:literal, $out:ident, $first:ident, $(($var:ident, $T:ident, $lt:tt, $idx:tt)),+; $($all_lt:tt),+) => {
         impl<$($T,)+> CpuKernelAdapter for for<$($all_lt,)+> fn($( &$lt [$T], )+ usize) -> Result<Vec<$out>>
         where
             $($T: TensorElement + Clone + 'static,)+
@@ -92,17 +90,9 @@ macro_rules! impl_cpu_kernel_adapter_noattrs {
                     let $var = $T::from_value(&inputs[$idx])
                         .ok_or_else(|| anyhow!("cpu kernel input {} has wrong dtype", $idx))?;
                 )+
-                let shapes = vec![$( $var.shape(), )+];
-                let mut out_shape = shapes[0].to_vec();
-                for shape in shapes.iter().skip(1) {
-                    out_shape = broadcast_shapes(&out_shape, shape)?;
-                }
-                $(
-                    let $var = broadcast_to_vec(&$var, &out_shape)?;
-                )+
-                let output = (self)($( &$var, )+ thread_id )?;
+                let output = (self)($( &$var.data, )+ thread_id )?;
                 let tensor = Tensor::from_vec_with_opts(output, TensorOptions {
-                    shape: Some(out_shape),
+                    shape: Some($first.shape().to_vec()),
                     ..TensorOptions::default()
                 })?;
                 Ok(A::into_value(tensor))
@@ -112,7 +102,7 @@ macro_rules! impl_cpu_kernel_adapter_noattrs {
 }
 
 macro_rules! impl_cpu_kernel_adapter_attrs {
-    ($count:literal, $out:ident, $attr_lt:tt, $(($var:ident, $T:ident, $lt:tt, $idx:tt)),+; $($all_lt:tt),+) => {
+    ($count:literal, $out:ident, $first:ident, $attr_lt:tt, $(($var:ident, $T:ident, $lt:tt, $idx:tt)),+; $($all_lt:tt),+) => {
         impl<$($T,)+> CpuKernelAdapter
             for for<$attr_lt, $($all_lt,)+> fn(&$attr_lt OpAttrs, $( &$lt [$T], )+ usize) -> Result<Vec<$out>>
         where
@@ -126,17 +116,9 @@ macro_rules! impl_cpu_kernel_adapter_attrs {
                     let $var = $T::from_value(&inputs[$idx])
                         .ok_or_else(|| anyhow!("cpu kernel input {} has wrong dtype", $idx))?;
                 )+
-                let shapes = vec![$( $var.shape(), )+];
-                let mut out_shape = shapes[0].to_vec();
-                for shape in shapes.iter().skip(1) {
-                    out_shape = broadcast_shapes(&out_shape, shape)?;
-                }
-                $(
-                    let $var = broadcast_to_vec(&$var, &out_shape)?;
-                )+
-                let output = (self)(attrs, $( &$var, )+ thread_id )?;
+                let output = (self)(attrs, $( &$var.data, )+ thread_id )?;
                 let tensor = Tensor::from_vec_with_opts(output, TensorOptions {
-                    shape: Some(out_shape),
+                    shape: Some($first.shape().to_vec()),
                     ..TensorOptions::default()
                 })?;
                 Ok(A::into_value(tensor))
@@ -145,11 +127,12 @@ macro_rules! impl_cpu_kernel_adapter_attrs {
     };
 }
 
-impl_cpu_kernel_adapter_noattrs!(2, A, (a, A, 'a, 0), (b, B, 'b, 1); 'a, 'b);
-impl_cpu_kernel_adapter_noattrs!(3, A, (a, A, 'a, 0), (b, B, 'b, 1), (c, C, 'c, 2); 'a, 'b, 'c);
+impl_cpu_kernel_adapter_noattrs!(2, A, a, (a, A, 'a, 0), (b, B, 'b, 1); 'a, 'b);
+impl_cpu_kernel_adapter_noattrs!(3, A, a, (a, A, 'a, 0), (b, B, 'b, 1), (c, C, 'c, 2); 'a, 'b, 'c);
 impl_cpu_kernel_adapter_noattrs!(
     4,
     A,
+    a,
     (a, A, 'a, 0),
     (b, B, 'b, 1),
     (c, C, 'c, 2),
@@ -162,6 +145,7 @@ impl_cpu_kernel_adapter_noattrs!(
 impl_cpu_kernel_adapter_noattrs!(
     5,
     A,
+    a,
     (a, A, 'a, 0),
     (b, B, 'b, 1),
     (c, C, 'c, 2),
@@ -176,6 +160,7 @@ impl_cpu_kernel_adapter_noattrs!(
 impl_cpu_kernel_adapter_noattrs!(
     6,
     A,
+    a,
     (a, A, 'a, 0),
     (b, B, 'b, 1),
     (c, C, 'c, 2),
@@ -192,6 +177,7 @@ impl_cpu_kernel_adapter_noattrs!(
 impl_cpu_kernel_adapter_noattrs!(
     7,
     A,
+    a,
     (a, A, 'a, 0),
     (b, B, 'b, 1),
     (c, C, 'c, 2),
@@ -210,6 +196,7 @@ impl_cpu_kernel_adapter_noattrs!(
 impl_cpu_kernel_adapter_noattrs!(
     8,
     A,
+    a,
     (a, A, 'a, 0),
     (b, B, 'b, 1),
     (c, C, 'c, 2),
@@ -230,6 +217,7 @@ impl_cpu_kernel_adapter_noattrs!(
 impl_cpu_kernel_adapter_noattrs!(
     9,
     A,
+    a,
     (a, A, 'a, 0),
     (b, B, 'b, 1),
     (c, C, 'c, 2),
@@ -252,6 +240,7 @@ impl_cpu_kernel_adapter_noattrs!(
 impl_cpu_kernel_adapter_noattrs!(
     10,
     A,
+    a,
     (a, A, 'a, 0),
     (b, B, 'b, 1),
     (c, C, 'c, 2),
@@ -274,10 +263,11 @@ impl_cpu_kernel_adapter_noattrs!(
     'j
 );
 
-impl_cpu_kernel_adapter_attrs!(2, A, 'a, (a, A, 'b, 0), (b, B, 'c, 1); 'b, 'c);
+impl_cpu_kernel_adapter_attrs!(2, A, a, 'a, (a, A, 'b, 0), (b, B, 'c, 1); 'b, 'c);
 impl_cpu_kernel_adapter_attrs!(
     3,
     A,
+    a,
     'a,
     (a, A, 'b, 0),
     (b, B, 'c, 1),
@@ -289,6 +279,7 @@ impl_cpu_kernel_adapter_attrs!(
 impl_cpu_kernel_adapter_attrs!(
     4,
     A,
+    a,
     'a,
     (a, A, 'b, 0),
     (b, B, 'c, 1),
@@ -302,6 +293,7 @@ impl_cpu_kernel_adapter_attrs!(
 impl_cpu_kernel_adapter_attrs!(
     5,
     A,
+    a,
     'a,
     (a, A, 'b, 0),
     (b, B, 'c, 1),
@@ -317,6 +309,7 @@ impl_cpu_kernel_adapter_attrs!(
 impl_cpu_kernel_adapter_attrs!(
     6,
     A,
+    a,
     'a,
     (a, A, 'b, 0),
     (b, B, 'c, 1),
@@ -334,6 +327,7 @@ impl_cpu_kernel_adapter_attrs!(
 impl_cpu_kernel_adapter_attrs!(
     7,
     A,
+    a,
     'a,
     (a, A, 'b, 0),
     (b, B, 'c, 1),
@@ -353,6 +347,7 @@ impl_cpu_kernel_adapter_attrs!(
 impl_cpu_kernel_adapter_attrs!(
     8,
     A,
+    a,
     'a,
     (a, A, 'b, 0),
     (b, B, 'c, 1),
@@ -374,6 +369,7 @@ impl_cpu_kernel_adapter_attrs!(
 impl_cpu_kernel_adapter_attrs!(
     9,
     A,
+    a,
     'a,
     (a, A, 'b, 0),
     (b, B, 'c, 1),
@@ -397,6 +393,7 @@ impl_cpu_kernel_adapter_attrs!(
 impl_cpu_kernel_adapter_attrs!(
     10,
     A,
+    a,
     'a,
     (a, A, 'b, 0),
     (b, B, 'c, 1),

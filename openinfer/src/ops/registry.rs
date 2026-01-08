@@ -4,6 +4,30 @@ use crate::simulator::Device;
 use crate::graph::{OpAttrs, OpKind};
 use crate::tensor::{DType, TensorValue};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
+pub enum BroadcastPolicy {
+    None,
+    CpuOnly,
+    AllDevices,
+}
+
+pub fn broadcast_policy(op: OpKind) -> BroadcastPolicy {
+    // Central switch: add ops here to enable broadcasting across devices.
+    match op {
+        OpKind::Add | OpKind::Mul => BroadcastPolicy::AllDevices,
+        _ => BroadcastPolicy::None,
+    }
+}
+
+pub fn broadcast_enabled(op: OpKind, device: Device) -> bool {
+    match broadcast_policy(op) {
+        BroadcastPolicy::None => false,
+        BroadcastPolicy::CpuOnly => matches!(device, Device::Cpu | Device::CpuAvx | Device::CpuAvx2),
+        BroadcastPolicy::AllDevices => true,
+    }
+}
+
 pub type HostKernel =
     Box<dyn Fn(&OpAttrs, &[TensorValue], usize) -> Result<TensorValue> + Send + Sync>;
 #[cfg(feature = "vulkan")]

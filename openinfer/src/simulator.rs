@@ -5,7 +5,7 @@ use anyhow::{anyhow, Context, Result};
 use crate::backend::cpu::CpuBackend;
 use crate::graph::{AttrValue, Graph, NodeKind, OpAttrs};
 use crate::model_loader::ModelLoader;
-use crate::ops::lookup_kernel;
+use crate::ops::{broadcast_enabled, lookup_kernel};
 use crate::tensor::DType;
 use crate::types::MemoryKind;
 
@@ -197,7 +197,7 @@ fn validate_block(
 
                 if !input_shapes.is_empty() {
                     let output_shape = model.resolve_shape(&output_dims)?;
-                    let expected_shape = if device == Device::Cpu {
+                    let expected_shape = if broadcast_enabled(*op, device) {
                         let mut shape = input_shapes[0].clone();
                         for input_shape in input_shapes.iter().skip(1) {
                             shape = crate::tensor::broadcast_shapes(&shape, input_shape)?;

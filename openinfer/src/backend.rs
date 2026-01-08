@@ -41,6 +41,8 @@ pub struct VulkanBuffer {
     pub len: usize,
     #[allow(dead_code)]
     pub shape: Vec<usize>,
+    #[allow(dead_code)]
+    pub strides: Vec<usize>,
     pub shader: Option<Arc<OpShaderInfo>>,
     #[allow(unused)]
     pub inner: Arc<crate::backend::vulkan::VulkanBufferInner>,
@@ -80,6 +82,14 @@ impl TensorStorage {
         match self {
             TensorStorage::Host(value) => value.shape(),
             TensorStorage::Device(DeviceTensor::Vulkan(buf)) => buf.shape.as_slice(),
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn strides(&self) -> &[usize] {
+        match self {
+            TensorStorage::Host(value) => value.strides(),
+            TensorStorage::Device(DeviceTensor::Vulkan(buf)) => buf.strides.as_slice(),
         }
     }
 }

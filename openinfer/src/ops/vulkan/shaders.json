@@ -18,6 +18,11 @@
       "spv_dir": "src/ops/vulkan/mul/bin",
       "push_constants_size": 16
     },
+    "broadcast": {
+      "path": "src/ops/vulkan/broadcast/broadcast.slang",
+      "spv_dir": "src/ops/vulkan/broadcast/bin",
+      "push_constants_size": 16
+    },
     "relu": {
       "path": "src/ops/vulkan/relu/relu.slang",
       "spv_dir": "src/ops/vulkan/relu/bin",

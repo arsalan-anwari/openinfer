@@ -1,0 +1,32 @@
+# Progress
+
+Checklist of features described in the README and current implementation status.
+
+## Implemented
+
+- [x] Rust DSL to Graph parsing and validation
+- [x] Graph (de)serialization helpers and examples
+- [x] Simulator execution with tracing and timing
+- [x] Model loader for `.oinf` packages
+- [x] CPU backend with basic ops (add, mul, abs, relu)
+- [x] Vulkan backend with basic ops (add, mul, abs, relu)
+- [x] Per-op broadcasting with CPU and Vulkan support
+- [x] Vulkan shader manifest and embedded SPIR-V workflow
+
+## In Progress / Planned
+
+- [ ] Expanded op coverage beyond core arithmetic ops
+- [ ] Synthesizer implementation (scheduling, fusion, memory planning)
+- [ ] Device architecture JSON input for the synthesizer
+- [ ] Analyzer and optimization passes
+- [ ] Porting remaining kernels from C to Rust
+
+## DSL Gaps
+
+Features described in the README DSL sections that are not fully supported yet.
+
+- [ ] Loops (loop blocks and loop-exit semantics)
+- [ ] Branching and yielding across blocks
+- [ ] Barrier and explicit control dependency nodes
+- [ ] Cache operations beyond basic memory access
+- [ ] Prefixed/autodim cache ergonomics

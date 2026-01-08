@@ -4,7 +4,7 @@ use crate::backend::vulkan::storage_size_bytes;
 use crate::backend::VulkanBuffer;
 use crate::graph::OpAttrs;
 use crate::graph::OpKind;
-use crate::tensor::DType;
+use crate::tensor::{compute_strides, DType};
 use crate::timer::Timer;
 use anyhow::anyhow;
 
@@ -28,6 +28,7 @@ pub fn abs_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: usize) -> Resul
             dtype: a.dtype,
             len: a.len,
             shape: a.shape.clone(),
+            strides: a.strides.clone(),
             shader: a.shader.clone(),
             inner: a.inner.clone(),
         });
@@ -58,6 +59,7 @@ pub fn abs_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: usize) -> Resul
         dtype: a.dtype,
         len: a.len,
         shape: a.shape.clone(),
+        strides: compute_strides(a.shape.as_slice()),
         shader: a.shader.clone(),
         inner: output_inner,
     })

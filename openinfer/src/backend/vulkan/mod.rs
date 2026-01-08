@@ -8,15 +8,19 @@ use serde_json::Value;
 
 use crate::backend::{DeviceTensor, OpShaderInfo, ShaderRegistry, TensorStorage, VulkanBuffer};
 use crate::graph::{OpAttrs, OpKind};
-use crate::ops::{lookup_kernel, KernelFn};
+use crate::ops::{broadcast_enabled, lookup_kernel, KernelFn};
 use crate::simulator::{Device, DeviceBackend};
-use crate::tensor::{Bitset, DType, F16, TensorValue};
+use crate::tensor::{broadcast_shapes, Bitset, DType, F16, TensorValue};
 
 pub mod runtime;
 pub use runtime::{storage_size_bytes, VulkanBufferInner, VulkanRuntime};
 
 mod embedded_spirv {
     include!(concat!(env!("OUT_DIR"), "/vulkan_spirv.rs"));
+}
+
+pub(crate) fn embedded_spirv_for_op(op: &str) -> HashMap<String, &'static [u8]> {
+    embedded_spirv::embedded_spirv_for_op(op)
 }
 
 #[derive(Debug, Default)]
@@ -49,7 +53,7 @@ impl VulkanShaderRegistry {
             })?;
         let mut ops = HashMap::new();
         for (name, entry) in manifest.ops {
-            if !matches!(name.as_str(), "abs" | "add" | "mul" | "relu") {
+            if !matches!(name.as_str(), "abs" | "add" | "mul" | "relu" | "broadcast") {
                 continue;
             }
             let spv_by_target = embedded_spirv::embedded_spirv_for_op(name.as_str());
@@ -148,10 +152,12 @@ impl DeviceBackend for VulkanBackend {
         let len = crate::tensor::numel(shape);
         let size = storage_size_bytes(dtype) * len;
         let inner = runtime.create_buffer(size)?;
+        let strides = crate::tensor::compute_strides(shape);
         Ok(TensorStorage::Device(DeviceTensor::Vulkan(VulkanBuffer {
             dtype,
             len,
             shape: shape.to_vec(),
+            strides,
             shader: None,
             inner,
         })))
@@ -163,6 +169,7 @@ impl DeviceBackend for VulkanBackend {
         self.ensure_supported_dtype(dtype)?;
         let len = value.len();
         let shape = value.shape().to_vec();
+        let strides = value.strides().to_vec();
         let size = storage_size_bytes(dtype) * len;
         let inner = runtime.create_buffer(size)?;
         let bytes = encode_tensor(value);
@@ -171,6 +178,7 @@ impl DeviceBackend for VulkanBackend {
             dtype,
             len,
             shape,
+            strides,
             shader: None,
             inner,
         })))
@@ -202,7 +210,40 @@ impl DeviceBackend for VulkanBackend {
         if shader.is_none() {
             eprintln!("vulkan shaders: missing entry for op {}", op.as_str());
         }
-        let buffers = to_vulkan_buffers(tensors, shader.clone())?;
+        let mut buffers = to_vulkan_buffers(tensors, shader.clone())?;
+        if buffers.len() > 1 {
+            if broadcast_enabled(op, self.device()) {
+                let mut out_shape = buffers[0].shape.clone();
+                for buffer in buffers.iter().skip(1) {
+                    out_shape = broadcast_shapes(&out_shape, buffer.shape.as_slice())?;
+                }
+                buffers = buffers
+                    .into_iter()
+                    .map(|buffer| {
+                        if buffer.shape == out_shape {
+                            Ok(buffer)
+                        } else {
+                            crate::ops::vulkan::broadcast::broadcast_buffer(
+                                &buffer,
+                                out_shape.as_slice(),
+                                thread_id,
+                            )
+                        }
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+            } else {
+                let first = buffers[0].shape.clone();
+                for buffer in buffers.iter().skip(1) {
+                    if buffer.shape != first {
+                        return Err(anyhow!(
+                            "op {} requires identical input shapes on {:?}",
+                            op.as_str(),
+                            self.device()
+                        ));
+                    }
+                }
+            }
+        }
         let buffer_refs: Vec<&VulkanBuffer> = buffers.iter().collect();
         let kernel = lookup_kernel(self.device(), op, output_dtype, &input_dtypes, attrs)
             .ok_or_else(|| anyhow!("unsupported op {}", op.as_str()))?;

@@ -4,7 +4,7 @@ use crate::backend::vulkan::storage_size_bytes;
 use crate::backend::VulkanBuffer;
 use crate::graph::OpAttrs;
 use crate::graph::OpKind;
-use crate::tensor::DType;
+use crate::tensor::{compute_strides, DType};
 use crate::timer::Timer;
 
 pub mod registry;
@@ -46,10 +46,12 @@ pub fn add_generic(attrs: &OpAttrs, a: &VulkanBuffer, b: &VulkanBuffer, thread_i
     )?;
     Timer::record(thread_id, duration_ns);
     let shape = if len == a.len { a.shape.clone() } else { vec![len] };
+    let strides = compute_strides(shape.as_slice());
     Ok(VulkanBuffer {
         dtype: a.dtype,
         len,
         shape,
+        strides,
         shader: a.shader.clone(),
         inner: output_inner,
     })
