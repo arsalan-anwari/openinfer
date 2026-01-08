@@ -23,11 +23,11 @@ pub fn abs_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: usize) -> Resul
                 | crate::tensor::DType::Bool
         )
     {
-        Timer::start(thread_id);
-        Timer::stop(thread_id);
+        Timer::record(thread_id, 0);
         return Ok(VulkanBuffer {
             dtype: a.dtype,
             len: a.len,
+            shape: a.shape.clone(),
             shader: a.shader.clone(),
             inner: a.inner.clone(),
         });
@@ -40,9 +40,8 @@ pub fn abs_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: usize) -> Resul
     let spirv = a
         .spv_bytes_for_target(&target)
         .ok_or_else(|| anyhow::anyhow!("missing SPIR-V target {} for abs op", target))?;
-    Timer::start(thread_id);
     let push = [a.len as u32, flags, 0, 0];
-    let dispatch_result = runtime.dispatch(
+    let duration_ns = runtime.dispatch(
         OpKind::Abs,
         a.dtype,
         &target,
@@ -53,12 +52,12 @@ pub fn abs_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: usize) -> Resul
         &output_inner,
         push,
         a.len,
-    );
-    Timer::stop(thread_id);
-    dispatch_result?;
+    )?;
+    Timer::record(thread_id, duration_ns);
     Ok(VulkanBuffer {
         dtype: a.dtype,
         len: a.len,
+        shape: a.shape.clone(),
         shader: a.shader.clone(),
         inner: output_inner,
     })

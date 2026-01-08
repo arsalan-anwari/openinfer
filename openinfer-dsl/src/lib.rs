@@ -13,6 +13,8 @@ mod kw {
     syn::custom_keyword!(init);
 }
 
+mod validation;
+
 #[proc_macro]
 pub fn graph(input: TokenStream) -> TokenStream {
     let ast = syn::parse_macro_input!(input as GraphDsl);
@@ -365,11 +367,12 @@ impl GraphDsl {
                             Node::Op(op) => {
                                 let kind = match_opkind(&op.name)?;
                                 let inputs = op.inputs.iter().map(|i| {
-                                    let s = i.to_string();
+                                let s = i.to_string();
                                     quote! { #s.to_string() }
                                 });
                                 let output = op.output.to_string();
-                                let attrs = op_attrs_expr(&op.name, &op.settings)?;
+                                let attrs =
+                                    validation::ops::op_attrs_expr(&op.name, &op.settings)?;
                                 quote! {
                                     ::openinfer::NodeKind::Op {
                                         op: #kind,
@@ -427,85 +430,6 @@ fn match_opkind(op: &Ident) -> Result<proc_macro2::TokenStream> {
         "abs" => Ok(quote! { ::openinfer::OpKind::Abs }),
         "relu" => Ok(quote! { ::openinfer::OpKind::Relu }),
         _ => Err(syn::Error::new(op.span(), "unsupported op")),
-    }
-}
-
-fn op_attrs_expr(op: &Ident, settings: &[OpSetting]) -> Result<proc_macro2::TokenStream> {
-    let name = op.to_string();
-    match name.as_str() {
-        "relu" => {
-            let mut negative_slope: Option<OpAttrValue> = None;
-            let mut clamp_max: Option<OpAttrValue> = None;
-            for setting in settings {
-                let key = setting.name.to_string();
-                match key.as_str() {
-                    "negative_slope" => {
-                        if negative_slope.is_some() {
-                            return Err(syn::Error::new(
-                                setting.name.span(),
-                                "duplicate relu setting: negative_slope",
-                            ));
-                        }
-                        negative_slope = Some(setting.value.clone());
-                    }
-                    "clamp_max" => {
-                        if clamp_max.is_some() {
-                            return Err(syn::Error::new(
-                                setting.name.span(),
-                                "duplicate relu setting: clamp_max",
-                            ));
-                        }
-                        clamp_max = Some(setting.value.clone());
-                    }
-                    _ => {
-                        return Err(syn::Error::new(
-                            setting.name.span(),
-                            "unsupported relu setting",
-                        ))
-                    }
-                }
-            }
-            let negative_slope =
-                negative_slope.unwrap_or_else(|| OpAttrValue::Literal(0.0));
-            let clamp_max =
-                clamp_max.unwrap_or_else(|| OpAttrValue::Literal(f32::INFINITY));
-            let negative_slope_expr = attr_value_expr(&negative_slope);
-            let clamp_max_expr = attr_value_expr(&clamp_max);
-            Ok(quote! {
-                ::openinfer::OpAttrs::Relu {
-                    negative_slope: #negative_slope_expr,
-                    clamp_max: #clamp_max_expr,
-                }
-            })
-        }
-        _ => {
-            if settings.is_empty() {
-                Ok(quote! { ::openinfer::OpAttrs::None })
-            } else {
-                Err(syn::Error::new(op.span(), "op does not support settings"))
-            }
-        }
-    }
-}
-
-fn attr_value_expr(value: &OpAttrValue) -> proc_macro2::TokenStream {
-    match value {
-        OpAttrValue::Literal(val) => {
-            if val.is_infinite() {
-                if val.is_sign_negative() {
-                    quote! { ::openinfer::AttrValue::Literal(::std::f32::NEG_INFINITY) }
-                } else {
-                    quote! { ::openinfer::AttrValue::Literal(::std::f32::INFINITY) }
-                }
-            } else {
-                let lit = proc_macro2::Literal::f32_unsuffixed(*val);
-                quote! { ::openinfer::AttrValue::Literal(#lit) }
-            }
-        }
-        OpAttrValue::Var(ident) => {
-            let s = ident.to_string();
-            quote! { ::openinfer::AttrValue::Var(#s.to_string()) }
-        }
     }
 }
 

@@ -221,6 +221,18 @@ impl ModelLoader {
         Ok(total)
     }
 
+    pub fn resolve_shape(&self, dims: &[String]) -> Result<Vec<usize>> {
+        let mut shape = Vec::with_capacity(dims.len());
+        for dim in dims {
+            if let Ok(val) = dim.parse::<usize>() {
+                shape.push(val);
+            } else {
+                shape.push(self.size_of(dim)?);
+            }
+        }
+        Ok(shape)
+    }
+
     pub fn var_info(&self, name: &str) -> Option<&VarInfo> {
         self.vars.get(name)
     }
@@ -258,20 +270,60 @@ impl ModelLoader {
             ));
         }
 
+        let shape = self.resolve_shape(&info.dims)?;
         match info.dtype {
-            DType::I8 => Ok(TensorValue::I8(Tensor::new(parse_i8(&buf)?))),
-            DType::I16 => Ok(TensorValue::I16(Tensor::new(parse_i16(&buf)?))),
-            DType::F32 => Ok(TensorValue::F32(Tensor::new(parse_f32(&buf)?))),
-            DType::F64 => Ok(TensorValue::F64(Tensor::new(parse_f64(&buf)?))),
-            DType::U8 => Ok(TensorValue::U8(Tensor::new(parse_u8(&buf)?))),
-            DType::U16 => Ok(TensorValue::U16(Tensor::new(parse_u16(&buf)?))),
-            DType::I32 => Ok(TensorValue::I32(Tensor::new(parse_i32(&buf)?))),
-            DType::I64 => Ok(TensorValue::I64(Tensor::new(parse_i64(&buf)?))),
-            DType::U32 => Ok(TensorValue::U32(Tensor::new(parse_u32(&buf)?))),
-            DType::U64 => Ok(TensorValue::U64(Tensor::new(parse_u64(&buf)?))),
-            DType::Bool => Ok(TensorValue::Bool(Tensor::new(parse_bool(&buf)?))),
-            DType::Bitset => Ok(TensorValue::Bitset(Tensor::new(parse_bitset(&buf)?))),
-            DType::F16 => Ok(TensorValue::F16(Tensor::new(parse_f16(&buf)?))),
+            DType::I8 => Ok(TensorValue::I8(Tensor::from_vec_with_opts(parse_i8(&buf)?, crate::tensor::TensorOptions {
+                shape: Some(shape.clone()),
+                ..crate::tensor::TensorOptions::default()
+            })?)),
+            DType::I16 => Ok(TensorValue::I16(Tensor::from_vec_with_opts(parse_i16(&buf)?, crate::tensor::TensorOptions {
+                shape: Some(shape.clone()),
+                ..crate::tensor::TensorOptions::default()
+            })?)),
+            DType::F32 => Ok(TensorValue::F32(Tensor::from_vec_with_opts(parse_f32(&buf)?, crate::tensor::TensorOptions {
+                shape: Some(shape.clone()),
+                ..crate::tensor::TensorOptions::default()
+            })?)),
+            DType::F64 => Ok(TensorValue::F64(Tensor::from_vec_with_opts(parse_f64(&buf)?, crate::tensor::TensorOptions {
+                shape: Some(shape.clone()),
+                ..crate::tensor::TensorOptions::default()
+            })?)),
+            DType::U8 => Ok(TensorValue::U8(Tensor::from_vec_with_opts(parse_u8(&buf)?, crate::tensor::TensorOptions {
+                shape: Some(shape.clone()),
+                ..crate::tensor::TensorOptions::default()
+            })?)),
+            DType::U16 => Ok(TensorValue::U16(Tensor::from_vec_with_opts(parse_u16(&buf)?, crate::tensor::TensorOptions {
+                shape: Some(shape.clone()),
+                ..crate::tensor::TensorOptions::default()
+            })?)),
+            DType::I32 => Ok(TensorValue::I32(Tensor::from_vec_with_opts(parse_i32(&buf)?, crate::tensor::TensorOptions {
+                shape: Some(shape.clone()),
+                ..crate::tensor::TensorOptions::default()
+            })?)),
+            DType::I64 => Ok(TensorValue::I64(Tensor::from_vec_with_opts(parse_i64(&buf)?, crate::tensor::TensorOptions {
+                shape: Some(shape.clone()),
+                ..crate::tensor::TensorOptions::default()
+            })?)),
+            DType::U32 => Ok(TensorValue::U32(Tensor::from_vec_with_opts(parse_u32(&buf)?, crate::tensor::TensorOptions {
+                shape: Some(shape.clone()),
+                ..crate::tensor::TensorOptions::default()
+            })?)),
+            DType::U64 => Ok(TensorValue::U64(Tensor::from_vec_with_opts(parse_u64(&buf)?, crate::tensor::TensorOptions {
+                shape: Some(shape.clone()),
+                ..crate::tensor::TensorOptions::default()
+            })?)),
+            DType::Bool => Ok(TensorValue::Bool(Tensor::from_vec_with_opts(parse_bool(&buf)?, crate::tensor::TensorOptions {
+                shape: Some(shape.clone()),
+                ..crate::tensor::TensorOptions::default()
+            })?)),
+            DType::Bitset => Ok(TensorValue::Bitset(Tensor::from_vec_with_opts(parse_bitset(&buf)?, crate::tensor::TensorOptions {
+                shape: Some(shape.clone()),
+                ..crate::tensor::TensorOptions::default()
+            })?)),
+            DType::F16 => Ok(TensorValue::F16(Tensor::from_vec_with_opts(parse_f16(&buf)?, crate::tensor::TensorOptions {
+                shape: Some(shape.clone()),
+                ..crate::tensor::TensorOptions::default()
+            })?)),
         }
     }
 

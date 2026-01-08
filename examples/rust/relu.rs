@@ -1,5 +1,6 @@
-use openinfer::{fetch_executor, graph, insert_executor, Device, ModelLoader, Simulator, Tensor};
-use rand::Rng;
+use openinfer::{
+    fetch_executor, graph, insert_executor, Device, ModelLoader, Random, Simulator, Tensor,
+};
 use std::path::Path;
 
 fn main() -> anyhow::Result<()> {
@@ -26,17 +27,11 @@ fn main() -> anyhow::Result<()> {
         }
     };
 
-    let sim = Simulator::new(&model, &g, Device::CpuAvx2)?;
+    let sim = Simulator::new(&model, &g, Device::Cpu)?;
     let mut exec = sim.make_executor()?;
 
-    let mut rng = rand::thread_rng();
     let len = model.size_of("B")?;
-    let input: Vec<f32> = (0..len)
-        .map(|i| {
-            let base = rng.gen_range(-3.0..=3.0);
-            base + (i as f32 * 0.01)
-        })
-        .collect();
+    let input = Random::<f32>::generate_with_seed(0, (-3.0, 3.0), len)?;
 
     insert_executor!(exec, { x: input });
     exec.step()?;

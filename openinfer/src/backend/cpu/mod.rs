@@ -22,8 +22,8 @@ impl DeviceBackend for CpuBackend {
         self.device
     }
 
-    fn alloc(&self, dtype: DType, len: usize) -> Result<TensorStorage> {
-        Ok(TensorStorage::Host(TensorValue::zeros(dtype, len)))
+    fn alloc(&self, dtype: DType, shape: &[usize]) -> Result<TensorStorage> {
+        Ok(TensorStorage::Host(TensorValue::zeros(dtype, shape)))
     }
 
     fn upload(&self, value: TensorValue) -> Result<TensorStorage> {

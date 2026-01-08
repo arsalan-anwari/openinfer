@@ -11,12 +11,14 @@ mod types;
 mod timer;
 mod formatting;
 mod graph_serde;
+mod random;
 
 pub use simulator::{Device, Executor, Fetchable, Simulator, TraceEvent, TraceEventKind};
 pub use graph::{AttrValue, Block, Graph, Node, NodeKind, OpAttrs, OpKind};
 pub use graph_serde::{GraphDeserialize, GraphSerialize};
 pub use model_loader::ModelLoader;
-pub use tensor::{Bitset, DType, F16, Tensor, TensorElement, TensorValue};
+pub use tensor::{Bitset, DType, F16, Tensor, TensorElement, TensorOptions, TensorValue};
 pub use types::{MemoryKind, ScalarValue, VarDecl, VarInfo};
 pub use timer::Timer;
 pub use formatting::{format_truncated, FormatValue};
+pub use random::Random;

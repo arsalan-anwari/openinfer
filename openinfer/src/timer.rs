@@ -68,6 +68,18 @@ impl Timer {
         state.durations[thread_id] = elapsed;
     }
 
+    pub fn record(thread_id: usize, duration_ns: u128) {
+        let mut state = Self::state()
+            .lock()
+            .expect("timer state mutex poisoned");
+        Self::ensure_slot(&mut state, thread_id);
+        if !state.enabled[thread_id] {
+            return;
+        }
+        state.starts[thread_id] = None;
+        state.durations[thread_id] = duration_ns;
+    }
+
     pub fn elapsed(thread_id: usize) -> Option<u128> {
         let state = Self::state()
             .lock()

@@ -10,9 +10,9 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 ash = { version = "0.37", optional = true }
 openinfer-dsl = { path = "../openinfer-dsl" }
+rand = "0.8"
 
 [dev-dependencies]
-rand = "0.8"
 
 [features]
 vulkan = ["ash"]
@@ -45,3 +45,7 @@ path = "../examples/rust/deserialize.rs"
 [[example]]
 name = "relu"
 path = "../examples/rust/relu.rs"
+
+[[example]]
+name = "multidim_broadcast"
+path = "../examples/rust/multidim_broadcast.rs"

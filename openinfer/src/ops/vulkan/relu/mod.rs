@@ -26,8 +26,7 @@ pub fn relu_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: usize) -> Resu
         .spv_bytes_for_target(&target)
         .ok_or_else(|| anyhow!("missing SPIR-V target {} for relu op", target))?;
     let push = [a.len as u32, negative_slope.to_bits(), clamp_max.to_bits(), 0];
-    Timer::start(thread_id);
-    let dispatch_result = runtime.dispatch(
+    let duration_ns = runtime.dispatch(
         OpKind::Relu,
         a.dtype,
         &target,
@@ -38,12 +37,12 @@ pub fn relu_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: usize) -> Resu
         &output_inner,
         push,
         a.len,
-    );
-    Timer::stop(thread_id);
-    dispatch_result?;
+    )?;
+    Timer::record(thread_id, duration_ns);
     Ok(VulkanBuffer {
         dtype: a.dtype,
         len: a.len,
+        shape: a.shape.clone(),
         shader: a.shader.clone(),
         inner: output_inner,
     })

@@ -39,29 +39,87 @@ impl ScalarValue {
         }
     }
 
-    pub fn to_tensor_value(&self, dtype: DType, len: usize) -> Result<TensorValue> {
+    pub fn to_tensor_value(&self, dtype: DType, shape: &[usize]) -> Result<TensorValue> {
+        let len = crate::tensor::numel(shape);
         match (self, dtype) {
-            (ScalarValue::I8(val), DType::I8) => Ok(TensorValue::I8(Tensor::new(vec![*val; len]))),
-            (ScalarValue::I16(val), DType::I16) => Ok(TensorValue::I16(Tensor::new(vec![*val; len]))),
-            (ScalarValue::I32(val), DType::I32) => Ok(TensorValue::I32(Tensor::new(vec![*val; len]))),
-            (ScalarValue::I64(val), DType::I64) => Ok(TensorValue::I64(Tensor::new(vec![*val; len]))),
-            (ScalarValue::U8(val), DType::U8) => Ok(TensorValue::U8(Tensor::new(vec![*val; len]))),
-            (ScalarValue::U16(val), DType::U16) => Ok(TensorValue::U16(Tensor::new(vec![*val; len]))),
-            (ScalarValue::U32(val), DType::U32) => Ok(TensorValue::U32(Tensor::new(vec![*val; len]))),
-            (ScalarValue::U64(val), DType::U64) => Ok(TensorValue::U64(Tensor::new(vec![*val; len]))),
-            (ScalarValue::F16(val), DType::F16) => {
-                Ok(TensorValue::F16(Tensor::new(vec![*val; len])))
-            }
-            (ScalarValue::F32(val), DType::F32) => {
-                Ok(TensorValue::F32(Tensor::new(vec![*val; len])))
-            }
-            (ScalarValue::F64(val), DType::F64) => {
-                Ok(TensorValue::F64(Tensor::new(vec![*val; len])))
-            }
-            (ScalarValue::Bool(val), DType::Bool) => {
-                Ok(TensorValue::Bool(Tensor::new(vec![*val; len])))
-            }
-            (ScalarValue::Bitset(val), DType::Bitset) => Ok(TensorValue::Bitset(Tensor::new(vec![*val; len]))),
+            (ScalarValue::I8(val), DType::I8) => Ok(TensorValue::I8(
+                Tensor::from_vec_with_opts(vec![*val; len], crate::tensor::TensorOptions {
+                    shape: Some(shape.to_vec()),
+                    ..crate::tensor::TensorOptions::default()
+                })?,
+            )),
+            (ScalarValue::I16(val), DType::I16) => Ok(TensorValue::I16(
+                Tensor::from_vec_with_opts(vec![*val; len], crate::tensor::TensorOptions {
+                    shape: Some(shape.to_vec()),
+                    ..crate::tensor::TensorOptions::default()
+                })?,
+            )),
+            (ScalarValue::I32(val), DType::I32) => Ok(TensorValue::I32(
+                Tensor::from_vec_with_opts(vec![*val; len], crate::tensor::TensorOptions {
+                    shape: Some(shape.to_vec()),
+                    ..crate::tensor::TensorOptions::default()
+                })?,
+            )),
+            (ScalarValue::I64(val), DType::I64) => Ok(TensorValue::I64(
+                Tensor::from_vec_with_opts(vec![*val; len], crate::tensor::TensorOptions {
+                    shape: Some(shape.to_vec()),
+                    ..crate::tensor::TensorOptions::default()
+                })?,
+            )),
+            (ScalarValue::U8(val), DType::U8) => Ok(TensorValue::U8(
+                Tensor::from_vec_with_opts(vec![*val; len], crate::tensor::TensorOptions {
+                    shape: Some(shape.to_vec()),
+                    ..crate::tensor::TensorOptions::default()
+                })?,
+            )),
+            (ScalarValue::U16(val), DType::U16) => Ok(TensorValue::U16(
+                Tensor::from_vec_with_opts(vec![*val; len], crate::tensor::TensorOptions {
+                    shape: Some(shape.to_vec()),
+                    ..crate::tensor::TensorOptions::default()
+                })?,
+            )),
+            (ScalarValue::U32(val), DType::U32) => Ok(TensorValue::U32(
+                Tensor::from_vec_with_opts(vec![*val; len], crate::tensor::TensorOptions {
+                    shape: Some(shape.to_vec()),
+                    ..crate::tensor::TensorOptions::default()
+                })?,
+            )),
+            (ScalarValue::U64(val), DType::U64) => Ok(TensorValue::U64(
+                Tensor::from_vec_with_opts(vec![*val; len], crate::tensor::TensorOptions {
+                    shape: Some(shape.to_vec()),
+                    ..crate::tensor::TensorOptions::default()
+                })?,
+            )),
+            (ScalarValue::F16(val), DType::F16) => Ok(TensorValue::F16(
+                Tensor::from_vec_with_opts(vec![*val; len], crate::tensor::TensorOptions {
+                    shape: Some(shape.to_vec()),
+                    ..crate::tensor::TensorOptions::default()
+                })?,
+            )),
+            (ScalarValue::F32(val), DType::F32) => Ok(TensorValue::F32(
+                Tensor::from_vec_with_opts(vec![*val; len], crate::tensor::TensorOptions {
+                    shape: Some(shape.to_vec()),
+                    ..crate::tensor::TensorOptions::default()
+                })?,
+            )),
+            (ScalarValue::F64(val), DType::F64) => Ok(TensorValue::F64(
+                Tensor::from_vec_with_opts(vec![*val; len], crate::tensor::TensorOptions {
+                    shape: Some(shape.to_vec()),
+                    ..crate::tensor::TensorOptions::default()
+                })?,
+            )),
+            (ScalarValue::Bool(val), DType::Bool) => Ok(TensorValue::Bool(
+                Tensor::from_vec_with_opts(vec![*val; len], crate::tensor::TensorOptions {
+                    shape: Some(shape.to_vec()),
+                    ..crate::tensor::TensorOptions::default()
+                })?,
+            )),
+            (ScalarValue::Bitset(val), DType::Bitset) => Ok(TensorValue::Bitset(
+                Tensor::from_vec_with_opts(vec![*val; len], crate::tensor::TensorOptions {
+                    shape: Some(shape.to_vec()),
+                    ..crate::tensor::TensorOptions::default()
+                })?,
+            )),
             _ => Err(anyhow!("scalar {:?} does not match dtype {:?}", self, dtype)),
         }
     }

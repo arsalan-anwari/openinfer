@@ -128,13 +128,13 @@ impl<'a> Executor<'a> {
         match self.kinds.get(name) {
             Some(MemoryKind::Dynamic) => {
                 let value: TensorValue = data.into();
-                let expected_len = self.model.resolve_len(&decl.dims)?;
-                if value.len() != expected_len {
+                let expected_shape = self.model.resolve_shape(&decl.dims)?;
+                if value.shape() != expected_shape.as_slice() {
                     return Err(anyhow!(
-                        "dynamic variable {} expects {} values, got {}",
+                        "dynamic variable {} expects shape {:?}, got {:?}",
                         name,
-                        expected_len,
-                        value.len()
+                        expected_shape,
+                        value.shape()
                     ));
                 }
                 if value.dtype() != decl.dtype {
@@ -231,8 +231,8 @@ impl<'a> Executor<'a> {
         self.next_node += 1;
         match &node.kind {
             NodeKind::Assign { name, dims, dtype } => {
-                let len = self.model.resolve_len(dims)?;
-                let data = self.backend.alloc(*dtype, len)?;
+                let shape = self.model.resolve_shape(dims)?;
+                let data = self.backend.alloc(*dtype, &shape)?;
                 self.storage
                     .insert(name.clone(), StoredTensor::Data(data));
                 self.temps.insert(name.clone());
@@ -406,12 +406,12 @@ impl<'a> Executor<'a> {
                             .vars
                             .get(name)
                             .ok_or_else(|| anyhow!("unknown variable: {}", name))?;
-                        let len = self.model.resolve_len(&decl.dims)?;
+                        let shape = self.model.resolve_shape(&decl.dims)?;
                         if let Some(init) = decl.init.as_ref() {
-                            let host = init.to_tensor_value(decl.dtype, len)?;
+                            let host = init.to_tensor_value(decl.dtype, &shape)?;
                             self.backend.upload(host)?
                         } else {
-                            self.backend.alloc(decl.dtype, len)?
+                            self.backend.alloc(decl.dtype, &shape)?
                         }
                     }
                 } else {
@@ -420,12 +420,12 @@ impl<'a> Executor<'a> {
                         .vars
                         .get(name)
                         .ok_or_else(|| anyhow!("unknown variable: {}", name))?;
-                    let len = self.model.resolve_len(&decl.dims)?;
+                    let shape = self.model.resolve_shape(&decl.dims)?;
                     if let Some(init) = decl.init.as_ref() {
-                        let host = init.to_tensor_value(decl.dtype, len)?;
+                        let host = init.to_tensor_value(decl.dtype, &shape)?;
                         self.backend.upload(host)?
                     } else {
-                        self.backend.alloc(decl.dtype, len)?
+                        self.backend.alloc(decl.dtype, &shape)?
                     }
                 };
                 self.storage

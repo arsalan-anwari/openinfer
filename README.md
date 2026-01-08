@@ -151,9 +151,8 @@ a: f32[B] = {3.4324, 53.24324, 2334.2345 ...}
 > minimal.rs
 ```rust
 use openinfer::{
-    graph, fetch_executor, insert_executor, Device, ModelLoader, Simulator, Tensor,
+    graph, fetch_executor, insert_executor, Device, ModelLoader, Random, Simulator, Tensor,
 };
-use rand::Rng;
 
 fn main() -> anyhow::Result<()> {
     let model = ModelLoader::open("model.oinf")?;
@@ -179,14 +178,8 @@ fn main() -> anyhow::Result<()> {
     let sim = Simulator::new(&model, &g, Device::Cpu)?;
     let mut exec = sim.make_executor()?;
 
-    let mut rng = rand::thread_rng();
     let len = model.size_of("B")?;
-    let input: Vec<f32> = (0..len)
-        .map(|i| {
-            let base = rng.gen_range(-10.0..=10.0);
-            base + (i as f32 * 0.001)
-        })
-        .collect();
+    let input = Random::<f32>::generate_with_seed(0, (-10.0, 10.0), len)?;
 
     insert_executor!(exec, { x: input });
     exec.run_step()?;
@@ -207,7 +200,8 @@ The variables defined in the model binary and the DSL do not need to be exactly 
 These macros bridge between user data and the executor. Use the panic-on-error versions for quick scripts, and the `try_*` versions when you want to handle errors yourself.
 
 ```rust
-insert_executor!(exec, { x: vec![1.0, 2.0, 3.0] });
+let x = Tensor::from_vec(vec![1.0, 2.0, 3.0]).unwrap();
+insert_executor!(exec, { x: x });
 fetch_executor!(exec, { y: Tensor<f32> });
 println!("y = {:?}", y.data);
 fetch_executor!(exec, { negative_slope: f32 });
@@ -215,7 +209,8 @@ println!("negative_slope = {}", negative_slope);
 ```
 
 ```rust
-try_insert_executor!(exec, { x: vec![1.0, 2.0, 3.0] })?;
+let x = Tensor::from_vec(vec![1.0, 2.0, 3.0])?;
+try_insert_executor!(exec, { x: x })?;
 let y: Tensor<f32> = try_fetch_executor!(exec, { y: Tensor<f32> })?;
 println!("y = {:?}", y.data);
 ```
@@ -507,7 +502,7 @@ persistent {
 
 - `B`: Same as `A` but matrix can only be of maximum size `[D+1024, H+256]`.
 
-- `C`: A growable 1D table containing a 2D matrix of size `f32[l * D + i * H + j]`, which has a similar access pattern as `A` but just with an additional index `l` in the beginning like `C[l, i, j]. Essentially you are creating a table of size `l` which contains multiple growable matrices with dimension `f32[D + i, H + j]`. The same sules for Indices slices apply here so using `C[0..4, i, j]` with return a multi-rank tensors with `[4 * i * j]` elements. 
+- `C`: A growable 1D table containing a 2D matrix of size `f32[l * D + i * H + j]`, which has a similar access pattern as `A` but just with an additional index `l` in the beginning like `C[l, i, j]`. Essentially you are creating a table of size `l` which contains multiple growable matrices with dimension `f32[D + i, H + j]`. The same sules for Indices slices apply here so using `C[0..4, i, j]` with return a multi-rank tensors with `[4 * i * j]` elements. 
 
 ---
 
@@ -797,6 +792,7 @@ let sim = Simulator::new(&model, &g, Device::Cpu)?
   .with_trace()
   .with_timer();
 let mut exec = sim.make_executor()?;
+let input = Tensor::from_vec(input)?;
 insert_executor!(exec, { x: input });
 
 // This is equivalent to what happens when you call exec.step() with tracing enabled.
@@ -823,6 +819,7 @@ let sim = Simulator::new(&model, &g, Device::Cpu)?
   .with_trace()
   .with_timer();
 let mut exec = sim.make_executor()?;
+let input = Tensor::from_vec(input)?;
 insert_executor!(exec, { x: input });
 exec.run_step()?;
 let trace = exec.trace();

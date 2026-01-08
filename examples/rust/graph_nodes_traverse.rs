@@ -1,8 +1,7 @@
 use openinfer::{
-    fetch_executor, format_truncated, graph, insert_executor, Device, ModelLoader, Simulator,
-    Tensor,
+    fetch_executor, format_truncated, graph, insert_executor, Device, ModelLoader, Random,
+    Simulator, Tensor,
 };
-use rand::Rng;
 use std::path::Path;
 
 fn main() -> anyhow::Result<()> {
@@ -30,14 +29,8 @@ fn main() -> anyhow::Result<()> {
     let sim = Simulator::new(&model, &g, Device::Cpu)?.with_timer();
     let mut exec = sim.make_executor()?;
 
-    let mut rng = rand::thread_rng();
     let len = model.size_of("B")?;
-    let input: Vec<f32> = (0..len)
-        .map(|i| {
-            let base = rng.gen_range(-10.0..=10.0);
-            base + (i as f32 * 0.001)
-        })
-        .collect();
+    let input = Random::<f32>::generate_with_seed(0, (-10.0, 10.0), len)?;
     insert_executor!(exec, { x: input });
 
     for mut node in exec.iterate() {

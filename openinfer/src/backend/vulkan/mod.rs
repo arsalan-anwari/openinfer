@@ -142,14 +142,16 @@ impl DeviceBackend for VulkanBackend {
         Device::Vulkan
     }
 
-    fn alloc(&self, dtype: DType, len: usize) -> Result<TensorStorage> {
+    fn alloc(&self, dtype: DType, shape: &[usize]) -> Result<TensorStorage> {
         let runtime = self.runtime()?;
         self.ensure_supported_dtype(dtype)?;
+        let len = crate::tensor::numel(shape);
         let size = storage_size_bytes(dtype) * len;
         let inner = runtime.create_buffer(size)?;
         Ok(TensorStorage::Device(DeviceTensor::Vulkan(VulkanBuffer {
             dtype,
             len,
+            shape: shape.to_vec(),
             shader: None,
             inner,
         })))
@@ -160,6 +162,7 @@ impl DeviceBackend for VulkanBackend {
         let dtype = value.dtype();
         self.ensure_supported_dtype(dtype)?;
         let len = value.len();
+        let shape = value.shape().to_vec();
         let size = storage_size_bytes(dtype) * len;
         let inner = runtime.create_buffer(size)?;
         let bytes = encode_tensor(value);
@@ -167,6 +170,7 @@ impl DeviceBackend for VulkanBackend {
         Ok(TensorStorage::Device(DeviceTensor::Vulkan(VulkanBuffer {
             dtype,
             len,
+            shape,
             shader: None,
             inner,
         })))
@@ -180,7 +184,7 @@ impl DeviceBackend for VulkanBackend {
                 let size = storage_size_bytes(buf.dtype) * buf.len;
                 let mut bytes = vec![0u8; size];
                 runtime.read_buffer(&buf.inner, &mut bytes)?;
-                decode_tensor(buf.dtype, buf.len, &bytes)
+                decode_tensor(buf.dtype, buf.shape.as_slice(), &bytes)
             }
         }
     }
@@ -297,65 +301,98 @@ fn encode_tensor(value: TensorValue) -> Vec<u8> {
     }
 }
 
-fn decode_tensor(dtype: DType, len: usize, bytes: &[u8]) -> Result<TensorValue> {
+fn decode_tensor(dtype: DType, shape: &[usize], bytes: &[u8]) -> Result<TensorValue> {
+    let len = crate::tensor::numel(shape);
     match dtype {
-        DType::I8 => Ok(TensorValue::I8(crate::tensor::Tensor::new(
+        DType::I8 => Ok(TensorValue::I8(crate::tensor::Tensor::from_vec_with_opts(
             bytes
                 .chunks_exact(4)
                 .take(len)
                 .map(|chunk| i32::from_le_bytes(chunk.try_into().unwrap()) as i8)
                 .collect(),
-        ))),
-        DType::I16 => Ok(TensorValue::I16(crate::tensor::Tensor::new(
+            crate::tensor::TensorOptions {
+                shape: Some(shape.to_vec()),
+                ..crate::tensor::TensorOptions::default()
+            },
+        )?)),
+        DType::I16 => Ok(TensorValue::I16(crate::tensor::Tensor::from_vec_with_opts(
             bytes
                 .chunks_exact(4)
                 .take(len)
                 .map(|chunk| i32::from_le_bytes(chunk.try_into().unwrap()) as i16)
                 .collect(),
-        ))),
-        DType::I32 => Ok(TensorValue::I32(crate::tensor::Tensor::new(
+            crate::tensor::TensorOptions {
+                shape: Some(shape.to_vec()),
+                ..crate::tensor::TensorOptions::default()
+            },
+        )?)),
+        DType::I32 => Ok(TensorValue::I32(crate::tensor::Tensor::from_vec_with_opts(
             bytes
                 .chunks_exact(4)
                 .take(len)
                 .map(|chunk| i32::from_le_bytes(chunk.try_into().unwrap()))
                 .collect(),
-        ))),
-        DType::I64 => Ok(TensorValue::I64(crate::tensor::Tensor::new(
+            crate::tensor::TensorOptions {
+                shape: Some(shape.to_vec()),
+                ..crate::tensor::TensorOptions::default()
+            },
+        )?)),
+        DType::I64 => Ok(TensorValue::I64(crate::tensor::Tensor::from_vec_with_opts(
             bytes
                 .chunks_exact(8)
                 .take(len)
                 .map(|chunk| i64::from_le_bytes(chunk.try_into().unwrap()))
                 .collect(),
-        ))),
-        DType::U8 => Ok(TensorValue::U8(crate::tensor::Tensor::new(
+            crate::tensor::TensorOptions {
+                shape: Some(shape.to_vec()),
+                ..crate::tensor::TensorOptions::default()
+            },
+        )?)),
+        DType::U8 => Ok(TensorValue::U8(crate::tensor::Tensor::from_vec_with_opts(
             bytes
                 .chunks_exact(4)
                 .take(len)
                 .map(|chunk| u32::from_le_bytes(chunk.try_into().unwrap()) as u8)
                 .collect(),
-        ))),
-        DType::U16 => Ok(TensorValue::U16(crate::tensor::Tensor::new(
+            crate::tensor::TensorOptions {
+                shape: Some(shape.to_vec()),
+                ..crate::tensor::TensorOptions::default()
+            },
+        )?)),
+        DType::U16 => Ok(TensorValue::U16(crate::tensor::Tensor::from_vec_with_opts(
             bytes
                 .chunks_exact(4)
                 .take(len)
                 .map(|chunk| u32::from_le_bytes(chunk.try_into().unwrap()) as u16)
                 .collect(),
-        ))),
-        DType::U32 => Ok(TensorValue::U32(crate::tensor::Tensor::new(
+            crate::tensor::TensorOptions {
+                shape: Some(shape.to_vec()),
+                ..crate::tensor::TensorOptions::default()
+            },
+        )?)),
+        DType::U32 => Ok(TensorValue::U32(crate::tensor::Tensor::from_vec_with_opts(
             bytes
                 .chunks_exact(4)
                 .take(len)
                 .map(|chunk| u32::from_le_bytes(chunk.try_into().unwrap()))
                 .collect(),
-        ))),
-        DType::U64 => Ok(TensorValue::U64(crate::tensor::Tensor::new(
+            crate::tensor::TensorOptions {
+                shape: Some(shape.to_vec()),
+                ..crate::tensor::TensorOptions::default()
+            },
+        )?)),
+        DType::U64 => Ok(TensorValue::U64(crate::tensor::Tensor::from_vec_with_opts(
             bytes
                 .chunks_exact(8)
                 .take(len)
                 .map(|chunk| u64::from_le_bytes(chunk.try_into().unwrap()))
                 .collect(),
-        ))),
-        DType::F16 => Ok(TensorValue::F16(crate::tensor::Tensor::new(
+            crate::tensor::TensorOptions {
+                shape: Some(shape.to_vec()),
+                ..crate::tensor::TensorOptions::default()
+            },
+        )?)),
+        DType::F16 => Ok(TensorValue::F16(crate::tensor::Tensor::from_vec_with_opts(
             bytes
                 .chunks_exact(4)
                 .take(len)
@@ -363,29 +400,45 @@ fn decode_tensor(dtype: DType, len: usize, bytes: &[u8]) -> Result<TensorValue> 
                     bits: u32::from_le_bytes(chunk.try_into().unwrap()) as u16,
                 })
                 .collect(),
-        ))),
-        DType::F32 => Ok(TensorValue::F32(crate::tensor::Tensor::new(
+            crate::tensor::TensorOptions {
+                shape: Some(shape.to_vec()),
+                ..crate::tensor::TensorOptions::default()
+            },
+        )?)),
+        DType::F32 => Ok(TensorValue::F32(crate::tensor::Tensor::from_vec_with_opts(
             bytes
                 .chunks_exact(4)
                 .take(len)
                 .map(|chunk| f32::from_le_bytes(chunk.try_into().unwrap()))
                 .collect(),
-        ))),
-        DType::F64 => Ok(TensorValue::F64(crate::tensor::Tensor::new(
+            crate::tensor::TensorOptions {
+                shape: Some(shape.to_vec()),
+                ..crate::tensor::TensorOptions::default()
+            },
+        )?)),
+        DType::F64 => Ok(TensorValue::F64(crate::tensor::Tensor::from_vec_with_opts(
             bytes
                 .chunks_exact(8)
                 .take(len)
                 .map(|chunk| f64::from_le_bytes(chunk.try_into().unwrap()))
                 .collect(),
-        ))),
-        DType::Bool => Ok(TensorValue::Bool(crate::tensor::Tensor::new(
+            crate::tensor::TensorOptions {
+                shape: Some(shape.to_vec()),
+                ..crate::tensor::TensorOptions::default()
+            },
+        )?)),
+        DType::Bool => Ok(TensorValue::Bool(crate::tensor::Tensor::from_vec_with_opts(
             bytes
                 .chunks_exact(4)
                 .take(len)
                 .map(|chunk| u32::from_le_bytes(chunk.try_into().unwrap()) != 0)
                 .collect(),
-        ))),
-        DType::Bitset => Ok(TensorValue::Bitset(crate::tensor::Tensor::new(
+            crate::tensor::TensorOptions {
+                shape: Some(shape.to_vec()),
+                ..crate::tensor::TensorOptions::default()
+            },
+        )?)),
+        DType::Bitset => Ok(TensorValue::Bitset(crate::tensor::Tensor::from_vec_with_opts(
             bytes
                 .chunks_exact(4)
                 .take(len)
@@ -393,6 +446,10 @@ fn decode_tensor(dtype: DType, len: usize, bytes: &[u8]) -> Result<TensorValue> 
                     bits: u32::from_le_bytes(chunk.try_into().unwrap()) as u8,
                 })
                 .collect(),
-        ))),
+            crate::tensor::TensorOptions {
+                shape: Some(shape.to_vec()),
+                ..crate::tensor::TensorOptions::default()
+            },
+        )?)),
     }
 }

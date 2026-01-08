@@ -21,6 +21,8 @@ pub struct VulkanRuntime {
     pipeline_layout: vk::PipelineLayout,
     pipelines: Mutex<HashMap<(OpKind, DType, String), vk::Pipeline>>,
     supports_i64: bool,
+    supports_timestamps: bool,
+    timestamp_period: f32,
 }
 
 pub struct VulkanBufferInner {
@@ -55,6 +57,7 @@ impl VulkanRuntime {
             .queue_family_index(queue_family_index)
             .queue_priorities(&priorities);
         let supported = unsafe { instance.get_physical_device_features(physical_device) };
+        let props = unsafe { instance.get_physical_device_properties(physical_device) };
         let mut enabled = vk::PhysicalDeviceFeatures::default();
         enabled.shader_int64 = supported.shader_int64;
         enabled.shader_float64 = supported.shader_float64;
@@ -124,6 +127,8 @@ impl VulkanRuntime {
             pipeline_layout,
             pipelines: Mutex::new(HashMap::new()),
             supports_i64: supported.shader_int64 != 0,
+            supports_timestamps: props.limits.timestamp_compute_and_graphics != 0,
+            timestamp_period: props.limits.timestamp_period,
         })
     }
 
@@ -223,12 +228,38 @@ impl VulkanRuntime {
         output: &VulkanBufferInner,
         push: [u32; 4],
         len: usize,
-    ) -> Result<()> {
+    ) -> Result<u128> {
         if len == 0 {
-            return Ok(());
+            return Ok(0);
         }
         let pipeline = self.pipeline_for_op(op, dtype, pipeline_key, entry_point, spirv)?;
         let descriptor_set = self.allocate_descriptor_set()?;
+
+        struct QueryPoolGuard<'a> {
+            device: &'a ash::Device,
+            pool: vk::QueryPool,
+        }
+
+        impl<'a> Drop for QueryPoolGuard<'a> {
+            fn drop(&mut self) {
+                unsafe {
+                    self.device.destroy_query_pool(self.pool, None);
+                }
+            }
+        }
+
+        let query_pool = if self.supports_timestamps {
+            let info = vk::QueryPoolCreateInfo::builder()
+                .query_type(vk::QueryType::TIMESTAMP)
+                .query_count(2);
+            Some(unsafe { self.device.create_query_pool(&info, None)? })
+        } else {
+            None
+        };
+        let _query_pool_guard = query_pool.map(|pool| QueryPoolGuard {
+            device: &self.device,
+            pool,
+        });
 
         let buffer_infos = [
             vk::DescriptorBufferInfo {
@@ -280,6 +311,9 @@ impl VulkanRuntime {
                     vk::AccessFlags::SHADER_READ | vk::AccessFlags::SHADER_WRITE,
                 )
                 .build();
+            if let Some(pool) = query_pool {
+                self.device.cmd_reset_query_pool(command_buffer, pool, 0, 2);
+            }
             self.device.cmd_pipeline_barrier(
                 command_buffer,
                 vk::PipelineStageFlags::HOST,
@@ -306,8 +340,16 @@ impl VulkanRuntime {
                 0,
                 push_bytes,
             );
+            if let Some(pool) = query_pool {
+                self.device
+                    .cmd_write_timestamp(command_buffer, vk::PipelineStageFlags::COMPUTE_SHADER, pool, 0);
+            }
             let groups = (len as u32 + 255) / 256;
             self.device.cmd_dispatch(command_buffer, groups, 1, 1);
+            if let Some(pool) = query_pool {
+                self.device
+                    .cmd_write_timestamp(command_buffer, vk::PipelineStageFlags::COMPUTE_SHADER, pool, 1);
+            }
             let post_barrier = vk::MemoryBarrier::builder()
                 .src_access_mask(vk::AccessFlags::SHADER_WRITE)
                 .dst_access_mask(vk::AccessFlags::HOST_READ)
@@ -328,11 +370,31 @@ impl VulkanRuntime {
         unsafe {
             self.device.queue_submit(self.queue, std::slice::from_ref(&submit_info), vk::Fence::null())?;
             self.device.queue_wait_idle(self.queue)?;
+        }
+
+        let duration_ns = if let Some(pool) = query_pool {
+            let mut timestamps = [0u64; 2];
+            unsafe {
+                self.device.get_query_pool_results(
+                    pool,
+                    0,
+                    2,
+                    &mut timestamps,
+                    vk::QueryResultFlags::TYPE_64 | vk::QueryResultFlags::WAIT,
+                )?;
+            }
+            let delta = timestamps[1].saturating_sub(timestamps[0]) as f64;
+            (delta * self.timestamp_period as f64) as u128
+        } else {
+            0
+        };
+
+        unsafe {
             self.device.free_command_buffers(self.command_pool, std::slice::from_ref(&command_buffer));
             self.device.free_descriptor_sets(self.descriptor_pool, std::slice::from_ref(&descriptor_set))?;
         }
 
-        Ok(())
+        Ok(duration_ns)
     }
 
     fn allocate_descriptor_set(&self) -> Result<vk::DescriptorSet> {

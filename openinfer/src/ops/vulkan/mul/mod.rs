@@ -31,9 +31,8 @@ pub fn mul_generic(attrs: &OpAttrs, a: &VulkanBuffer, b: &VulkanBuffer, thread_i
         .ok_or_else(|| anyhow!("missing SPIR-V target {} for mul op", target))?;
     let output_size = storage_size_bytes(a.dtype) * len;
     let output_inner = runtime.create_buffer(output_size)?;
-    Timer::start(thread_id);
     let push = [len as u32, 0, 0, 0];
-    let dispatch_result = runtime.dispatch(
+    let duration_ns = runtime.dispatch(
         OpKind::Mul,
         a.dtype,
         &target,
@@ -44,12 +43,13 @@ pub fn mul_generic(attrs: &OpAttrs, a: &VulkanBuffer, b: &VulkanBuffer, thread_i
         &output_inner,
         push,
         len,
-    );
-    Timer::stop(thread_id);
-    dispatch_result?;
+    )?;
+    Timer::record(thread_id, duration_ns);
+    let shape = if len == a.len { a.shape.clone() } else { vec![len] };
     Ok(VulkanBuffer {
         dtype: a.dtype,
         len,
+        shape,
         shader: a.shader.clone(),
         inner: output_inner,
     })

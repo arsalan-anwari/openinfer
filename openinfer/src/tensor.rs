@@ -1,5 +1,7 @@
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
+use std::cell::UnsafeCell;
+use std::ops::Index;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Bitset {
@@ -82,23 +84,366 @@ impl F16 {
     }
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct TensorOptions {
+    pub shape: Option<Vec<usize>>,
+    pub strides: Option<Vec<usize>>,
+}
+
 #[derive(Debug, Clone)]
+pub struct TensorView<T> {
+    data: *const T,
+    shape: Vec<usize>,
+    strides: Vec<usize>,
+}
+
+impl<T> TensorView<T> {
+    fn new(data: *const T, shape: Vec<usize>, strides: Vec<usize>) -> Self {
+        Self {
+            data,
+            shape,
+            strides,
+        }
+    }
+
+    pub fn shape(&self) -> &[usize] {
+        &self.shape
+    }
+
+    pub fn strides(&self) -> &[usize] {
+        &self.strides
+    }
+
+    pub fn len(&self) -> usize {
+        numel(&self.shape)
+    }
+
+    pub fn at(&self, indices: &[usize]) -> &T {
+        let offset = offset_for(&self.shape, &self.strides, indices)
+            .unwrap_or_else(|err| panic!("tensor view index error: {}", err));
+        unsafe { &*self.data.add(offset) }
+    }
+
+    pub fn as_slice(&self) -> Option<&[T]> {
+        if !is_contiguous(&self.shape, &self.strides) {
+            return None;
+        }
+        let len = self.len();
+        if len == 0 {
+            return Some(&[]);
+        }
+        unsafe { Some(std::slice::from_raw_parts(self.data, len)) }
+    }
+
+    pub fn to_vec(&self) -> Vec<T>
+    where
+        T: Clone,
+    {
+        if let Some(slice) = self.as_slice() {
+            return slice.to_vec();
+        }
+        let mut out = Vec::with_capacity(self.len());
+        for idx in 0..self.len() {
+            let coords = linear_to_indices(idx, &self.shape);
+            out.push(self.at(&coords).clone());
+        }
+        out
+    }
+}
+
+#[derive(Debug)]
 pub struct Tensor<T> {
     pub data: Vec<T>,
+    shape: Vec<usize>,
+    strides: Vec<usize>,
+    // Indexing caches a view; this is not thread-safe.
+    view_cache: UnsafeCell<TensorView<T>>,
+}
+
+impl<T: Clone> Clone for Tensor<T> {
+    fn clone(&self) -> Self {
+        let data = self.data.clone();
+        let shape = self.shape.clone();
+        let strides = self.strides.clone();
+        let data_ptr = data.as_ptr();
+        Self {
+            data,
+            shape: shape.clone(),
+            strides: strides.clone(),
+            view_cache: UnsafeCell::new(TensorView::new(data_ptr, shape, strides)),
+        }
+    }
 }
 
 impl<T> Tensor<T> {
+    pub fn from_vec(data: Vec<T>) -> Result<Self> {
+        Self::from_vec_with_opts(data, TensorOptions::default())
+    }
+
+    pub fn from_vec_with_opts(data: Vec<T>, opts: TensorOptions) -> Result<Self> {
+        let shape = match opts.shape {
+            Some(shape) => shape,
+            None => vec![data.len()],
+        };
+        let expected = numel(&shape);
+        if expected != data.len() {
+            return Err(anyhow!(
+                "tensor shape {:?} expects {} values, got {}",
+                shape,
+                expected,
+                data.len()
+            ));
+        }
+        if shape.is_empty() && data.len() != 1 {
+            return Err(anyhow!(
+                "scalar tensor expects 1 value, got {}",
+                data.len()
+            ));
+        }
+        let strides = match opts.strides {
+            Some(strides) => {
+                if strides.len() != shape.len() {
+                    return Err(anyhow!(
+                        "tensor strides length {} does not match shape length {}",
+                        strides.len(),
+                        shape.len()
+                    ));
+                }
+                strides
+            }
+            None => compute_strides(&shape),
+        };
+        let data_ptr = data.as_ptr();
+        Ok(Self {
+            data,
+            shape: shape.clone(),
+            strides: strides.clone(),
+            view_cache: UnsafeCell::new(TensorView::new(data_ptr, shape, strides)),
+        })
+    }
+
+    pub fn from_scalar(value: T) -> Self {
+        let data = vec![value];
+        let data_ptr = data.as_ptr();
+        let shape = Vec::new();
+        let strides = Vec::new();
+        Self {
+            data,
+            shape: shape.clone(),
+            strides: strides.clone(),
+            view_cache: UnsafeCell::new(TensorView::new(data_ptr, shape, strides)),
+        }
+    }
+
     pub fn new(data: Vec<T>) -> Self {
-        Self { data }
+        Tensor::from_vec(data)
+            .unwrap_or_else(|err| panic!("tensor creation failed: {}", err))
     }
 
     pub fn len(&self) -> usize {
         self.data.len()
     }
+
+    pub fn shape(&self) -> &[usize] {
+        &self.shape
+    }
+
+    pub fn strides(&self) -> &[usize] {
+        &self.strides
+    }
+
+    pub fn numel(&self) -> usize {
+        numel(&self.shape)
+    }
+
+    pub fn at(&self, indices: &[usize]) -> &T {
+        let offset = offset_for(&self.shape, &self.strides, indices)
+            .unwrap_or_else(|err| panic!("tensor index error: {}", err));
+        &self.data[offset]
+    }
+
+    pub fn view(&self, indices: &[usize]) -> TensorView<T> {
+        let (offset, shape, strides) =
+            view_parts(&self.shape, &self.strides, indices)
+                .unwrap_or_else(|err| panic!("tensor view error: {}", err));
+        TensorView::new(unsafe { self.data.as_ptr().add(offset) }, shape, strides)
+    }
+
+    pub fn to_vec(&self) -> Vec<T>
+    where
+        T: Clone,
+    {
+        self.data.clone()
+    }
+}
+
+impl<T, const N: usize> Index<[usize; N]> for Tensor<T> {
+    type Output = TensorView<T>;
+
+    fn index(&self, index: [usize; N]) -> &Self::Output {
+        let view = self.view(&index);
+        unsafe {
+            *self.view_cache.get() = view;
+            &*self.view_cache.get()
+        }
+    }
+}
+
+pub fn numel(shape: &[usize]) -> usize {
+    shape.iter().copied().product::<usize>()
+}
+
+pub fn compute_strides(shape: &[usize]) -> Vec<usize> {
+    let mut strides = vec![0; shape.len()];
+    let mut stride = 1usize;
+    for (idx, dim) in shape.iter().rev().enumerate() {
+        let i = shape.len() - 1 - idx;
+        strides[i] = stride;
+        stride = stride.saturating_mul(*dim);
+    }
+    strides
+}
+
+pub fn broadcast_shapes(a: &[usize], b: &[usize]) -> Result<Vec<usize>> {
+    let rank = a.len().max(b.len());
+    let mut out = Vec::with_capacity(rank);
+    for i in 0..rank {
+        let a_dim = dim_from_end(a, i);
+        let b_dim = dim_from_end(b, i);
+        match (a_dim, b_dim) {
+            (Some(x), Some(y)) if x == y => out.push(x),
+            (Some(1), Some(y)) => out.push(y),
+            (Some(x), Some(1)) => out.push(x),
+            (None, Some(y)) => out.push(y),
+            (Some(x), None) => out.push(x),
+            _ => {
+                return Err(anyhow!(
+                    "broadcast shape mismatch for {:?} and {:?}",
+                    a,
+                    b
+                ))
+            }
+        }
+    }
+    out.reverse();
+    Ok(out)
+}
+
+pub fn broadcast_to_vec<T: Clone>(tensor: &Tensor<T>, out_shape: &[usize]) -> Result<Vec<T>> {
+    if tensor.shape == out_shape {
+        return Ok(tensor.data.clone());
+    }
+    let out_len = numel(out_shape);
+    if out_len == 0 {
+        return Ok(Vec::new());
+    }
+    let rank_out = out_shape.len();
+    let rank_in = tensor.shape.len();
+    let mut aligned_shape = vec![1; rank_out.saturating_sub(rank_in)];
+    aligned_shape.extend_from_slice(&tensor.shape);
+    let mut aligned_strides = vec![0; rank_out.saturating_sub(rank_in)];
+    aligned_strides.extend_from_slice(&tensor.strides);
+    let mut out = Vec::with_capacity(out_len);
+    for linear in 0..out_len {
+        let coords = linear_to_indices(linear, out_shape);
+        let mut offset = 0usize;
+        for (dim, coord) in coords.iter().enumerate() {
+            let in_dim = aligned_shape[dim];
+            let stride = if in_dim == 1 { 0 } else { aligned_strides[dim] };
+            let in_coord = if in_dim == 1 { 0 } else { *coord };
+            offset = offset.saturating_add(in_coord.saturating_mul(stride));
+        }
+        out.push(tensor.data[offset].clone());
+    }
+    Ok(out)
+}
+
+fn dim_from_end(shape: &[usize], idx_from_end: usize) -> Option<usize> {
+    if idx_from_end >= shape.len() {
+        return None;
+    }
+    Some(shape[shape.len() - 1 - idx_from_end])
+}
+
+fn is_contiguous(shape: &[usize], strides: &[usize]) -> bool {
+    if shape.len() != strides.len() {
+        return false;
+    }
+    strides == compute_strides(shape)
+}
+
+fn offset_for(shape: &[usize], strides: &[usize], indices: &[usize]) -> Result<usize> {
+    if shape.len() != indices.len() {
+        return Err(anyhow!(
+            "expected {} indices, got {}",
+            shape.len(),
+            indices.len()
+        ));
+    }
+    let mut offset = 0usize;
+    for ((dim, stride), idx) in shape.iter().zip(strides.iter()).zip(indices.iter()) {
+        if *idx >= *dim {
+            return Err(anyhow!("index {} out of bounds for dim {}", idx, dim));
+        }
+        offset = offset.saturating_add(idx.saturating_mul(*stride));
+    }
+    Ok(offset)
+}
+
+fn view_parts(
+    shape: &[usize],
+    strides: &[usize],
+    indices: &[usize],
+) -> Result<(usize, Vec<usize>, Vec<usize>)> {
+    if indices.len() > shape.len() {
+        return Err(anyhow!(
+            "too many indices: got {}, shape has {} dims",
+            indices.len(),
+            shape.len()
+        ));
+    }
+    let mut offset = 0usize;
+    for (idx, (dim, stride)) in indices.iter().zip(shape.iter().zip(strides.iter())) {
+        if *idx >= *dim {
+            return Err(anyhow!("index {} out of bounds for dim {}", idx, dim));
+        }
+        offset = offset.saturating_add(idx.saturating_mul(*stride));
+    }
+    Ok((
+        offset,
+        shape[indices.len()..].to_vec(),
+        strides[indices.len()..].to_vec(),
+    ))
+}
+
+fn linear_to_indices(linear: usize, shape: &[usize]) -> Vec<usize> {
+    if shape.is_empty() {
+        return Vec::new();
+    }
+    let mut rem = linear;
+    let mut out = Vec::with_capacity(shape.len());
+    let strides = compute_strides(shape);
+    for (dim, stride) in shape.iter().zip(strides.iter()) {
+        if *stride == 0 {
+            out.push(0);
+        } else {
+            let coord = rem / *stride;
+            out.push(coord.min(dim.saturating_sub(1)));
+            rem %= *stride;
+        }
+    }
+    out
 }
 
 pub trait TensorElement: Sized + Clone {
     fn from_value(value: &TensorValue) -> Option<Tensor<Self>>;
+    fn into_value(tensor: Tensor<Self>) -> TensorValue;
+}
+
+impl<T> From<Vec<T>> for Tensor<T> {
+    fn from(value: Vec<T>) -> Self {
+        Tensor::new(value)
+    }
 }
 
 impl TensorElement for f32 {
@@ -107,6 +452,10 @@ impl TensorElement for f32 {
             TensorValue::F32(tensor) => Some(tensor.clone()),
             _ => None,
         }
+    }
+
+    fn into_value(tensor: Tensor<Self>) -> TensorValue {
+        TensorValue::F32(tensor)
     }
 }
 
@@ -117,6 +466,10 @@ impl TensorElement for f64 {
             _ => None,
         }
     }
+
+    fn into_value(tensor: Tensor<Self>) -> TensorValue {
+        TensorValue::F64(tensor)
+    }
 }
 
 impl TensorElement for i8 {
@@ -125,6 +478,10 @@ impl TensorElement for i8 {
             TensorValue::I8(tensor) => Some(tensor.clone()),
             _ => None,
         }
+    }
+
+    fn into_value(tensor: Tensor<Self>) -> TensorValue {
+        TensorValue::I8(tensor)
     }
 }
 
@@ -135,6 +492,10 @@ impl TensorElement for i16 {
             _ => None,
         }
     }
+
+    fn into_value(tensor: Tensor<Self>) -> TensorValue {
+        TensorValue::I16(tensor)
+    }
 }
 
 impl TensorElement for i32 {
@@ -143,6 +504,10 @@ impl TensorElement for i32 {
             TensorValue::I32(tensor) => Some(tensor.clone()),
             _ => None,
         }
+    }
+
+    fn into_value(tensor: Tensor<Self>) -> TensorValue {
+        TensorValue::I32(tensor)
     }
 }
 
@@ -153,6 +518,10 @@ impl TensorElement for i64 {
             _ => None,
         }
     }
+
+    fn into_value(tensor: Tensor<Self>) -> TensorValue {
+        TensorValue::I64(tensor)
+    }
 }
 
 impl TensorElement for u8 {
@@ -161,6 +530,10 @@ impl TensorElement for u8 {
             TensorValue::U8(tensor) => Some(tensor.clone()),
             _ => None,
         }
+    }
+
+    fn into_value(tensor: Tensor<Self>) -> TensorValue {
+        TensorValue::U8(tensor)
     }
 }
 
@@ -171,6 +544,10 @@ impl TensorElement for u16 {
             _ => None,
         }
     }
+
+    fn into_value(tensor: Tensor<Self>) -> TensorValue {
+        TensorValue::U16(tensor)
+    }
 }
 
 impl TensorElement for u32 {
@@ -179,6 +556,10 @@ impl TensorElement for u32 {
             TensorValue::U32(tensor) => Some(tensor.clone()),
             _ => None,
         }
+    }
+
+    fn into_value(tensor: Tensor<Self>) -> TensorValue {
+        TensorValue::U32(tensor)
     }
 }
 
@@ -189,6 +570,10 @@ impl TensorElement for u64 {
             _ => None,
         }
     }
+
+    fn into_value(tensor: Tensor<Self>) -> TensorValue {
+        TensorValue::U64(tensor)
+    }
 }
 
 impl TensorElement for bool {
@@ -197,6 +582,10 @@ impl TensorElement for bool {
             TensorValue::Bool(tensor) => Some(tensor.clone()),
             _ => None,
         }
+    }
+
+    fn into_value(tensor: Tensor<Self>) -> TensorValue {
+        TensorValue::Bool(tensor)
     }
 }
 
@@ -207,6 +596,10 @@ impl TensorElement for F16 {
             _ => None,
         }
     }
+
+    fn into_value(tensor: Tensor<Self>) -> TensorValue {
+        TensorValue::F16(tensor)
+    }
 }
 
 impl TensorElement for Bitset {
@@ -215,6 +608,10 @@ impl TensorElement for Bitset {
             TensorValue::Bitset(tensor) => Some(tensor.clone()),
             _ => None,
         }
+    }
+
+    fn into_value(tensor: Tensor<Self>) -> TensorValue {
+        TensorValue::Bitset(tensor)
     }
 }
 
@@ -310,21 +707,136 @@ impl TensorValue {
         }
     }
 
-    pub fn zeros(dtype: DType, len: usize) -> Self {
+    pub fn shape(&self) -> &[usize] {
+        match self {
+            TensorValue::I8(tensor) => tensor.shape(),
+            TensorValue::I16(tensor) => tensor.shape(),
+            TensorValue::F32(tensor) => tensor.shape(),
+            TensorValue::F64(tensor) => tensor.shape(),
+            TensorValue::U8(tensor) => tensor.shape(),
+            TensorValue::U16(tensor) => tensor.shape(),
+            TensorValue::I32(tensor) => tensor.shape(),
+            TensorValue::I64(tensor) => tensor.shape(),
+            TensorValue::U32(tensor) => tensor.shape(),
+            TensorValue::U64(tensor) => tensor.shape(),
+            TensorValue::Bool(tensor) => tensor.shape(),
+            TensorValue::Bitset(tensor) => tensor.shape(),
+            TensorValue::F16(tensor) => tensor.shape(),
+        }
+    }
+
+    pub fn strides(&self) -> &[usize] {
+        match self {
+            TensorValue::I8(tensor) => tensor.strides(),
+            TensorValue::I16(tensor) => tensor.strides(),
+            TensorValue::F32(tensor) => tensor.strides(),
+            TensorValue::F64(tensor) => tensor.strides(),
+            TensorValue::U8(tensor) => tensor.strides(),
+            TensorValue::U16(tensor) => tensor.strides(),
+            TensorValue::I32(tensor) => tensor.strides(),
+            TensorValue::I64(tensor) => tensor.strides(),
+            TensorValue::U32(tensor) => tensor.strides(),
+            TensorValue::U64(tensor) => tensor.strides(),
+            TensorValue::Bool(tensor) => tensor.strides(),
+            TensorValue::Bitset(tensor) => tensor.strides(),
+            TensorValue::F16(tensor) => tensor.strides(),
+        }
+    }
+
+    pub fn zeros(dtype: DType, shape: &[usize]) -> Self {
+        let len = numel(shape);
         match dtype {
-            DType::I8 => TensorValue::I8(Tensor::new(vec![0; len])),
-            DType::I16 => TensorValue::I16(Tensor::new(vec![0; len])),
-            DType::F32 => TensorValue::F32(Tensor::new(vec![0.0; len])),
-            DType::F64 => TensorValue::F64(Tensor::new(vec![0.0; len])),
-            DType::U8 => TensorValue::U8(Tensor::new(vec![0; len])),
-            DType::U16 => TensorValue::U16(Tensor::new(vec![0; len])),
-            DType::I32 => TensorValue::I32(Tensor::new(vec![0; len])),
-            DType::I64 => TensorValue::I64(Tensor::new(vec![0; len])),
-            DType::U32 => TensorValue::U32(Tensor::new(vec![0; len])),
-            DType::U64 => TensorValue::U64(Tensor::new(vec![0; len])),
-            DType::Bool => TensorValue::Bool(Tensor::new(vec![false; len])),
-            DType::Bitset => TensorValue::Bitset(Tensor::new(vec![Bitset { bits: 0 }; len])),
-            DType::F16 => TensorValue::F16(Tensor::new(vec![F16 { bits: 0 }; len])),
+            DType::I8 => TensorValue::I8(
+                Tensor::from_vec_with_opts(vec![0; len], TensorOptions {
+                    shape: Some(shape.to_vec()),
+                    ..TensorOptions::default()
+                })
+                .unwrap_or_else(|err| panic!("tensor zeros failed: {}", err)),
+            ),
+            DType::I16 => TensorValue::I16(
+                Tensor::from_vec_with_opts(vec![0; len], TensorOptions {
+                    shape: Some(shape.to_vec()),
+                    ..TensorOptions::default()
+                })
+                .unwrap_or_else(|err| panic!("tensor zeros failed: {}", err)),
+            ),
+            DType::F32 => TensorValue::F32(
+                Tensor::from_vec_with_opts(vec![0.0; len], TensorOptions {
+                    shape: Some(shape.to_vec()),
+                    ..TensorOptions::default()
+                })
+                .unwrap_or_else(|err| panic!("tensor zeros failed: {}", err)),
+            ),
+            DType::F64 => TensorValue::F64(
+                Tensor::from_vec_with_opts(vec![0.0; len], TensorOptions {
+                    shape: Some(shape.to_vec()),
+                    ..TensorOptions::default()
+                })
+                .unwrap_or_else(|err| panic!("tensor zeros failed: {}", err)),
+            ),
+            DType::U8 => TensorValue::U8(
+                Tensor::from_vec_with_opts(vec![0; len], TensorOptions {
+                    shape: Some(shape.to_vec()),
+                    ..TensorOptions::default()
+                })
+                .unwrap_or_else(|err| panic!("tensor zeros failed: {}", err)),
+            ),
+            DType::U16 => TensorValue::U16(
+                Tensor::from_vec_with_opts(vec![0; len], TensorOptions {
+                    shape: Some(shape.to_vec()),
+                    ..TensorOptions::default()
+                })
+                .unwrap_or_else(|err| panic!("tensor zeros failed: {}", err)),
+            ),
+            DType::I32 => TensorValue::I32(
+                Tensor::from_vec_with_opts(vec![0; len], TensorOptions {
+                    shape: Some(shape.to_vec()),
+                    ..TensorOptions::default()
+                })
+                .unwrap_or_else(|err| panic!("tensor zeros failed: {}", err)),
+            ),
+            DType::I64 => TensorValue::I64(
+                Tensor::from_vec_with_opts(vec![0; len], TensorOptions {
+                    shape: Some(shape.to_vec()),
+                    ..TensorOptions::default()
+                })
+                .unwrap_or_else(|err| panic!("tensor zeros failed: {}", err)),
+            ),
+            DType::U32 => TensorValue::U32(
+                Tensor::from_vec_with_opts(vec![0; len], TensorOptions {
+                    shape: Some(shape.to_vec()),
+                    ..TensorOptions::default()
+                })
+                .unwrap_or_else(|err| panic!("tensor zeros failed: {}", err)),
+            ),
+            DType::U64 => TensorValue::U64(
+                Tensor::from_vec_with_opts(vec![0; len], TensorOptions {
+                    shape: Some(shape.to_vec()),
+                    ..TensorOptions::default()
+                })
+                .unwrap_or_else(|err| panic!("tensor zeros failed: {}", err)),
+            ),
+            DType::Bool => TensorValue::Bool(
+                Tensor::from_vec_with_opts(vec![false; len], TensorOptions {
+                    shape: Some(shape.to_vec()),
+                    ..TensorOptions::default()
+                })
+                .unwrap_or_else(|err| panic!("tensor zeros failed: {}", err)),
+            ),
+            DType::Bitset => TensorValue::Bitset(
+                Tensor::from_vec_with_opts(vec![Bitset { bits: 0 }; len], TensorOptions {
+                    shape: Some(shape.to_vec()),
+                    ..TensorOptions::default()
+                })
+                .unwrap_or_else(|err| panic!("tensor zeros failed: {}", err)),
+            ),
+            DType::F16 => TensorValue::F16(
+                Tensor::from_vec_with_opts(vec![F16 { bits: 0 }; len], TensorOptions {
+                    shape: Some(shape.to_vec()),
+                    ..TensorOptions::default()
+                })
+                .unwrap_or_else(|err| panic!("tensor zeros failed: {}", err)),
+            ),
         }
     }
 
@@ -420,21 +932,9 @@ impl TensorValue {
     }
 }
 
-impl From<Vec<i8>> for TensorValue {
-    fn from(value: Vec<i8>) -> Self {
-        TensorValue::I8(Tensor::new(value))
-    }
-}
-
 impl From<Tensor<i8>> for TensorValue {
     fn from(value: Tensor<i8>) -> Self {
         TensorValue::I8(value)
-    }
-}
-
-impl From<Vec<i16>> for TensorValue {
-    fn from(value: Vec<i16>) -> Self {
-        TensorValue::I16(Tensor::new(value))
     }
 }
 
@@ -444,21 +944,9 @@ impl From<Tensor<i16>> for TensorValue {
     }
 }
 
-impl From<Vec<f32>> for TensorValue {
-    fn from(value: Vec<f32>) -> Self {
-        TensorValue::F32(Tensor::new(value))
-    }
-}
-
 impl From<Tensor<f32>> for TensorValue {
     fn from(value: Tensor<f32>) -> Self {
         TensorValue::F32(value)
-    }
-}
-
-impl From<Vec<f64>> for TensorValue {
-    fn from(value: Vec<f64>) -> Self {
-        TensorValue::F64(Tensor::new(value))
     }
 }
 
@@ -468,21 +956,9 @@ impl From<Tensor<f64>> for TensorValue {
     }
 }
 
-impl From<Vec<i32>> for TensorValue {
-    fn from(value: Vec<i32>) -> Self {
-        TensorValue::I32(Tensor::new(value))
-    }
-}
-
 impl From<Tensor<i32>> for TensorValue {
     fn from(value: Tensor<i32>) -> Self {
         TensorValue::I32(value)
-    }
-}
-
-impl From<Vec<i64>> for TensorValue {
-    fn from(value: Vec<i64>) -> Self {
-        TensorValue::I64(Tensor::new(value))
     }
 }
 
@@ -492,21 +968,9 @@ impl From<Tensor<i64>> for TensorValue {
     }
 }
 
-impl From<Vec<u8>> for TensorValue {
-    fn from(value: Vec<u8>) -> Self {
-        TensorValue::U8(Tensor::new(value))
-    }
-}
-
 impl From<Tensor<u8>> for TensorValue {
     fn from(value: Tensor<u8>) -> Self {
         TensorValue::U8(value)
-    }
-}
-
-impl From<Vec<u16>> for TensorValue {
-    fn from(value: Vec<u16>) -> Self {
-        TensorValue::U16(Tensor::new(value))
     }
 }
 
@@ -516,21 +980,9 @@ impl From<Tensor<u16>> for TensorValue {
     }
 }
 
-impl From<Vec<u32>> for TensorValue {
-    fn from(value: Vec<u32>) -> Self {
-        TensorValue::U32(Tensor::new(value))
-    }
-}
-
 impl From<Tensor<u32>> for TensorValue {
     fn from(value: Tensor<u32>) -> Self {
         TensorValue::U32(value)
-    }
-}
-
-impl From<Vec<u64>> for TensorValue {
-    fn from(value: Vec<u64>) -> Self {
-        TensorValue::U64(Tensor::new(value))
     }
 }
 
@@ -540,33 +992,15 @@ impl From<Tensor<u64>> for TensorValue {
     }
 }
 
-impl From<Vec<bool>> for TensorValue {
-    fn from(value: Vec<bool>) -> Self {
-        TensorValue::Bool(Tensor::new(value))
-    }
-}
-
 impl From<Tensor<bool>> for TensorValue {
     fn from(value: Tensor<bool>) -> Self {
         TensorValue::Bool(value)
     }
 }
 
-impl From<Vec<Bitset>> for TensorValue {
-    fn from(value: Vec<Bitset>) -> Self {
-        TensorValue::Bitset(Tensor::new(value))
-    }
-}
-
 impl From<Tensor<Bitset>> for TensorValue {
     fn from(value: Tensor<Bitset>) -> Self {
         TensorValue::Bitset(value)
-    }
-}
-
-impl From<Vec<F16>> for TensorValue {
-    fn from(value: Vec<F16>) -> Self {
-        TensorValue::F16(Tensor::new(value))
     }
 }
 
@@ -578,78 +1012,78 @@ impl From<Tensor<F16>> for TensorValue {
 
 impl From<i8> for TensorValue {
     fn from(value: i8) -> Self {
-        TensorValue::I8(Tensor::new(vec![value]))
+        TensorValue::I8(Tensor::from_scalar(value))
     }
 }
 
 impl From<i16> for TensorValue {
     fn from(value: i16) -> Self {
-        TensorValue::I16(Tensor::new(vec![value]))
+        TensorValue::I16(Tensor::from_scalar(value))
     }
 }
 
 impl From<i32> for TensorValue {
     fn from(value: i32) -> Self {
-        TensorValue::I32(Tensor::new(vec![value]))
+        TensorValue::I32(Tensor::from_scalar(value))
     }
 }
 
 impl From<i64> for TensorValue {
     fn from(value: i64) -> Self {
-        TensorValue::I64(Tensor::new(vec![value]))
+        TensorValue::I64(Tensor::from_scalar(value))
     }
 }
 
 impl From<u8> for TensorValue {
     fn from(value: u8) -> Self {
-        TensorValue::U8(Tensor::new(vec![value]))
+        TensorValue::U8(Tensor::from_scalar(value))
     }
 }
 
 impl From<u16> for TensorValue {
     fn from(value: u16) -> Self {
-        TensorValue::U16(Tensor::new(vec![value]))
+        TensorValue::U16(Tensor::from_scalar(value))
     }
 }
 
 impl From<u32> for TensorValue {
     fn from(value: u32) -> Self {
-        TensorValue::U32(Tensor::new(vec![value]))
+        TensorValue::U32(Tensor::from_scalar(value))
     }
 }
 
 impl From<u64> for TensorValue {
     fn from(value: u64) -> Self {
-        TensorValue::U64(Tensor::new(vec![value]))
+        TensorValue::U64(Tensor::from_scalar(value))
     }
 }
 
 impl From<f32> for TensorValue {
     fn from(value: f32) -> Self {
-        TensorValue::F32(Tensor::new(vec![value]))
+        TensorValue::F32(Tensor::from_scalar(value))
     }
 }
 
 impl From<f64> for TensorValue {
     fn from(value: f64) -> Self {
-        TensorValue::F64(Tensor::new(vec![value]))
+        TensorValue::F64(Tensor::from_scalar(value))
     }
 }
 
 impl From<bool> for TensorValue {
     fn from(value: bool) -> Self {
-        TensorValue::Bool(Tensor::new(vec![value]))
+        TensorValue::Bool(Tensor::from_scalar(value))
     }
 }
 
 impl From<Bitset> for TensorValue {
     fn from(value: Bitset) -> Self {
-        TensorValue::Bitset(Tensor::new(vec![value]))
+        TensorValue::Bitset(Tensor::from_scalar(value))
     }
 }
 
 impl From<F16> for TensorValue {
     fn from(value: F16) -> Self {
-        TensorValue::F16(Tensor::new(vec![value]))
+        TensorValue::F16(Tensor::from_scalar(value))
     }
 }

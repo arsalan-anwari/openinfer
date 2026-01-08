@@ -39,6 +39,8 @@ pub trait ShaderRegistry {
 pub struct VulkanBuffer {
     pub dtype: DType,
     pub len: usize,
+    #[allow(dead_code)]
+    pub shape: Vec<usize>,
     pub shader: Option<Arc<OpShaderInfo>>,
     #[allow(unused)]
     pub inner: Arc<crate::backend::vulkan::VulkanBufferInner>,
@@ -70,6 +72,14 @@ impl TensorStorage {
         match self {
             TensorStorage::Host(value) => value.len(),
             TensorStorage::Device(DeviceTensor::Vulkan(buf)) => buf.len,
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn shape(&self) -> &[usize] {
+        match self {
+            TensorStorage::Host(value) => value.shape(),
+            TensorStorage::Device(DeviceTensor::Vulkan(buf)) => buf.shape.as_slice(),
         }
     }
 }

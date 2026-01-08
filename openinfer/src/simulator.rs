@@ -44,7 +44,7 @@ impl Device {
 #[allow(unused)]
 pub(crate) trait DeviceBackend {
     fn device(&self) -> Device;
-    fn alloc(&self, dtype: DType, len: usize) -> Result<crate::backend::TensorStorage>;
+    fn alloc(&self, dtype: DType, shape: &[usize]) -> Result<crate::backend::TensorStorage>;
     fn upload(&self, value: crate::tensor::TensorValue) -> Result<crate::backend::TensorStorage>;
     fn download(&self, value: crate::backend::TensorStorage) -> Result<crate::tensor::TensorValue>;
     fn exec_op(
@@ -134,14 +134,14 @@ fn validate_graph(model: &ModelLoader, graph: &Graph, device: Device) -> Result<
                     decl.dtype
                 ));
             }
-            let model_len = model.resolve_len(&info.dims)?;
-            let graph_len = model.resolve_len(&decl.dims)?;
-            if model_len != graph_len {
+            let model_shape = model.resolve_shape(&info.dims)?;
+            let graph_shape = model.resolve_shape(&decl.dims)?;
+            if model_shape != graph_shape {
                 return Err(anyhow!(
-                    "model shape mismatch for {}: model len {}, graph len {}",
+                    "model shape mismatch for {}: model shape {:?}, graph shape {:?}",
                     decl.name,
-                    model_len,
-                    graph_len
+                    model_shape,
+                    graph_shape
                 ));
             }
         }
@@ -180,21 +180,12 @@ fn validate_block(
                 output,
             } => {
                 let mut input_dtypes = Vec::new();
-                let mut input_dims: Option<Vec<String>> = None;
+                let mut input_shapes: Vec<Vec<usize>> = Vec::new();
                 for input in inputs {
                     let (dtype, dims) = var_signature(graph, &temps, input)?;
                     input_dtypes.push(dtype);
-                    if let Some(existing) = input_dims.as_ref() {
-                        if existing != &dims {
-                            return Err(anyhow!(
-                                "op {} has mismatched input dims for {}",
-                                op.as_str(),
-                                input
-                            ));
-                        }
-                    } else {
-                        input_dims = Some(dims);
-                    }
+                    let shape = model.resolve_shape(&dims)?;
+                    input_shapes.push(shape);
                 }
 
                 let (output_dtype, output_dims) = var_signature(graph, &temps, output)?;
@@ -204,11 +195,33 @@ fn validate_block(
                     }
                 }
 
-                if let Some(input_dims) = input_dims {
-                    if input_dims != output_dims {
+                if !input_shapes.is_empty() {
+                    let output_shape = model.resolve_shape(&output_dims)?;
+                    let expected_shape = if device == Device::Cpu {
+                        let mut shape = input_shapes[0].clone();
+                        for input_shape in input_shapes.iter().skip(1) {
+                            shape = crate::tensor::broadcast_shapes(&shape, input_shape)?;
+                        }
+                        shape
+                    } else {
+                        let first = input_shapes[0].clone();
+                        for input_shape in input_shapes.iter().skip(1) {
+                            if *input_shape != first {
+                                return Err(anyhow!(
+                                    "op {} requires identical input shapes on {:?}",
+                                    op.as_str(),
+                                    device
+                                ));
+                            }
+                        }
+                        first
+                    };
+                    if output_shape != expected_shape {
                         return Err(anyhow!(
-                            "op {} output dims do not match inputs for {}",
+                            "op {} output shape {:?} does not match expected {:?} for {}",
                             op.as_str(),
+                            output_shape,
+                            expected_shape,
                             output
                         ));
                     }
