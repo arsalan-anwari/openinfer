@@ -98,12 +98,14 @@ impl Graph {
         dtype: DType,
         dims: Vec<String>,
         init: Option<ScalarValue>,
+        ref_name: Option<String>,
     ) {
         let name = name.into();
         self.vars.insert(
             name.clone(),
             VarDecl {
                 name,
+                ref_name,
                 dtype,
                 dims,
                 kind,

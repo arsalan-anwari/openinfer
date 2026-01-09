@@ -136,10 +136,18 @@ pub enum MemoryKind {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VarDecl {
     pub name: String,
+    #[serde(default)]
+    pub ref_name: Option<String>,
     pub dtype: DType,
     pub dims: Vec<String>,
     pub kind: MemoryKind,
     pub init: Option<ScalarValue>,
+}
+
+impl VarDecl {
+    pub fn model_name(&self) -> &str {
+        self.ref_name.as_deref().unwrap_or(&self.name)
+    }
 }
 
 #[derive(Debug, Clone)]

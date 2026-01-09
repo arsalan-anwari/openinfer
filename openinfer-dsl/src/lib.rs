@@ -3,6 +3,7 @@ use quote::quote;
 use syn::parse::{Parse, ParseStream, Result};
 use syn::{braced, parenthesized, Ident, LitInt, Token};
 
+mod attributes;
 mod kw {
     syn::custom_keyword!(dynamic);
     syn::custom_keyword!(volatile);
@@ -11,6 +12,7 @@ mod kw {
     syn::custom_keyword!(assign);
     syn::custom_keyword!(op);
     syn::custom_keyword!(init);
+    syn::custom_keyword!(reference);
 }
 
 mod validation;
@@ -49,6 +51,7 @@ struct VarDecl {
     dtype: Ident,
     dims: Vec<Dim>,
     init: Option<InitValue>,
+    ref_name: Option<syn::LitStr>,
 }
 
 enum Dim {
@@ -148,13 +151,14 @@ impl Parse for VarDecl {
         input.parse::<Token![:]>()?;
         let dtype: Ident = input.parse()?;
         let dims = parse_dims(input)?;
-        let init = parse_init(input)?;
+        let attrs = attributes::parse_attrs(input)?;
         input.parse::<Token![;]>()?;
         Ok(Self {
             name,
             dtype,
             dims,
-            init,
+            init: attrs.init,
+            ref_name: attrs.ref_name,
         })
     }
 }
@@ -248,30 +252,6 @@ fn parse_dims(input: ParseStream) -> Result<Vec<Dim>> {
     Ok(dims)
 }
 
-fn parse_init(input: ParseStream) -> Result<Option<InitValue>> {
-    if !input.peek(Token![@]) {
-        return Ok(None);
-    }
-    input.parse::<Token![@]>()?;
-    input.parse::<kw::init>()?;
-    let content;
-    parenthesized!(content in input);
-    let negative = if content.peek(Token![-]) {
-        content.parse::<Token![-]>()?;
-        true
-    } else {
-        false
-    };
-    if content.peek(syn::LitFloat) {
-        let lit: syn::LitFloat = content.parse()?;
-        Ok(Some(InitValue::Float { lit, negative }))
-    } else if content.peek(LitInt) {
-        let lit: LitInt = content.parse()?;
-        Ok(Some(InitValue::Int { lit, negative }))
-    } else {
-        Err(content.error("expected numeric literal for init"))
-    }
-}
 
 fn parse_op_arg(input: ParseStream) -> Result<OpArg> {
     let name: Ident = input.parse()?;
@@ -342,8 +322,12 @@ impl GraphDsl {
                         let dtype = match_dtype(&var.dtype)?;
                         let dims = dims_expr(&var.dims);
                         let init = init_expr(&var.init, &var.dtype)?;
+                        let ref_name = match var.ref_name {
+                            Some(lit) => quote! { Some(#lit.to_string()) },
+                            None => quote! { None },
+                        };
                         stmts.push(quote! {
-                            g.add_var(#kind_expr, #name, #dtype, #dims, #init);
+                            g.add_var(#kind_expr, #name, #dtype, #dims, #init, #ref_name);
                         });
                     }
                 }

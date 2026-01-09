@@ -125,11 +125,13 @@ fn validate_graph(model: &ModelLoader, graph: &Graph, device: Device) -> Result<
                 ));
             }
         }
-        if let Some(info) = model.var_info(&decl.name) {
+        let model_name = decl.model_name();
+        if let Some(info) = model.var_info(model_name) {
             if info.dtype != decl.dtype {
                 return Err(anyhow!(
-                    "model dtype mismatch for {}: model {:?}, graph {:?}",
+                    "model dtype mismatch for {} (ref {}): model {:?}, graph {:?}",
                     decl.name,
+                    model_name,
                     info.dtype,
                     decl.dtype
                 ));
@@ -138,8 +140,9 @@ fn validate_graph(model: &ModelLoader, graph: &Graph, device: Device) -> Result<
             let graph_shape = model.resolve_shape(&decl.dims)?;
             if model_shape != graph_shape {
                 return Err(anyhow!(
-                    "model shape mismatch for {}: model shape {:?}, graph shape {:?}",
+                    "model shape mismatch for {} (ref {}): model shape {:?}, graph shape {:?}",
                     decl.name,
+                    model_name,
                     model_shape,
                     graph_shape
                 ));

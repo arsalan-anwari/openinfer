@@ -49,3 +49,7 @@ path = "../examples/rust/relu.rs"
 [[example]]
 name = "multidim_broadcast"
 path = "../examples/rust/multidim_broadcast.rs"
+
+[[example]]
+name = "reference"
+path = "../examples/rust/reference.rs"
