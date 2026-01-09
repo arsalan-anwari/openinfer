@@ -12,6 +12,8 @@ Checklist of features described in the README and current implementation status.
 - [x] Vulkan backend with basic ops (add, mul, abs, relu)
 - [x] Per-op broadcasting with CPU and Vulkan support
 - [x] Vulkan shader manifest and embedded SPIR-V workflow
+- [x] Reference attribute and custom attribute parsing support
+- [x] Prefix tables in `volatile` and `constant`
 
 ## In Progress / Planned
 

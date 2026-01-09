@@ -13,6 +13,7 @@ mod kw {
     syn::custom_keyword!(op);
     syn::custom_keyword!(init);
     syn::custom_keyword!(reference);
+    syn::custom_keyword!(pattern);
 }
 
 mod validation;
@@ -52,6 +53,8 @@ struct VarDecl {
     dims: Vec<Dim>,
     init: Option<InitValue>,
     ref_name: Option<syn::LitStr>,
+    pattern: Option<syn::LitStr>,
+    table_indices: Vec<Ident>,
 }
 
 enum Dim {
@@ -83,7 +86,7 @@ struct AssignNode {
 
 struct OpNode {
     name: Ident,
-    inputs: Vec<Ident>,
+    inputs: Vec<VarRef>,
     settings: Vec<OpSetting>,
     output: Ident,
 }
@@ -101,8 +104,18 @@ enum OpAttrValue {
 }
 
 enum OpArg {
-    Input(Ident),
+    Input(VarRef),
     Setting(OpSetting),
+}
+
+struct VarRef {
+    name: Ident,
+    indices: Vec<IndexExpr>,
+}
+
+enum IndexExpr {
+    Ident(Ident),
+    Lit(LitInt),
 }
 
 impl Parse for GraphDsl {
@@ -148,6 +161,21 @@ impl Parse for MemorySection {
 impl Parse for VarDecl {
     fn parse(input: ParseStream) -> Result<Self> {
         let name: Ident = input.parse()?;
+        let mut table_indices = Vec::new();
+        if input.peek(syn::token::Paren) {
+            let content;
+            parenthesized!(content in input);
+            while !content.is_empty() {
+                let ident: Ident = content.parse()?;
+                table_indices.push(ident);
+                if content.peek(Token![,]) {
+                    content.parse::<Token![,]>()?;
+                }
+            }
+            if table_indices.is_empty() {
+                return Err(content.error("prefix table must declare at least one index"));
+            }
+        }
         input.parse::<Token![:]>()?;
         let dtype: Ident = input.parse()?;
         let dims = parse_dims(input)?;
@@ -159,6 +187,8 @@ impl Parse for VarDecl {
             dims,
             init: attrs.init,
             ref_name: attrs.ref_name,
+            pattern: attrs.pattern,
+            table_indices,
         })
     }
 }
@@ -259,9 +289,49 @@ fn parse_op_arg(input: ParseStream) -> Result<OpArg> {
         input.parse::<Token![=]>()?;
         let value = parse_op_attr_value(input)?;
         Ok(OpArg::Setting(OpSetting { name, value }))
+    } else if input.peek(syn::token::Bracket) {
+        let indices = parse_indices(input)?;
+        Ok(OpArg::Input(VarRef { name, indices }))
     } else {
-        Ok(OpArg::Input(name))
+        Ok(OpArg::Input(VarRef {
+            name,
+            indices: Vec::new(),
+        }))
     }
+}
+
+fn parse_indices(input: ParseStream) -> Result<Vec<IndexExpr>> {
+    let content;
+    syn::bracketed!(content in input);
+    let mut indices = Vec::new();
+    while !content.is_empty() {
+        if content.peek(LitInt) {
+            indices.push(IndexExpr::Lit(content.parse()?));
+        } else {
+            indices.push(IndexExpr::Ident(content.parse()?));
+        }
+        if content.peek(Token![,]) {
+            content.parse::<Token![,]>()?;
+        }
+    }
+    if indices.is_empty() {
+        return Err(content.error("prefix access must include at least one index"));
+    }
+    Ok(indices)
+}
+
+fn var_ref_string(var_ref: &VarRef) -> String {
+    let mut name = var_ref.name.to_string();
+    if !var_ref.indices.is_empty() {
+        let items = var_ref.indices.iter().map(|index| match index {
+            IndexExpr::Ident(ident) => ident.to_string(),
+            IndexExpr::Lit(lit) => lit.to_string(),
+        });
+        name.push('[');
+        name.push_str(&items.collect::<Vec<_>>().join(","));
+        name.push(']');
+    }
+    name
 }
 
 fn parse_op_attr_value(input: ParseStream) -> Result<OpAttrValue> {
@@ -326,8 +396,25 @@ impl GraphDsl {
                             Some(lit) => quote! { Some(#lit.to_string()) },
                             None => quote! { None },
                         };
+                        let pattern = match var.pattern {
+                            Some(lit) => quote! { Some(#lit.to_string()) },
+                            None => quote! { None },
+                        };
+                        let table_indices = var.table_indices.iter().map(|index| {
+                            let s = index.to_string();
+                            quote! { #s.to_string() }
+                        });
                         stmts.push(quote! {
-                            g.add_var(#kind_expr, #name, #dtype, #dims, #init, #ref_name);
+                            g.add_var(
+                                #kind_expr,
+                                #name,
+                                #dtype,
+                                #dims,
+                                #init,
+                                #ref_name,
+                                vec![#(#table_indices),*],
+                                #pattern,
+                            );
                         });
                     }
                 }
@@ -351,7 +438,7 @@ impl GraphDsl {
                             Node::Op(op) => {
                                 let kind = match_opkind(&op.name)?;
                                 let inputs = op.inputs.iter().map(|i| {
-                                let s = i.to_string();
+                                let s = var_ref_string(i);
                                     quote! { #s.to_string() }
                                 });
                                 let output = op.output.to_string();

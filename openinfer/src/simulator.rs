@@ -1,20 +1,21 @@
-use std::collections::HashMap;
-
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
 
 use crate::backend::cpu::CpuBackend;
-use crate::graph::{AttrValue, Graph, NodeKind, OpAttrs};
+
+#[allow(unused_imports)]
+use crate::graph::{Graph, OpAttrs};
+
 use crate::model_loader::ModelLoader;
-use crate::ops::{broadcast_enabled, lookup_kernel};
 use crate::tensor::DType;
-use crate::types::MemoryKind;
 
 #[cfg(feature = "vulkan")]
 use crate::backend::vulkan::VulkanBackend;
 
+mod validation;
 mod executor;
 
 pub use executor::{Executor, Fetchable, TraceEvent, TraceEventKind};
+use validation::validate_graph;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Device {
@@ -110,199 +111,4 @@ impl<'a> Simulator<'a> {
             self.timer_enabled,
         )
     }
-}
-
-fn validate_graph(model: &ModelLoader, graph: &Graph, device: Device) -> Result<()> {
-    for decl in graph.vars.values() {
-        validate_dims(model, &decl.dims, &decl.name)?;
-        if let Some(init) = decl.init.as_ref() {
-            if init.dtype() != decl.dtype {
-                return Err(anyhow!(
-                    "init value for {} has dtype {:?}, expected {:?}",
-                    decl.name,
-                    init.dtype(),
-                    decl.dtype
-                ));
-            }
-        }
-        let model_name = decl.model_name();
-        if let Some(info) = model.var_info(model_name) {
-            if info.dtype != decl.dtype {
-                return Err(anyhow!(
-                    "model dtype mismatch for {} (ref {}): model {:?}, graph {:?}",
-                    decl.name,
-                    model_name,
-                    info.dtype,
-                    decl.dtype
-                ));
-            }
-            let model_shape = model.resolve_shape(&info.dims)?;
-            let graph_shape = model.resolve_shape(&decl.dims)?;
-            if model_shape != graph_shape {
-                return Err(anyhow!(
-                    "model shape mismatch for {} (ref {}): model shape {:?}, graph shape {:?}",
-                    decl.name,
-                    model_name,
-                    model_shape,
-                    graph_shape
-                ));
-            }
-        }
-    }
-
-    for block in graph.blocks.values() {
-        validate_block(model, graph, device, block)?;
-    }
-
-    Ok(())
-}
-
-fn validate_block(
-    model: &ModelLoader,
-    graph: &Graph,
-    device: Device,
-    block: &crate::graph::Block,
-) -> Result<()> {
-    let mut temps: HashMap<String, (DType, Vec<String>)> = HashMap::new();
-    for node in &block.nodes {
-        match &node.kind {
-            NodeKind::Assign { name, dtype, dims } => {
-                if graph.vars.contains_key(name) {
-                    return Err(anyhow!("assign shadows declared variable {}", name));
-                }
-                if temps.contains_key(name) {
-                    return Err(anyhow!("duplicate temporary {}", name));
-                }
-                validate_dims(model, dims, name)?;
-                temps.insert(name.clone(), (*dtype, dims.clone()));
-            }
-            NodeKind::Op {
-                op,
-                attrs,
-                inputs,
-                output,
-            } => {
-                let mut input_dtypes = Vec::new();
-                let mut input_shapes: Vec<Vec<usize>> = Vec::new();
-                for input in inputs {
-                    let (dtype, dims) = var_signature(graph, &temps, input)?;
-                    input_dtypes.push(dtype);
-                    let shape = model.resolve_shape(&dims)?;
-                    input_shapes.push(shape);
-                }
-
-                let (output_dtype, output_dims) = var_signature(graph, &temps, output)?;
-                if let Some(decl) = graph.vars.get(output) {
-                    if decl.kind == MemoryKind::Constant {
-                        return Err(anyhow!("cannot write to constant memory: {}", output));
-                    }
-                }
-
-                if !input_shapes.is_empty() {
-                    let output_shape = model.resolve_shape(&output_dims)?;
-                    let expected_shape = if broadcast_enabled(*op, device) {
-                        let mut shape = input_shapes[0].clone();
-                        for input_shape in input_shapes.iter().skip(1) {
-                            shape = crate::tensor::broadcast_shapes(&shape, input_shape)?;
-                        }
-                        shape
-                    } else {
-                        let first = input_shapes[0].clone();
-                        for input_shape in input_shapes.iter().skip(1) {
-                            if *input_shape != first {
-                                return Err(anyhow!(
-                                    "op {} requires identical input shapes on {:?}",
-                                    op.as_str(),
-                                    device
-                                ));
-                            }
-                        }
-                        first
-                    };
-                    if output_shape != expected_shape {
-                        return Err(anyhow!(
-                            "op {} output shape {:?} does not match expected {:?} for {}",
-                            op.as_str(),
-                            output_shape,
-                            expected_shape,
-                            output
-                        ));
-                    }
-                }
-
-                validate_op_attrs(graph, attrs)?;
-                if lookup_kernel(device, *op, output_dtype, &input_dtypes, attrs).is_none() {
-                    return Err(anyhow!(
-                        "no kernel for op {} with output {:?} and inputs {:?} on {:?}",
-                        op.as_str(),
-                        output_dtype,
-                        input_dtypes,
-                        device
-                    ));
-                }
-            }
-            NodeKind::Return => {}
-        }
-    }
-    Ok(())
-}
-
-fn validate_op_attrs(graph: &Graph, attrs: &OpAttrs) -> Result<()> {
-    match attrs {
-        OpAttrs::None => Ok(()),
-        OpAttrs::Relu {
-            negative_slope,
-            clamp_max,
-        } => {
-            validate_attr_value(graph, negative_slope)?;
-            validate_attr_value(graph, clamp_max)?;
-            Ok(())
-        }
-    }
-}
-
-fn validate_attr_value(graph: &Graph, value: &AttrValue) -> Result<()> {
-    if let AttrValue::Var(name) = value {
-        let decl = graph
-            .vars
-            .get(name)
-            .ok_or_else(|| anyhow!("unknown attribute variable {}", name))?;
-        if decl.kind != MemoryKind::Constant {
-            return Err(anyhow!(
-                "op setting must reference constant memory: {} is {:?}",
-                name,
-                decl.kind
-            ));
-        }
-        if !decl.dims.is_empty() {
-            return Err(anyhow!("op setting {} must be a scalar", name));
-        }
-    }
-    Ok(())
-}
-
-fn validate_dims(model: &ModelLoader, dims: &[String], name: &str) -> Result<()> {
-    for dim in dims {
-        if dim.parse::<usize>().is_ok() {
-            continue;
-        }
-        model
-            .size_of(dim)
-            .with_context(|| format!("unknown sizevar {} for {}", dim, name))?;
-    }
-    Ok(())
-}
-
-fn var_signature(
-    graph: &Graph,
-    temps: &HashMap<String, (DType, Vec<String>)>,
-    name: &str,
-) -> Result<(DType, Vec<String>)> {
-    if let Some(decl) = graph.vars.get(name) {
-        return Ok((decl.dtype, decl.dims.clone()));
-    }
-    if let Some((dtype, dims)) = temps.get(name) {
-        return Ok((*dtype, dims.clone()));
-    }
-    Err(anyhow!("unknown variable {}", name))
 }

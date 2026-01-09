@@ -53,3 +53,7 @@ path = "../examples/rust/multidim_broadcast.rs"
 [[example]]
 name = "reference"
 path = "../examples/rust/reference.rs"
+
+[[example]]
+name = "prefix_table"
+path = "../examples/rust/prefix_table.rs"

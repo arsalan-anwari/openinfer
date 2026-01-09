@@ -138,6 +138,10 @@ pub struct VarDecl {
     pub name: String,
     #[serde(default)]
     pub ref_name: Option<String>,
+    #[serde(default)]
+    pub pattern: Option<String>,
+    #[serde(default)]
+    pub table_indices: Vec<String>,
     pub dtype: DType,
     pub dims: Vec<String>,
     pub kind: MemoryKind,
@@ -147,6 +151,10 @@ pub struct VarDecl {
 impl VarDecl {
     pub fn model_name(&self) -> &str {
         self.ref_name.as_deref().unwrap_or(&self.name)
+    }
+
+    pub fn is_prefix_table(&self) -> bool {
+        !self.table_indices.is_empty() || self.pattern.is_some()
     }
 }
 

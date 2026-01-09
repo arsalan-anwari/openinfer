@@ -10,6 +10,7 @@ use uuid::Uuid;
 use crate::backend::TensorStorage;
 use crate::graph::{describe_node, AttrValue, Graph, NodeKind, OpAttrs, OpKind};
 use crate::model_loader::ModelLoader;
+use crate::prefix::{parse_prefix_access, resolve_prefix_name};
 use crate::tensor::{Tensor, TensorElement, TensorValue};
 use crate::timer::Timer;
 use crate::types::MemoryKind;
@@ -159,18 +160,25 @@ impl<'a> Executor<'a> {
     }
 
     fn fetch_raw(&mut self, name: &str) -> Result<TensorValue> {
-        match self.kinds.get(name) {
-            Some(MemoryKind::Dynamic) => self
-                .dynamic
-                .get(name)
-                .cloned()
-                .ok_or_else(|| anyhow!("dynamic variable not set: {}", name))
-                .and_then(|value| self.backend.download(value)),
-            Some(_) => self
-                .get_tensor(name)
-                .and_then(|value| self.backend.download(value)),
-            None => Err(anyhow!("unknown variable: {}", name)),
+        if let Some(kind) = self.kinds.get(name) {
+            return match kind {
+                MemoryKind::Dynamic => self
+                    .dynamic
+                    .get(name)
+                    .cloned()
+                    .ok_or_else(|| anyhow!("dynamic variable not set: {}", name))
+                    .and_then(|value| self.backend.download(value)),
+                _ => self
+                    .get_tensor(name)
+                    .and_then(|value| self.backend.download(value)),
+            };
         }
+        if self.resolve_prefix_access(name)?.is_some() {
+            return self
+                .get_tensor(name)
+                .and_then(|value| self.backend.download(value));
+        }
+        Err(anyhow!("unknown variable: {}", name))
     }
 
     pub fn fetch_typed<T: TensorElement>(&mut self, name: &str) -> Result<Tensor<T>> {
@@ -180,11 +188,13 @@ impl<'a> Executor<'a> {
     }
 
     fn ensure_scalar_decl(&self, name: &str) -> Result<()> {
-        let decl = self
-            .graph
-            .vars
-            .get(name)
-            .ok_or_else(|| anyhow!("unknown variable: {}", name))?;
+        let decl = if let Some(decl) = self.graph.vars.get(name) {
+            decl.clone()
+        } else if let Some((_, decl)) = self.resolve_prefix_access(name)? {
+            decl
+        } else {
+            return Err(anyhow!("unknown variable: {}", name));
+        };
         if !decl.dims.is_empty() {
             return Err(anyhow!("variable {} is not a scalar", name));
         }
@@ -192,11 +202,13 @@ impl<'a> Executor<'a> {
     }
 
     fn ensure_tensor_decl(&self, name: &str) -> Result<()> {
-        let decl = self
-            .graph
-            .vars
-            .get(name)
-            .ok_or_else(|| anyhow!("unknown variable: {}", name))?;
+        let decl = if let Some(decl) = self.graph.vars.get(name) {
+            decl.clone()
+        } else if let Some((_, decl)) = self.resolve_prefix_access(name)? {
+            decl
+        } else {
+            return Err(anyhow!("unknown variable: {}", name));
+        };
         if decl.dims.is_empty() {
             return Err(anyhow!("variable {} is a scalar", name));
         }
@@ -328,6 +340,12 @@ impl<'a> Executor<'a> {
         if self.kinds.get(output) == Some(&MemoryKind::Constant) {
             return Err(anyhow!("cannot write to constant memory: {}", output));
         }
+        if self.kinds.get(output).is_none() && self.resolve_prefix_access(output)?.is_some() {
+            return Err(anyhow!(
+                "cannot write to prefix table entry {}",
+                output
+            ));
+        }
         let resolved_attrs = self.resolve_op_attrs(attrs)?;
         let output_dtype = match self.graph.vars.get(output) {
             Some(var) => var.dtype,
@@ -366,20 +384,56 @@ impl<'a> Executor<'a> {
     fn resolve_attr_value(&mut self, value: &AttrValue) -> Result<f32> {
         match value {
             AttrValue::Literal(val) => Ok(*val),
-            AttrValue::Var(name) => match self.kinds.get(name) {
-                Some(MemoryKind::Constant) => {
+            AttrValue::Var(name) => {
+                if let Some(kind) = self.kinds.get(name) {
+                    return match kind {
+                        MemoryKind::Constant => {
+                            let tensor = self.get_tensor(name)?;
+                            let host = self.backend.download(tensor)?;
+                            tensor_scalar_to_f32_lossy(&host, name)
+                        }
+                        _ => Err(anyhow!(
+                            "op setting must reference constant memory: {} is {:?}",
+                            name,
+                            kind
+                        )),
+                    };
+                }
+                if let Some((_, decl)) = self.resolve_prefix_access(name)? {
+                    if decl.kind != MemoryKind::Constant {
+                        return Err(anyhow!(
+                            "op setting must reference constant memory: {} is {:?}",
+                            name,
+                            decl.kind
+                        ));
+                    }
                     let tensor = self.get_tensor(name)?;
                     let host = self.backend.download(tensor)?;
-                    tensor_scalar_to_f32_lossy(&host, name)
+                    return tensor_scalar_to_f32_lossy(&host, name);
                 }
-                Some(kind) => Err(anyhow!(
-                    "op setting must reference constant memory: {} is {:?}",
-                    name,
-                    kind
-                )),
-                None => Err(anyhow!("unknown variable: {}", name)),
-            },
+                Err(anyhow!("unknown variable: {}", name))
+            }
         }
+    }
+
+    fn resolve_prefix_access(
+        &self,
+        name: &str,
+    ) -> Result<Option<(String, crate::types::VarDecl)>> {
+        let access = parse_prefix_access(name)?;
+        let Some(access) = access else {
+            return Ok(None);
+        };
+        let decl = self
+            .graph
+            .vars
+            .get(&access.base)
+            .ok_or_else(|| anyhow!("unknown variable: {}", access.base))?;
+        if !decl.is_prefix_table() {
+            return Err(anyhow!("variable {} is not a prefix table", access.base));
+        }
+        let model_name = resolve_prefix_name(decl, &access.indices)?;
+        Ok(Some((model_name, decl.clone())))
     }
 
     fn get_tensor(&mut self, name: &str) -> Result<TensorStorage> {
@@ -393,48 +447,36 @@ impl<'a> Executor<'a> {
             }
         }
 
-        match self.storage.get(name) {
-            Some(StoredTensor::Data(data)) => Ok(data.clone()),
-            Some(StoredTensor::Unloaded) => {
-                let decl = self
-                    .graph
-                    .vars
-                    .get(name)
-                    .ok_or_else(|| anyhow!("unknown variable: {}", name))?;
-                let model_name = decl.model_name();
-                let data = if let Some(info) = self.model.var_info(model_name) {
-                    if info.has_data {
-                        let host = self.model.load_tensor(model_name)?;
-                        self.backend.upload(host)?
-                    } else {
-                        let shape = self.model.resolve_shape(&decl.dims)?;
-                        if let Some(init) = decl.init.as_ref() {
-                            let host = init.to_tensor_value(decl.dtype, &shape)?;
-                            self.backend.upload(host)?
-                        } else {
-                            self.backend.alloc(decl.dtype, &shape)?
-                        }
-                    }
-                } else {
-                    let shape = self.model.resolve_shape(&decl.dims)?;
-                    if let Some(init) = decl.init.as_ref() {
-                        let host = init.to_tensor_value(decl.dtype, &shape)?;
-                        self.backend.upload(host)?
-                    } else {
-                        self.backend.alloc(decl.dtype, &shape)?
-                    }
-                };
-                self.storage
-                    .insert(name.to_string(), StoredTensor::Data(data.clone()));
-                Ok(data)
-            }
-            None => {
-                if self.temps.contains(name) {
-                    return Err(anyhow!("temporary variable missing: {}", name));
-                }
-                Err(anyhow!("unknown variable: {}", name))
-            }
+        if let Some(StoredTensor::Data(data)) = self.storage.get(name) {
+            return Ok(data.clone());
         }
+        if let Some(StoredTensor::Unloaded) = self.storage.get(name) {
+            let decl = self
+                .graph
+                .vars
+                .get(name)
+                .ok_or_else(|| anyhow!("unknown variable: {}", name))?;
+            let model_name = decl.model_name();
+            let data =
+                load_decl_tensor(self.model, &mut *self.backend, decl, model_name, false)?;
+            self.storage
+                .insert(name.to_string(), StoredTensor::Data(data.clone()));
+            return Ok(data);
+        }
+        if let Some((model_name, decl)) = self.resolve_prefix_access(name)? {
+            if let Some(StoredTensor::Data(data)) = self.storage.get(name) {
+                return Ok(data.clone());
+            }
+            let data =
+                load_decl_tensor(self.model, &mut *self.backend, &decl, &model_name, true)?;
+            self.storage
+                .insert(name.to_string(), StoredTensor::Data(data.clone()));
+            return Ok(data);
+        }
+        if self.temps.contains(name) {
+            return Err(anyhow!("temporary variable missing: {}", name));
+        }
+        Err(anyhow!("unknown variable: {}", name))
     }
 
     fn cleanup_temps(&mut self) {
@@ -637,6 +679,42 @@ fn tensor_scalar_to_bitset(value: &TensorValue, name: &str) -> Result<crate::ten
     match value {
         TensorValue::Bitset(tensor) => Ok(tensor.data[0]),
         _ => Err(anyhow!("expected bitset scalar for {}", name)),
+    }
+}
+
+fn load_decl_tensor(
+    model: &ModelLoader,
+    backend: &mut dyn DeviceBackend,
+    decl: &crate::types::VarDecl,
+    model_name: &str,
+    require_model: bool,
+) -> Result<TensorStorage> {
+    if let Some(info) = model.var_info(model_name) {
+        if info.has_data {
+            let host = model.load_tensor(model_name)?;
+            backend.upload(host)
+        } else {
+            let shape = model.resolve_shape(&decl.dims)?;
+            if let Some(init) = decl.init.as_ref() {
+                let host = init.to_tensor_value(decl.dtype, &shape)?;
+                backend.upload(host)
+            } else {
+                backend.alloc(decl.dtype, &shape)
+            }
+        }
+    } else if require_model {
+        Err(anyhow!(
+            "model tensor {} not found for prefix access",
+            model_name
+        ))
+    } else {
+        let shape = model.resolve_shape(&decl.dims)?;
+        if let Some(init) = decl.init.as_ref() {
+            let host = init.to_tensor_value(decl.dtype, &shape)?;
+            backend.upload(host)
+        } else {
+            backend.alloc(decl.dtype, &shape)
+        }
     }
 }
 

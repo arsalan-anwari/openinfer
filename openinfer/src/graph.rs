@@ -99,6 +99,8 @@ impl Graph {
         dims: Vec<String>,
         init: Option<ScalarValue>,
         ref_name: Option<String>,
+        table_indices: Vec<String>,
+        pattern: Option<String>,
     ) {
         let name = name.into();
         self.vars.insert(
@@ -106,6 +108,8 @@ impl Graph {
             VarDecl {
                 name,
                 ref_name,
+                pattern,
+                table_indices,
                 dtype,
                 dims,
                 kind,

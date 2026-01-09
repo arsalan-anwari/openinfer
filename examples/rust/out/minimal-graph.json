@@ -14,7 +14,7 @@
               "name": "t0"
             }
           },
-          "uuid": "c368f560-906e-4792-b4e2-ec17d80b20d3"
+          "uuid": "459cc6a7-b324-4511-8d39-174c82231e29"
         },
         {
           "index": 1,
@@ -29,7 +29,7 @@
               "output": "t0"
             }
           },
-          "uuid": "dd83b9b3-b1c4-4b0d-9c1b-9c9bd4ee13e7"
+          "uuid": "d09cf703-c7ea-4c41-b94d-32a0e9c058d1"
         },
         {
           "index": 2,
@@ -44,12 +44,12 @@
               "output": "y"
             }
           },
-          "uuid": "c340475e-1aa2-4072-b00c-3db47e415224"
+          "uuid": "d1f98772-da1a-4cc0-ae1e-23d8a627b5d7"
         },
         {
           "index": 3,
           "kind": "Return",
-          "uuid": "66899e73-7491-470f-aca5-90ab45876f22"
+          "uuid": "6009ce6c-1f79-4ea0-935a-0b4c0a976da1"
         }
       ]
     }
@@ -63,7 +63,10 @@
       "dtype": "F32",
       "init": null,
       "kind": "Volatile",
-      "name": "a"
+      "name": "a",
+      "pattern": null,
+      "ref_name": null,
+      "table_indices": []
     },
     "x": {
       "dims": [
@@ -72,7 +75,10 @@
       "dtype": "F32",
       "init": null,
       "kind": "Dynamic",
-      "name": "x"
+      "name": "x",
+      "pattern": null,
+      "ref_name": null,
+      "table_indices": []
     },
     "y": {
       "dims": [
@@ -83,7 +89,10 @@
         "F32": 5.0
       },
       "kind": "Volatile",
-      "name": "y"
+      "name": "y",
+      "pattern": null,
+      "ref_name": null,
+      "table_indices": []
     }
   }
 }

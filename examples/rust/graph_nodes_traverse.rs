@@ -26,7 +26,7 @@ fn main() -> anyhow::Result<()> {
         }
     };
 
-    let sim = Simulator::new(&model, &g, Device::Vulkan)?.with_timer();
+    let sim = Simulator::new(&model, &g, Device::Cpu)?.with_timer();
     let mut exec = sim.make_executor()?;
 
     let len = model.size_of("B")?;
