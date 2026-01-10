@@ -48,7 +48,7 @@ OpenInfer defines a symbolic, inspectable inference graph that can be simulated,
 ```rust
 use openinfer::{
     cache, fetch_executor, graph, insert_executor, GraphDeserialize, GraphSerialize,
-    Device, DeviceCustom, ModelLoader, Simulator, Synthesizer, Tensor,
+    Device, DeviceCustom, ModelLoader, Simulator, Synthesizer, Tensor, Random
 };
 
 fn main() -> anyhow::Result<()> {
@@ -57,7 +57,7 @@ fn main() -> anyhow::Result<()> {
     let g = graph! {
         dynamic { x: f32[B]; }
         volatile { W(l): f32[D, D] @pattern("W.{l}"); }
-        constant { alpha: f32 @reference("alpha"); }
+        constant { alpha: f32 @reference("alpha"); num_layers: u32; }
         persistent {
             step: i32 @init(0);
             K(l, t): f16[H, Dh] @table;
@@ -79,6 +79,7 @@ fn main() -> anyhow::Result<()> {
 
             op is_finite(h) >> cond;
             branch cond ok bad;
+            cache.increment step;
             return;
         }
 
@@ -93,24 +94,28 @@ fn main() -> anyhow::Result<()> {
         }
     };
 
-    let sim = Simulator::new(&model, &g, Device::Cpu)?;
+    let sim = Simulator::new(&model, &g, Device::Cpu)?
+      .with_trace()
+      .with_timer();
+
     let mut exec = sim.make_executor()?;
-    insert_executor!(exec, { x: Tensor::<f32>::zeros(&[1024])? });
+
+    let len = model.size_of("B")?;
+    let input = Random::<f32>::generate_with_seed(62846, (-10.0, 10.0), len)?;
+
+    insert_executor!(exec, { x: input });
     exec.run_step()?;
+
     fetch_executor!(exec, { h: Tensor<f32> });
 
-    let json = GraphSerialize::json(&g)?;
-    let g2 = GraphDeserialize::from_json(serde_json::to_value(json)?)?;
-
     let synth = Synthesizer::new(Device::Vulkan);
-    let _plan = synth.synthesize(&model, &g2)?;
-
-    let arch: DeviceCustom = serde_json::from_str(&std::fs::read_to_string("devices/ada_mock.json")?)?;
-    let _synth = Synthesizer::from_arch(arch);
+    let plan = synth.synthesize(&model, &g)?;
+    plan.emit("build/out")?;
 
     Ok(())
 }
 ```
+> Some ops in the examles may not yet be implements, see [docs/progress.md](docs/progress.md) and [docs/ops.md](docs/ops.md) for current support. 
 
 ## Philosophy
 
@@ -174,9 +179,7 @@ Targeted modes:
 
 OpenInfer is in early development.
 
-Progress checklist:
-
-- `docs/progress.md`
+Progress checklist: [docs/progress.md](docs/progress.md)
 
 ---
 
