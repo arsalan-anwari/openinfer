@@ -1,8 +1,12 @@
+#[cfg(feature = "vulkan")]
 use std::collections::HashMap;
+#[cfg(feature = "vulkan")]
 use std::sync::Arc;
 
+#[cfg(feature = "vulkan")]
 use serde_json::Value;
 
+#[cfg(feature = "vulkan")]
 use crate::graph::OpKind;
 use crate::tensor::{DType, TensorValue};
 
@@ -10,46 +14,31 @@ use crate::tensor::{DType, TensorValue};
 pub mod vulkan;
 pub mod cpu;
 
-#[cfg(not(feature = "vulkan"))]
-pub mod vulkan {
-    #[derive(Debug)]
-    pub struct VulkanBufferInner;
-
-    #[derive(Debug)]
-    #[allow(unused)]
-    pub struct VulkanRuntime;
-}
-
+#[cfg(feature = "vulkan")]
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 pub struct OpShaderInfo {
-    pub path: String,
-    pub spv_dir: String,
-    pub push_constants_size: usize,
     pub settings: HashMap<String, Value>,
     pub spv_by_target: HashMap<String, &'static [u8]>,
 }
 
-#[allow(unused)]
+#[cfg(feature = "vulkan")]
 pub trait ShaderRegistry {
     fn shader_for_op(&self, op: OpKind) -> Option<Arc<OpShaderInfo>>;
 }
 
+#[cfg(feature = "vulkan")]
 #[derive(Debug, Clone)]
 pub struct VulkanBuffer {
     pub dtype: DType,
     pub len: usize,
-    #[allow(dead_code)]
     pub shape: Vec<usize>,
-    #[allow(dead_code)]
     pub strides: Vec<usize>,
     pub shader: Option<Arc<OpShaderInfo>>,
-    #[allow(unused)]
     pub inner: Arc<crate::backend::vulkan::VulkanBufferInner>,
 }
 
+#[cfg(feature = "vulkan")]
 #[derive(Debug, Clone)]
-#[allow(unused)]
 pub enum DeviceTensor {
     Vulkan(VulkanBuffer),
 }
@@ -57,7 +46,7 @@ pub enum DeviceTensor {
 #[derive(Debug, Clone)]
 pub enum TensorStorage {
     Host(TensorValue),
-    #[allow(unused)]
+    #[cfg(feature = "vulkan")]
     Device(DeviceTensor),
 }
 
@@ -65,36 +54,13 @@ impl TensorStorage {
     pub fn dtype(&self) -> DType {
         match self {
             TensorStorage::Host(value) => value.dtype(),
+            #[cfg(feature = "vulkan")]
             TensorStorage::Device(DeviceTensor::Vulkan(buf)) => buf.dtype,
-        }
-    }
-
-    #[allow(dead_code)]
-    pub fn len(&self) -> usize {
-        match self {
-            TensorStorage::Host(value) => value.len(),
-            TensorStorage::Device(DeviceTensor::Vulkan(buf)) => buf.len,
-        }
-    }
-
-    #[allow(dead_code)]
-    pub fn shape(&self) -> &[usize] {
-        match self {
-            TensorStorage::Host(value) => value.shape(),
-            TensorStorage::Device(DeviceTensor::Vulkan(buf)) => buf.shape.as_slice(),
-        }
-    }
-
-    #[allow(dead_code)]
-    pub fn strides(&self) -> &[usize] {
-        match self {
-            TensorStorage::Host(value) => value.strides(),
-            TensorStorage::Device(DeviceTensor::Vulkan(buf)) => buf.strides.as_slice(),
         }
     }
 }
 
-#[allow(unused)]
+#[cfg(feature = "vulkan")]
 impl VulkanBuffer {
     pub fn with_shader(mut self, shader: Option<Arc<OpShaderInfo>>) -> Self {
         self.shader = shader;

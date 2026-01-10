@@ -25,7 +25,7 @@ pub fn mul_generic(attrs: &OpAttrs, a: &VulkanBuffer, b: &VulkanBuffer, thread_i
     };
     let runtime = super::runtime_from_buffers(a, Some(b))?;
     let target = super::spv_target_name(OpKind::Mul, a.dtype, attrs)?;
-    let entry = super::entry_point_name();
+    let entry = "main";
     let spirv = a
         .spv_bytes_for_target(&target)
         .ok_or_else(|| anyhow!("missing SPIR-V target {} for mul op", target))?;

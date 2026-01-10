@@ -1,5 +1,8 @@
-use openinfer::{graph, insert_executor, Device, ModelLoader, Random, Simulator};
+use openinfer::{graph, insert_executor, ModelLoader, Random, Simulator};
 use std::path::Path;
+
+mod util;
+use util::select_device;
 
 fn main() -> anyhow::Result<()> {
     let model_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../res/minimal_model.oinf");
@@ -23,7 +26,7 @@ fn main() -> anyhow::Result<()> {
         }
     };
 
-    let sim = Simulator::new(&model, &g, Device::Cpu)?
+    let sim = Simulator::new(&model, &g, select_device()?)?
         .with_trace()
         .with_timer();
     let mut exec = sim.make_executor()?;

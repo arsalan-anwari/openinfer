@@ -35,9 +35,6 @@ struct VulkanShaderManifest {
 
 #[derive(Debug, Clone, Deserialize)]
 struct VulkanShaderEntry {
-    path: String,
-    spv_dir: String,
-    push_constants_size: usize,
     #[serde(default)]
     settings: HashMap<String, Value>,
 }
@@ -60,9 +57,6 @@ impl VulkanShaderRegistry {
             ops.insert(
                 name,
                 Arc::new(OpShaderInfo {
-                    path: entry.path,
-                    spv_dir: entry.spv_dir,
-                    push_constants_size: entry.push_constants_size,
                     settings: entry.settings,
                     spv_by_target,
                 }),

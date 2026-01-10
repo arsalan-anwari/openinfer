@@ -29,14 +29,8 @@ impl Device {
     pub fn is_supported(&self) -> bool {
         match self {
             Device::Cpu => true,
-            Device::CpuAvx => cfg!(all(
-                any(target_arch = "x86", target_arch = "x86_64"),
-                target_feature = "avx"
-            )),
-            Device::CpuAvx2 => cfg!(all(
-                any(target_arch = "x86", target_arch = "x86_64"),
-                target_feature = "avx2"
-            )),
+            Device::CpuAvx => cfg!(feature = "avx"),
+            Device::CpuAvx2 => cfg!(feature = "avx2"),
             Device::Vulkan => cfg!(feature = "vulkan"),
         }
     }

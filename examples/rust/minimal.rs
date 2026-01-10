@@ -1,7 +1,8 @@
-use openinfer::{
-    graph, fetch_executor, insert_executor, Device, ModelLoader, Random, Simulator, Tensor,
-};
+use openinfer::{graph, fetch_executor, insert_executor, ModelLoader, Random, Simulator, Tensor};
 use std::path::Path;
+
+mod util;
+use util::select_device;
 
 fn main() -> anyhow::Result<()> {
     let model_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../res/minimal_model.oinf");
@@ -25,7 +26,7 @@ fn main() -> anyhow::Result<()> {
         }
     };
 
-    let sim = Simulator::new(&model, &g, Device::Cpu)?;
+    let sim = Simulator::new(&model, &g, select_device()?)?;
     let mut exec = sim.make_executor()?;
 
     let len = model.size_of("B")?;

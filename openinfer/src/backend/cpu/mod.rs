@@ -1,6 +1,8 @@
 use anyhow::{anyhow, Result};
 
-use crate::backend::{DeviceTensor, TensorStorage};
+#[cfg(feature = "vulkan")]
+use crate::backend::DeviceTensor;
+use crate::backend::TensorStorage;
 use crate::graph::{OpAttrs, OpKind};
 use crate::ops::{broadcast_enabled, lookup_kernel, KernelFn};
 use crate::simulator::{Device, DeviceBackend};
@@ -33,6 +35,7 @@ impl DeviceBackend for CpuBackend {
     fn download(&self, value: TensorStorage) -> Result<TensorValue> {
         match value {
             TensorStorage::Host(host) => Ok(host),
+            #[cfg(feature = "vulkan")]
             TensorStorage::Device(_) => Err(anyhow!("host backend cannot download device tensor")),
         }
     }
@@ -81,6 +84,7 @@ fn to_host_tensors(tensors: &[TensorStorage]) -> Result<Vec<TensorValue>> {
     for tensor in tensors {
         match tensor {
             TensorStorage::Host(value) => out.push(value.clone()),
+            #[cfg(feature = "vulkan")]
             TensorStorage::Device(DeviceTensor::Vulkan(_)) => {
                 return Err(anyhow!("device tensor passed to host backend"));
             }

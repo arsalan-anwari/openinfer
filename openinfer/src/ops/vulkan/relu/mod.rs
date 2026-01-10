@@ -19,7 +19,7 @@ pub fn relu_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: usize) -> Resu
     };
     let runtime = super::runtime_from_buffers(a, None)?;
     let target = super::spv_target_name(OpKind::Relu, a.dtype, attrs)?;
-    let entry = super::entry_point_name();
+    let entry = "main";
     let output_size = storage_size_bytes(a.dtype) * a.len;
     let output_inner = runtime.create_buffer(output_size)?;
     let spirv = a
@@ -33,7 +33,7 @@ pub fn relu_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: usize) -> Resu
         entry,
         spirv,
         &a.inner,
-        &a.inner,
+        &output_inner,
         &output_inner,
         push,
         a.len,

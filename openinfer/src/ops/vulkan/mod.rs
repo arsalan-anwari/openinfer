@@ -27,10 +27,6 @@ pub(crate) fn runtime_from_buffers(
     Ok(runtime)
 }
 
-pub(crate) fn entry_point_name() -> &'static str {
-    "main"
-}
-
 pub(crate) fn spv_target_name(op: OpKind, dtype: DType, attrs: &OpAttrs) -> Result<String> {
     match op {
         OpKind::Abs => abs::spv_target_name_abs(dtype, attrs),

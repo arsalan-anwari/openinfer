@@ -16,6 +16,8 @@ rand = "0.8"
 
 [features]
 vulkan = ["ash"]
+avx = []
+avx2 = []
 
 [build-dependencies]
 anyhow = "1"

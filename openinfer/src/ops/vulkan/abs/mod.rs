@@ -35,7 +35,7 @@ pub fn abs_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: usize) -> Resul
     }
     let flags = if unsigned_identity { 1 } else { 0 };
     let target = super::spv_target_name(OpKind::Abs, a.dtype, attrs)?;
-    let entry = super::entry_point_name();
+    let entry = "main";
     let output_size = storage_size_bytes(a.dtype) * a.len;
     let output_inner = runtime.create_buffer(output_size)?;
     let spirv = a

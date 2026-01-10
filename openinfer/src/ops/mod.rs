@@ -1,9 +1,9 @@
 mod cpu;
 
-#[cfg(all(target_arch = "x86_64", target_feature = "avx"))]
+#[cfg(feature = "avx")]
 mod cpu_avx;
 
-#[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
+#[cfg(feature = "avx2")]
 mod cpu_avx2;
 
 #[cfg(feature = "vulkan")]

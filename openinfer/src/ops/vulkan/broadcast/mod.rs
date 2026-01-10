@@ -13,7 +13,7 @@ pub fn broadcast_buffer(
     let runtime = super::runtime_from_buffers(input, None)?;
     let len = numel(out_shape);
     let target = spv_target_name_broadcast(input.dtype)?;
-    let entry = super::entry_point_name();
+    let entry = "main";
     let spirv_map = embedded_spirv_for_op("broadcast");
     let spirv = spirv_map
         .get(&target)

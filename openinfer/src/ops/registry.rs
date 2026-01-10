@@ -54,14 +54,14 @@ pub fn lookup_kernel(
             input_dtypes,
             attrs,
         ),
-        #[cfg(all(target_arch = "x86_64", target_feature = "avx"))]
+        #[cfg(feature = "avx")]
         Device::CpuAvx => super::cpu_avx::registry::lookup_kernel_cpu_avx(
             op,
             output_dtype,
             input_dtypes,
             attrs,
         ),
-        #[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
+        #[cfg(feature = "avx2")]
         Device::CpuAvx2 => super::cpu_avx2::registry::lookup_kernel_cpu_avx2(
             op,
             output_dtype,
