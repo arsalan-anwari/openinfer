@@ -16,13 +16,13 @@ fn main() -> anyhow::Result<()> {
         }
 
         volatile {
-            state: f32[B] @reference("state.0");
+            state: f32[B] @ref("state.0");
             out: f32[B];
         }
 
         constant {
-            weight: f32[B] @reference("weight.0");
-            bias: f32 @reference("bias.0");
+            weight: f32[B] @ref("weight.0");
+            bias: f32 @ref("bias.0");
         }
 
         block entry {

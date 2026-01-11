@@ -14,6 +14,16 @@ Checklist of features described in the README and current implementation status.
 - [x] Vulkan shader manifest and embedded SPIR-V workflow
 - [x] Reference attribute and custom attribute parsing support
 - [x] Prefix tables in `volatile` and `constant`
+- [x] Loops (loop blocks and loop-exit semantics)
+
+## DSL Gaps
+
+Features described in the README DSL sections that are not fully supported yet.
+
+- [ ] Branching and yielding across blocks
+- [ ] Barrier and explicit control dependency nodes
+- [ ] Cache operations beyond basic memory access
+- [ ] Prefixed/autodim cache ergonomics
 
 ## In Progress / Planned
 
@@ -23,12 +33,3 @@ Checklist of features described in the README and current implementation status.
 - [ ] Analyzer and optimization passes
 - [ ] Porting remaining kernels from C to Rust
 
-## DSL Gaps
-
-Features described in the README DSL sections that are not fully supported yet.
-
-- [ ] Loops (loop blocks and loop-exit semantics)
-- [ ] Branching and yielding across blocks
-- [ ] Barrier and explicit control dependency nodes
-- [ ] Cache operations beyond basic memory access
-- [ ] Prefixed/autodim cache ergonomics

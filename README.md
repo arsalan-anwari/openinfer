@@ -57,7 +57,7 @@ fn main() -> anyhow::Result<()> {
     let g = graph! {
         dynamic { x: f32[B]; }
         volatile { W(l): f32[D, D] @pattern("W.{l}"); }
-        constant { alpha: f32 @reference("alpha"); num_layers: u32; }
+        constant { alpha: f32 @ref("alpha"); num_layers: u32; }
         persistent {
             step: i32 @init(0);
             K(l, t): f16[H, Dh] @table;
@@ -149,7 +149,7 @@ cargo build -p openinfer --features avx,avx2,vulkan
 ### Python
 ```bash
 python examples/python/{example}_oinf.py
-python verify_oinf.py {example}_model.oinf
+python scripts/verify_oinf.py {example}_model.oinf
 ```
 
 ### Rust

@@ -162,9 +162,9 @@ kernel: u8[D, D] = { ... }
 
 Two helper scripts live at the repository root:
 
-* `dataclass_to_oinf.py` converts a Python dataclass instance into a deterministic
+* `scripts/dataclass_to_oinf.py` converts a Python dataclass instance into a deterministic
   `.oinf` file (sizevars, metadata, and tensors are inferred from fields).
-* `verify_oinf.py` validates the binary layout and prints a human-readable view,
+* `scripts/verify_oinf.py` validates the binary layout and prints a human-readable view,
   including summary statistics and histograms for tensors with data.
 
 Typical usage:
@@ -172,13 +172,13 @@ Typical usage:
 ```bash
 python examples/python/simple_oinf.py
 python examples/python/minimal_oinf.py
-python verify_oinf.py res/simple_model.oinf
-python verify_oinf.py res/minimal_model.oinf
+python scripts/verify_oinf.py res/simple_model.oinf
+python scripts/verify_oinf.py res/minimal_model.oinf
 ```
 
 ### Create a Binary from a Dataclass
 
-`dataclass_to_oinf.py` can serialize any Python dataclass instance into an OINF
+`scripts/dataclass_to_oinf.py` can serialize any Python dataclass instance into an OINF
 file. You can pass a module path to a dataclass and optionally provide JSON data
 for its fields.
 If you need a scalar tensor (not metadata), wrap the value with `TensorSpec`
@@ -190,7 +190,7 @@ Minimal example (matches `examples/python/minimal_oinf.py`):
 from dataclasses import dataclass
 import numpy as np
 
-from dataclass_to_oinf import TensorSpec, write_oinf
+from scripts.dataclass_to_oinf import TensorSpec, write_oinf
 
 @dataclass
 class MinimalModel:
@@ -212,7 +212,7 @@ Simple example (matches `examples/python/simple_oinf.py`):
 from dataclasses import dataclass
 import numpy as np
 
-from dataclass_to_oinf import TensorSpec, UninitializedTensor, write_oinf
+from scripts.dataclass_to_oinf import TensorSpec, UninitializedTensor, write_oinf
 
 @dataclass
 class ExampleModel:
@@ -250,8 +250,8 @@ write_oinf(build_example(), "simple_model.oinf")
 CLI example (module path + JSON payload):
 
 ```bash
-python dataclass_to_oinf.py --input examples.python.simple_oinf:ExampleModel --output model.oinf
-python dataclass_to_oinf.py --input my_pkg.my_model:MyModel --json data.json --output model.oinf
+python scripts/dataclass_to_oinf.py --input examples.python.simple_oinf:ExampleModel --output model.oinf
+python scripts/dataclass_to_oinf.py --input my_pkg.my_model:MyModel --json data.json --output model.oinf
 ```
 
 ## Verifier Output Examples
@@ -307,7 +307,7 @@ y: i16[] -- uninitialized
 
 ## Verification and Printing
 
-`verify_oinf.py` performs structural validation before printing:
+`scripts/verify_oinf.py` performs structural validation before printing:
 
 * checks magic/version, offsets, alignment, and file bounds
 * validates string character set

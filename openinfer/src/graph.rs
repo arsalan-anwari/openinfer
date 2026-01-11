@@ -50,6 +50,13 @@ pub enum NodeKind {
         inputs: Vec<String>,
         output: String,
     },
+    Loop {
+        name: String,
+        index: String,
+        start: String,
+        end: String,
+        body: Vec<Node>,
+    },
     Return,
 }
 
@@ -124,18 +131,56 @@ impl Graph {
     }
 
     pub fn add_node(&mut self, block: &str, kind: NodeKind) -> Result<()> {
+        let node = self.make_node(kind);
         let block = self
             .blocks
             .get_mut(block)
             .ok_or_else(|| anyhow!("missing block: {}", block))?;
+        block.nodes.push(node);
+        Ok(())
+    }
+
+    pub fn add_prebuilt_node(&mut self, block: &str, node: Node) -> Result<()> {
+        let block = self
+            .blocks
+            .get_mut(block)
+            .ok_or_else(|| anyhow!("missing block: {}", block))?;
+        block.nodes.push(node);
+        Ok(())
+    }
+
+    pub fn make_node(&mut self, kind: NodeKind) -> Node {
         let node = Node {
             index: self.next_index,
             uuid: Uuid::new_v4(),
             kind,
         };
         self.next_index += 1;
-        block.nodes.push(node);
-        Ok(())
+        node
+    }
+
+    pub fn make_loop_node(
+        &mut self,
+        name: impl Into<String>,
+        index: impl Into<String>,
+        start: impl Into<String>,
+        end: impl Into<String>,
+        body: Vec<Node>,
+    ) -> Node {
+        let loop_index = self.next_index;
+        self.next_index += 1;
+        let kind = NodeKind::Loop {
+            name: name.into(),
+            index: index.into(),
+            start: start.into(),
+            end: end.into(),
+            body,
+        };
+        Node {
+            index: loop_index,
+            uuid: Uuid::new_v4(),
+            kind,
+        }
     }
 
     pub fn block(&self, name: &str) -> Result<&Block> {
@@ -156,6 +201,13 @@ pub fn describe_node(kind: &NodeKind) -> String {
         } => {
             format!("op {}({}) >> {}", op.as_str(), inputs.join(","), output)
         }
+        NodeKind::Loop {
+            name,
+            index,
+            start,
+            end,
+            ..
+        } => format!("loop {} ({} in {}..{})", name, index, start, end),
         NodeKind::Return => "return".to_string(),
     }
 }

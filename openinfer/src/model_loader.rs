@@ -211,12 +211,7 @@ impl ModelLoader {
     pub fn resolve_len(&self, dims: &[String]) -> Result<usize> {
         let mut total = 1usize;
         for dim in dims {
-            if let Ok(val) = dim.parse::<usize>() {
-                total = total.saturating_mul(val);
-            } else {
-                let v = self.size_of(dim)?;
-                total = total.saturating_mul(v);
-            }
+            total = total.saturating_mul(self.resolve_dim_value(dim)?);
         }
         Ok(total)
     }
@@ -224,13 +219,30 @@ impl ModelLoader {
     pub fn resolve_shape(&self, dims: &[String]) -> Result<Vec<usize>> {
         let mut shape = Vec::with_capacity(dims.len());
         for dim in dims {
-            if let Ok(val) = dim.parse::<usize>() {
-                shape.push(val);
-            } else {
-                shape.push(self.size_of(dim)?);
-            }
+            shape.push(self.resolve_dim_value(dim)?);
         }
         Ok(shape)
+    }
+
+    pub fn resolve_dim_value(&self, dim: &str) -> Result<usize> {
+        if let Ok(val) = dim.parse::<usize>() {
+            return Ok(val);
+        }
+        let trimmed = dim.trim();
+        if let Some((left, right)) = trimmed.split_once('*') {
+            let left = left.trim();
+            let right = right.trim();
+            let left_val = match left.parse::<usize>() {
+                Ok(value) => value,
+                Err(_) => self.size_of(left)?,
+            };
+            let right_val = match right.parse::<usize>() {
+                Ok(value) => value,
+                Err(_) => self.size_of(right)?,
+            };
+            return Ok(left_val.saturating_mul(right_val));
+        }
+        self.size_of(trimmed)
     }
 
     pub fn var_info(&self, name: &str) -> Option<&VarInfo> {

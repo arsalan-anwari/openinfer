@@ -12,7 +12,6 @@ mod kw {
     syn::custom_keyword!(assign);
     syn::custom_keyword!(op);
     syn::custom_keyword!(init);
-    syn::custom_keyword!(reference);
     syn::custom_keyword!(pattern);
 }
 
@@ -60,6 +59,12 @@ struct VarDecl {
 enum Dim {
     Ident(Ident),
     Lit(LitInt),
+    Mul { left: DimAtom, right: DimAtom },
+}
+
+enum DimAtom {
+    Ident(Ident),
+    Lit(LitInt),
 }
 
 enum InitValue {
@@ -75,6 +80,7 @@ struct BlockSection {
 enum Node {
     Assign(AssignNode),
     Op(OpNode),
+    Loop(LoopNode),
     Return,
 }
 
@@ -89,6 +95,14 @@ struct OpNode {
     inputs: Vec<VarRef>,
     settings: Vec<OpSetting>,
     output: Ident,
+}
+
+struct LoopNode {
+    name: Ident,
+    index: Ident,
+    start: RangeValue,
+    end: RangeValue,
+    body: Vec<Node>,
 }
 
 #[derive(Clone)]
@@ -114,6 +128,11 @@ struct VarRef {
 }
 
 enum IndexExpr {
+    Ident(Ident),
+    Lit(LitInt),
+}
+
+enum RangeValue {
     Ident(Ident),
     Lit(LitInt),
 }
@@ -253,6 +272,29 @@ impl Parse for Node {
                 settings,
                 output,
             }))
+        } else if input.peek(Token![loop]) {
+            input.parse::<Token![loop]>()?;
+            let name: Ident = input.parse()?;
+            let content;
+            parenthesized!(content in input);
+            let index: Ident = content.parse()?;
+            content.parse::<Token![in]>()?;
+            let start = parse_range_value(&content)?;
+            content.parse::<Token![..]>()?;
+            let end = parse_range_value(&content)?;
+            let body_content;
+            braced!(body_content in input);
+            let mut body = Vec::new();
+            while !body_content.is_empty() {
+                body.push(body_content.parse()?);
+            }
+            Ok(Node::Loop(LoopNode {
+                name,
+                index,
+                start,
+                end,
+                body,
+            }))
         } else if input.peek(Token![return]) {
             input.parse::<Token![return]>()?;
             input.parse::<Token![;]>()?;
@@ -270,9 +312,29 @@ fn parse_dims(input: ParseStream) -> Result<Vec<Dim>> {
         syn::bracketed!(content in input);
         while !content.is_empty() {
             if content.peek(LitInt) {
-                dims.push(Dim::Lit(content.parse()?));
+                let lit: LitInt = content.parse()?;
+                if content.peek(Token![*]) {
+                    content.parse::<Token![*]>()?;
+                    let right = parse_dim_atom(&content)?;
+                    dims.push(Dim::Mul {
+                        left: DimAtom::Lit(lit),
+                        right,
+                    });
+                } else {
+                    dims.push(Dim::Lit(lit));
+                }
             } else {
-                dims.push(Dim::Ident(content.parse()?));
+                let ident: Ident = content.parse()?;
+                if content.peek(Token![*]) {
+                    content.parse::<Token![*]>()?;
+                    let right = parse_dim_atom(&content)?;
+                    dims.push(Dim::Mul {
+                        left: DimAtom::Ident(ident),
+                        right,
+                    });
+                } else {
+                    dims.push(Dim::Ident(ident));
+                }
             }
             if content.peek(Token![,]) {
                 content.parse::<Token![,]>()?;
@@ -318,6 +380,26 @@ fn parse_indices(input: ParseStream) -> Result<Vec<IndexExpr>> {
         return Err(content.error("prefix access must include at least one index"));
     }
     Ok(indices)
+}
+
+fn parse_dim_atom(input: ParseStream) -> Result<DimAtom> {
+    if input.peek(LitInt) {
+        Ok(DimAtom::Lit(input.parse()?))
+    } else if input.peek(Ident) {
+        Ok(DimAtom::Ident(input.parse()?))
+    } else {
+        Err(input.error("expected identifier or integer for dimension expression"))
+    }
+}
+
+fn parse_range_value(input: ParseStream) -> Result<RangeValue> {
+    if input.peek(LitInt) {
+        Ok(RangeValue::Lit(input.parse()?))
+    } else if input.peek(Ident) {
+        Ok(RangeValue::Ident(input.parse()?))
+    } else {
+        Err(input.error("expected identifier or integer for loop range"))
+    }
 }
 
 fn var_ref_string(var_ref: &VarRef) -> String {
@@ -422,44 +504,8 @@ impl GraphDsl {
                     let block_name = block.name.to_string();
                     stmts.push(quote! { g.add_block(#block_name); });
                     for node in block.nodes {
-                        let node_expr = match node {
-                            Node::Assign(assign) => {
-                                let name = assign.name.to_string();
-                                let dtype = match_dtype(&assign.dtype)?;
-                                let dims = dims_expr(&assign.dims);
-                                quote! {
-                                    ::openinfer::NodeKind::Assign {
-                                        name: #name.to_string(),
-                                        dtype: #dtype,
-                                        dims: #dims,
-                                    }
-                                }
-                            }
-                            Node::Op(op) => {
-                                let kind = match_opkind(&op.name)?;
-                                let inputs = op.inputs.iter().map(|i| {
-                                let s = var_ref_string(i);
-                                    quote! { #s.to_string() }
-                                });
-                                let output = op.output.to_string();
-                                let attrs =
-                                    validation::ops::op_attrs_expr(&op.name, &op.settings)?;
-                                quote! {
-                                    ::openinfer::NodeKind::Op {
-                                        op: #kind,
-                                        attrs: #attrs,
-                                        inputs: vec![#(#inputs),*],
-                                        output: #output.to_string(),
-                                    }
-                                }
-                            }
-                            Node::Return => {
-                                quote! { ::openinfer::NodeKind::Return }
-                            }
-                        };
-                        stmts.push(quote! {
-                            g.add_node(#block_name, #node_expr)?;
-                        });
+                        let node_stmt = node_stmt(&node, &block_name)?;
+                        stmts.push(node_stmt);
                     }
                 }
             }
@@ -514,8 +560,145 @@ fn dims_expr(dims: &[Dim]) -> proc_macro2::TokenStream {
             let s = lit.to_string();
             quote! { #s.to_string() }
         }
+        Dim::Mul { left, right } => {
+            let left = dim_atom_string(left);
+            let right = dim_atom_string(right);
+            let s = format!("{}*{}", left, right);
+            quote! { #s.to_string() }
+        }
     });
     quote! { vec![#(#items),*] }
+}
+
+fn dim_atom_string(atom: &DimAtom) -> String {
+    match atom {
+        DimAtom::Ident(ident) => ident.to_string(),
+        DimAtom::Lit(lit) => lit.to_string(),
+    }
+}
+
+fn range_value_string(value: &RangeValue) -> String {
+    match value {
+        RangeValue::Ident(ident) => ident.to_string(),
+        RangeValue::Lit(lit) => lit.to_string(),
+    }
+}
+
+fn node_kind_expr(node: &Node) -> Result<proc_macro2::TokenStream> {
+    match node {
+        Node::Assign(assign) => {
+            let name = assign.name.to_string();
+            let dtype = match_dtype(&assign.dtype)?;
+            let dims = dims_expr(&assign.dims);
+            Ok(quote! {
+                ::openinfer::NodeKind::Assign {
+                    name: #name.to_string(),
+                    dtype: #dtype,
+                    dims: #dims,
+                }
+            })
+        }
+        Node::Op(op) => {
+            let kind = match_opkind(&op.name)?;
+            let inputs = op.inputs.iter().map(|i| {
+                let s = var_ref_string(i);
+                quote! { #s.to_string() }
+            });
+            let output = op.output.to_string();
+            let attrs = validation::ops::op_attrs_expr(&op.name, &op.settings)?;
+            Ok(quote! {
+                ::openinfer::NodeKind::Op {
+                    op: #kind,
+                    attrs: #attrs,
+                    inputs: vec![#(#inputs),*],
+                    output: #output.to_string(),
+                }
+            })
+        }
+        Node::Loop(loop_node) => {
+            let name = loop_node.name.to_string();
+            let index = loop_node.index.to_string();
+            let start = range_value_string(&loop_node.start);
+            let end = range_value_string(&loop_node.end);
+            let body_expr = loop_body_expr(&loop_node.body)?;
+            Ok(quote! {
+                ::openinfer::NodeKind::Loop {
+                    name: #name.to_string(),
+                    index: #index.to_string(),
+                    start: #start.to_string(),
+                    end: #end.to_string(),
+                    body: #body_expr,
+                }
+            })
+        }
+        Node::Return => Ok(quote! { ::openinfer::NodeKind::Return }),
+    }
+}
+
+fn loop_body_expr(nodes: &[Node]) -> Result<proc_macro2::TokenStream> {
+    let mut stmts = Vec::new();
+    for node in nodes {
+        let stmt = match node {
+            Node::Loop(loop_node) => {
+                let name = loop_node.name.to_string();
+                let index = loop_node.index.to_string();
+                let start = range_value_string(&loop_node.start);
+                let end = range_value_string(&loop_node.end);
+                let body_expr = loop_body_expr(&loop_node.body)?;
+                quote! {
+                    let loop_body = #body_expr;
+                    body.push(g.make_loop_node(
+                        #name.to_string(),
+                        #index.to_string(),
+                        #start.to_string(),
+                        #end.to_string(),
+                        loop_body,
+                    ));
+                }
+            }
+            _ => {
+                let node_expr = node_kind_expr(node)?;
+                quote! {
+                    body.push(g.make_node(#node_expr));
+                }
+            }
+        };
+        stmts.push(stmt);
+    }
+    Ok(quote! {{
+        let mut body = Vec::new();
+        #(#stmts)*
+        body
+    }})
+}
+
+fn node_stmt(node: &Node, block_name: &str) -> Result<proc_macro2::TokenStream> {
+    match node {
+        Node::Loop(loop_node) => {
+            let name = loop_node.name.to_string();
+            let index = loop_node.index.to_string();
+            let start = range_value_string(&loop_node.start);
+            let end = range_value_string(&loop_node.end);
+            let body_expr = loop_body_expr(&loop_node.body)?;
+            Ok(quote! {
+                let loop_body = #body_expr;
+                let loop_node = g.make_loop_node(
+                    #name.to_string(),
+                    #index.to_string(),
+                    #start.to_string(),
+                    #end.to_string(),
+                    loop_body,
+                );
+                g.add_prebuilt_node(#block_name, loop_node)?;
+            })
+        }
+        _ => {
+            let node_expr = node_kind_expr(node)?;
+            Ok(quote! {
+                g.add_node(#block_name, #node_expr)?;
+            })
+        }
+    }
 }
 
 fn init_expr(init: &Option<InitValue>, dtype: &Ident) -> Result<proc_macro2::TokenStream> {

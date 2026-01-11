@@ -25,7 +25,7 @@ python examples/python/minimal_oinf.py
 Inspect it:
 
 ```bash
-python verify_oinf.py minimal_model.oinf
+python scripts/verify_oinf.py minimal_model.oinf
 ```
 
 For the full technical spec and layout, see [docs/oinf.md](oinf.md).

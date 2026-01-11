@@ -15,10 +15,19 @@ use super::ValidationContext;
 
 pub(crate) fn validate_block(ctx: &ValidationContext, block: &Block) -> Result<()> {
     let mut temps: HashMap<String, (DType, Vec<String>)> = HashMap::new();
-    for node in &block.nodes {
+    validate_nodes(ctx, &mut temps, &block.nodes)?;
+    Ok(())
+}
+
+fn validate_nodes(
+    ctx: &ValidationContext,
+    temps: &mut HashMap<String, (DType, Vec<String>)>,
+    nodes: &[crate::graph::Node],
+) -> Result<()> {
+    for node in nodes {
         match &node.kind {
             NodeKind::Assign { name, dtype, dims } => {
-                validate_assign(ctx, &mut temps, name, *dtype, dims)?;
+                validate_assign(ctx, temps, name, *dtype, dims)?;
             }
             NodeKind::Op {
                 op,
@@ -26,11 +35,38 @@ pub(crate) fn validate_block(ctx: &ValidationContext, block: &Block) -> Result<(
                 inputs,
                 output,
             } => {
-                validate_op(ctx, &temps, *op, attrs, inputs, output)?;
+                validate_op(ctx, temps, *op, attrs, inputs, output)?;
+            }
+            NodeKind::Loop {
+                name,
+                start,
+                end,
+                body,
+                ..
+            } => {
+                validate_loop_bounds(ctx, name, start, end)?;
+                validate_nodes(ctx, temps, body)?;
             }
             NodeKind::Return => {}
         }
     }
+    Ok(())
+}
+
+fn validate_loop_bounds(
+    ctx: &ValidationContext,
+    name: &str,
+    start: &str,
+    end: &str,
+) -> Result<()> {
+    ctx.model
+        .resolve_dim_value(start)
+        .map(|_| ())
+        .map_err(|err| anyhow!("loop {} has invalid start bound {}: {}", name, start, err))?;
+    ctx.model
+        .resolve_dim_value(end)
+        .map(|_| ())
+        .map_err(|err| anyhow!("loop {} has invalid end bound {}: {}", name, end, err))?;
     Ok(())
 }
 
@@ -138,6 +174,22 @@ fn input_signature(
         if !decl.is_prefix_table() {
             return Err(anyhow!("variable {} is not a prefix table", access.base));
         }
+        if access.indices.len() != decl.table_indices.len() {
+            return Err(anyhow!(
+                "prefix access for {} expects {} indices, got {}",
+                access.base,
+                decl.table_indices.len(),
+                access.indices.len()
+            ));
+        }
+        let is_symbolic = access
+            .indices
+            .iter()
+            .any(|index| index.parse::<usize>().is_err());
+        let graph_shape = ctx.model.resolve_shape(&decl.dims)?;
+        if is_symbolic {
+            return Ok((decl.dtype, graph_shape));
+        }
         let model_name = resolve_prefix_name(decl, &access.indices)?;
         let info = ctx
             .model
@@ -153,7 +205,6 @@ fn input_signature(
             ));
         }
         let model_shape = ctx.model.resolve_shape(&info.dims)?;
-        let graph_shape = ctx.model.resolve_shape(&decl.dims)?;
         if model_shape != graph_shape {
             return Err(anyhow!(
                 "model shape mismatch for {} (ref {}): model shape {:?}, graph shape {:?}",

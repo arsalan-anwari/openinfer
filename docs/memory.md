@@ -42,13 +42,13 @@ Atrributes can be used only on variable definitions for things like linking mode
 
 ```rust
 constants {
-  alpha: f32 @reference("alpha");
-  beta:  f32 @reference("beta");
-  bias:  f32 @reference("gamma");
+  alpha: f32 @ref("alpha");
+  beta:  f32 @ref("beta");
+  bias:  f32 @ref("gamma");
 }
 ```
 
-> For example you can use the `@reference` attribute to link a custom variable name in the DSL to a variable name in the binary.
+> For example you can use the `@ref` attribute to link a custom variable name in the DSL to a variable name in the binary.
 
 ## Operator settings are named parameters
 

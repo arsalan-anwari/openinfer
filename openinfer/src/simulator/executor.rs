@@ -68,6 +68,36 @@ enum StoredTensor {
     Data(TensorStorage),
 }
 
+#[derive(Debug, Clone)]
+struct LoopFrame {
+    index: String,
+    end: usize,
+    current: usize,
+    body: Vec<crate::graph::Node>,
+    pos: usize,
+    prev_value: Option<usize>,
+}
+
+#[derive(Debug, Clone)]
+struct BlockFrame {
+    name: String,
+    nodes: Vec<crate::graph::Node>,
+    pos: usize,
+}
+
+#[derive(Debug, Clone)]
+enum ExecFrame {
+    Block(BlockFrame),
+    Loop(LoopFrame),
+}
+
+#[derive(Debug, Clone)]
+struct ResolvedPrefixAccess {
+    cache_key: String,
+    model_name: String,
+    decl: crate::types::VarDecl,
+}
+
 pub struct Executor<'a> {
     model: &'a ModelLoader,
     backend: Box<dyn DeviceBackend>,
@@ -77,8 +107,8 @@ pub struct Executor<'a> {
     kinds: HashMap<String, MemoryKind>,
     temps: HashSet<String>,
     state: ExecState,
-    next_node: usize,
-    block_name: String,
+    frames: Vec<ExecFrame>,
+    loop_vars: HashMap<String, usize>,
     trace_events: Vec<TraceEvent>,
     trace_enabled: bool,
     thread_id: usize,
@@ -112,8 +142,8 @@ impl<'a> Executor<'a> {
             kinds,
             temps: HashSet::new(),
             state: ExecState::NotStarted,
-            next_node: 0,
-            block_name: "entry".to_string(),
+            frames: Vec::new(),
+            loop_vars: HashMap::new(),
             trace_events: Vec::new(),
             trace_enabled,
             thread_id,
@@ -190,8 +220,8 @@ impl<'a> Executor<'a> {
     fn ensure_scalar_decl(&self, name: &str) -> Result<()> {
         let decl = if let Some(decl) = self.graph.vars.get(name) {
             decl.clone()
-        } else if let Some((_, decl)) = self.resolve_prefix_access(name)? {
-            decl
+        } else if let Some(access) = self.resolve_prefix_access(name)? {
+            access.decl
         } else {
             return Err(anyhow!("unknown variable: {}", name));
         };
@@ -204,8 +234,8 @@ impl<'a> Executor<'a> {
     fn ensure_tensor_decl(&self, name: &str) -> Result<()> {
         let decl = if let Some(decl) = self.graph.vars.get(name) {
             decl.clone()
-        } else if let Some((_, decl)) = self.resolve_prefix_access(name)? {
-            decl
+        } else if let Some(access) = self.resolve_prefix_access(name)? {
+            access.decl
         } else {
             return Err(anyhow!("unknown variable: {}", name));
         };
@@ -230,82 +260,115 @@ impl<'a> Executor<'a> {
 
         if self.state == ExecState::NotStarted {
             self.state = ExecState::Running;
+            self.frames.clear();
+            self.loop_vars.clear();
+            let block = self.graph.block("entry")?.clone();
+            self.frames.push(ExecFrame::Block(BlockFrame {
+                name: block.name.clone(),
+                nodes: block.nodes,
+                pos: 0,
+            }));
         }
 
-        let block = self.graph.block(&self.block_name)?.clone();
-        if self.next_node >= block.nodes.len() {
-            self.state = ExecState::Finished;
-            self.cleanup_temps();
-            return Err(anyhow!("executor has finished running"));
-        }
-
-        let node = &block.nodes[self.next_node];
-        self.next_node += 1;
-        match &node.kind {
-            NodeKind::Assign { name, dims, dtype } => {
-                let shape = self.model.resolve_shape(dims)?;
-                let data = self.backend.alloc(*dtype, &shape)?;
-                self.storage
-                    .insert(name.clone(), StoredTensor::Data(data));
-                self.temps.insert(name.clone());
-                Ok(self.record_event(TraceEvent {
-                    kind: TraceEventKind::Assign,
-                    node_index: node.index,
-                    node_uuid: node.uuid,
-                    block_name: self.block_name.clone(),
-                    node_desc: describe_node(&node.kind),
-                    op_name: String::new(),
-                    params: Vec::new(),
-                    output: vec![name.clone()],
-                    micros: String::new(),
-                    micros_parts: [0, 0, 0],
-                }))
-            }
-            NodeKind::Op {
-                op,
-                attrs,
-                inputs,
-                output,
-            } => {
-                self.exec_op(*op, attrs, inputs, output)?;
-                let (micros, micros_parts) = Timer::elapsed(self.thread_id)
-                    .map(format_duration_ns)
-                    .unwrap_or_else(|| (String::new(), [0, 0, 0]));
-                Ok(self.record_event(TraceEvent {
-                    kind: TraceEventKind::OpExecute,
-                    node_index: node.index,
-                    node_uuid: node.uuid,
-                    block_name: self.block_name.clone(),
-                    node_desc: describe_node(&node.kind),
-                    op_name: op.as_str().to_string(),
-                    params: inputs.clone(),
-                    output: vec![output.to_string()],
-                    micros,
-                    micros_parts,
-                }))
-            }
-            NodeKind::Return => {
-                self.state = ExecState::Finished;
-                self.cleanup_temps();
-                Ok(self.record_event(TraceEvent {
-                    kind: TraceEventKind::Return,
-                    node_index: node.index,
-                    node_uuid: node.uuid,
-                    block_name: self.block_name.clone(),
-                    node_desc: describe_node(&node.kind),
-                    op_name: String::new(),
-                    params: Vec::new(),
-                    output: Vec::new(),
-                    micros: String::new(),
-                    micros_parts: [0, 0, 0],
-                }))
+        loop {
+            let node = match self.next_node_from_frames()? {
+                Some(node) => node,
+                None => {
+                    self.state = ExecState::Finished;
+                    self.cleanup_temps();
+                    self.loop_vars.clear();
+                    return Err(anyhow!("executor has finished running"));
+                }
+            };
+            let node_desc = describe_node(&node.kind);
+            let block_name = self.current_block_name();
+            match node.kind {
+                NodeKind::Assign { name, dims, dtype } => {
+                    let shape = self.model.resolve_shape(&dims)?;
+                    let data = self.backend.alloc(dtype, &shape)?;
+                    self.storage
+                        .insert(name.clone(), StoredTensor::Data(data));
+                    self.temps.insert(name.clone());
+                    return Ok(self.record_event(TraceEvent {
+                        kind: TraceEventKind::Assign,
+                        node_index: node.index,
+                        node_uuid: node.uuid,
+                        block_name,
+                        node_desc,
+                        op_name: String::new(),
+                        params: Vec::new(),
+                        output: vec![name],
+                        micros: String::new(),
+                        micros_parts: [0, 0, 0],
+                    }));
+                }
+                NodeKind::Op {
+                    op,
+                    attrs,
+                    inputs,
+                    output,
+                } => {
+                    self.exec_op(op, &attrs, &inputs, &output)?;
+                    let resolved_inputs: Vec<String> =
+                        inputs.iter().map(|input| self.resolve_trace_name(input)).collect();
+                    let (micros, micros_parts) = Timer::elapsed(self.thread_id)
+                        .map(format_duration_ns)
+                        .unwrap_or_else(|| (String::new(), [0, 0, 0]));
+                    let node_desc = format!(
+                        "op {}({}) >> {}",
+                        op.as_str(),
+                        resolved_inputs.join(","),
+                        output
+                    );
+                    return Ok(self.record_event(TraceEvent {
+                        kind: TraceEventKind::OpExecute,
+                        node_index: node.index,
+                        node_uuid: node.uuid,
+                        block_name,
+                        node_desc,
+                        op_name: op.as_str().to_string(),
+                        params: resolved_inputs,
+                        output: vec![output],
+                        micros,
+                        micros_parts,
+                    }));
+                }
+                NodeKind::Loop {
+                    name,
+                    index,
+                    start,
+                    end,
+                    body,
+                } => {
+                    let _ = name;
+                    self.push_loop_frame(index, start, end, body)?;
+                    continue;
+                }
+                NodeKind::Return => {
+                    self.state = ExecState::Finished;
+                    self.cleanup_temps();
+                    self.loop_vars.clear();
+                    return Ok(self.record_event(TraceEvent {
+                        kind: TraceEventKind::Return,
+                        node_index: node.index,
+                        node_uuid: node.uuid,
+                        block_name,
+                        node_desc,
+                        op_name: String::new(),
+                        params: Vec::new(),
+                        output: Vec::new(),
+                        micros: String::new(),
+                        micros_parts: [0, 0, 0],
+                    }));
+                }
             }
         }
     }
 
     pub fn step(&mut self) -> Result<()> {
         self.state = ExecState::NotStarted;
-        self.next_node = 0;
+        self.frames.clear();
+        self.loop_vars.clear();
         while self.is_running() {
             let event = self.next_node()?;
             if self.trace_enabled {
@@ -324,6 +387,108 @@ impl<'a> Executor<'a> {
 
     pub fn trace(&self) -> &[TraceEvent] {
         &self.trace_events
+    }
+
+    fn resolve_trace_name(&self, name: &str) -> String {
+        let Ok(Some(access)) = parse_prefix_access(name) else {
+            return name.to_string();
+        };
+        let Some(decl) = self.graph.vars.get(&access.base) else {
+            return name.to_string();
+        };
+        if !decl.is_prefix_table() || decl.table_indices.len() != access.indices.len() {
+            return name.to_string();
+        }
+        let labeled = access
+            .indices
+            .iter()
+            .map(|value| {
+                if let Some(current) = self.loop_vars.get(value) {
+                    format!("{}={}", value, current)
+                } else {
+                    value.to_string()
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+        format!("{}[{}]", access.base, labeled)
+    }
+
+    fn current_block_name(&self) -> String {
+        self.frames
+            .iter()
+            .rev()
+            .find_map(|frame| match frame {
+                ExecFrame::Block(block) => Some(block.name.clone()),
+                _ => None,
+            })
+            .unwrap_or_else(|| "entry".to_string())
+    }
+
+    fn next_node_from_frames(&mut self) -> Result<Option<crate::graph::Node>> {
+        loop {
+            let Some(frame) = self.frames.last_mut() else {
+                return Ok(None);
+            };
+            match frame {
+                ExecFrame::Block(block) => {
+                    if block.pos >= block.nodes.len() {
+                        self.frames.pop();
+                        continue;
+                    }
+                    let node = block.nodes[block.pos].clone();
+                    block.pos += 1;
+                    return Ok(Some(node));
+                }
+                ExecFrame::Loop(loop_frame) => {
+                    if loop_frame.pos >= loop_frame.body.len() {
+                        loop_frame.current = loop_frame.current.saturating_add(1);
+                        if loop_frame.current < loop_frame.end {
+                            loop_frame.pos = 0;
+                            self.loop_vars
+                                .insert(loop_frame.index.clone(), loop_frame.current);
+                            continue;
+                        }
+                        let index = loop_frame.index.clone();
+                        let prev_value = loop_frame.prev_value;
+                        self.frames.pop();
+                        if let Some(prev) = prev_value {
+                            self.loop_vars.insert(index, prev);
+                        } else {
+                            self.loop_vars.remove(&index);
+                        }
+                        continue;
+                    }
+                    let node = loop_frame.body[loop_frame.pos].clone();
+                    loop_frame.pos += 1;
+                    return Ok(Some(node));
+                }
+            }
+        }
+    }
+
+    fn push_loop_frame(
+        &mut self,
+        index: String,
+        start: String,
+        end: String,
+        body: Vec<crate::graph::Node>,
+    ) -> Result<()> {
+        let start_val = self.model.resolve_dim_value(&start)?;
+        let end_val = self.model.resolve_dim_value(&end)?;
+        if start_val >= end_val {
+            return Ok(());
+        }
+        let prev_value = self.loop_vars.insert(index.clone(), start_val);
+        self.frames.push(ExecFrame::Loop(LoopFrame {
+            index,
+            end: end_val,
+            current: start_val,
+            body,
+            pos: 0,
+            prev_value,
+        }));
+        Ok(())
     }
 
     fn exec_op(
@@ -399,12 +564,12 @@ impl<'a> Executor<'a> {
                         )),
                     };
                 }
-                if let Some((_, decl)) = self.resolve_prefix_access(name)? {
-                    if decl.kind != MemoryKind::Constant {
+                if let Some(access) = self.resolve_prefix_access(name)? {
+                    if access.decl.kind != MemoryKind::Constant {
                         return Err(anyhow!(
                             "op setting must reference constant memory: {} is {:?}",
                             name,
-                            decl.kind
+                            access.decl.kind
                         ));
                     }
                     let tensor = self.get_tensor(name)?;
@@ -419,7 +584,7 @@ impl<'a> Executor<'a> {
     fn resolve_prefix_access(
         &self,
         name: &str,
-    ) -> Result<Option<(String, crate::types::VarDecl)>> {
+    ) -> Result<Option<ResolvedPrefixAccess>> {
         let access = parse_prefix_access(name)?;
         let Some(access) = access else {
             return Ok(None);
@@ -432,8 +597,21 @@ impl<'a> Executor<'a> {
         if !decl.is_prefix_table() {
             return Err(anyhow!("variable {} is not a prefix table", access.base));
         }
-        let model_name = resolve_prefix_name(decl, &access.indices)?;
-        Ok(Some((model_name, decl.clone())))
+        let mut indices = Vec::with_capacity(access.indices.len());
+        for index in access.indices {
+            if let Some(value) = self.loop_vars.get(&index) {
+                indices.push(value.to_string());
+            } else {
+                indices.push(index);
+            }
+        }
+        let model_name = resolve_prefix_name(decl, &indices)?;
+        let cache_key = format!("{}[{}]", access.base, indices.join(","));
+        Ok(Some(ResolvedPrefixAccess {
+            cache_key,
+            model_name,
+            decl: decl.clone(),
+        }))
     }
 
     fn get_tensor(&mut self, name: &str) -> Result<TensorStorage> {
@@ -463,14 +641,14 @@ impl<'a> Executor<'a> {
                 .insert(name.to_string(), StoredTensor::Data(data.clone()));
             return Ok(data);
         }
-        if let Some((model_name, decl)) = self.resolve_prefix_access(name)? {
-            if let Some(StoredTensor::Data(data)) = self.storage.get(name) {
+        if let Some(access) = self.resolve_prefix_access(name)? {
+            if let Some(StoredTensor::Data(data)) = self.storage.get(&access.cache_key) {
                 return Ok(data.clone());
             }
             let data =
-                load_decl_tensor(self.model, &mut *self.backend, &decl, &model_name, true)?;
+                load_decl_tensor(self.model, &mut *self.backend, &access.decl, &access.model_name, true)?;
             self.storage
-                .insert(name.to_string(), StoredTensor::Data(data.clone()));
+                .insert(access.cache_key, StoredTensor::Data(data.clone()));
             return Ok(data);
         }
         if self.temps.contains(name) {

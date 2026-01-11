@@ -25,11 +25,11 @@ pub fn parse_attrs(input: ParseStream) -> Result<ParsedAttrs> {
             }
             input.parse::<kw::init>()?;
             init = Some(init::parse_init_value(input)?);
-        } else if input.peek(kw::reference) {
+        } else if input.peek(Token![ref]) {
             if ref_name.is_some() {
-                return Err(input.error("duplicate @reference attribute"));
+                return Err(input.error("duplicate @ref attribute"));
             }
-            input.parse::<kw::reference>()?;
+            input.parse::<Token![ref]>()?;
             ref_name = Some(ref_attr::parse_ref_name(input)?);
         } else if input.peek(kw::pattern) {
             if pattern.is_some() {
