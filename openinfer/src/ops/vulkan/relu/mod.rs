@@ -8,6 +8,7 @@ use crate::tensor::{compute_strides, DType};
 use crate::timer::Timer;
 
 pub mod registry;
+pub mod registry_inplace;
 
 pub fn relu_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: usize) -> Result<VulkanBuffer> {
     let (negative_slope, clamp_max) = match attrs {
@@ -49,6 +50,48 @@ pub fn relu_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: usize) -> Resu
     })
 }
 
+pub fn relu_inplace_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: usize) -> Result<VulkanBuffer> {
+    let (negative_slope, clamp_max) = match attrs {
+        OpAttrs::Relu {
+            negative_slope,
+            clamp_max,
+        } => (attr_value_f32(negative_slope)?, attr_value_f32(clamp_max)?),
+        _ => return Err(anyhow!("relu inplace expects relu attributes")),
+    };
+    let runtime = super::runtime_from_buffers(a, None)?;
+    let target = spv_target_name_relu_inplace(a.dtype, attrs)?;
+    let entry = "main";
+    let spirv = a
+        .spv_bytes_for_target(&target)
+        .ok_or_else(|| anyhow!("missing SPIR-V target {} for relu inplace", target))?;
+    let output_size = storage_size_bytes(a.dtype) * a.len;
+    if output_size > a.inner.size as usize {
+        return Err(anyhow!("relu inplace output buffer too small"));
+    }
+    let push = [a.len as u32, negative_slope.to_bits(), clamp_max.to_bits(), 0];
+    let duration_ns = runtime.dispatch(
+        OpKind::Relu,
+        a.dtype,
+        &target,
+        entry,
+        spirv,
+        &a.inner,
+        &a.inner,
+        &a.inner,
+        push,
+        a.len,
+    )?;
+    Timer::record(thread_id, duration_ns);
+    Ok(VulkanBuffer {
+        dtype: a.dtype,
+        len: a.len,
+        shape: a.shape.clone(),
+        strides: compute_strides(a.shape.as_slice()),
+        shader: a.shader.clone(),
+        inner: a.inner.clone(),
+    })
+}
+
 pub(crate) fn spv_target_name_relu(dtype: DType, attrs: &OpAttrs) -> Result<String> {
     match (dtype, attrs) {
         (DType::F32, &OpAttrs::Relu { .. }) => Ok("relu_f32".to_string()),
@@ -63,6 +106,26 @@ pub(crate) fn spv_target_name_relu(dtype: DType, attrs: &OpAttrs) -> Result<Stri
         (DType::Bool, &OpAttrs::Relu { .. }) => Ok("relu_bool".to_string()),
         _ => Err(anyhow!(
             "no Vulkan SPIR-V target for relu dtype {:?}, attrs {:?}",
+            dtype,
+            attrs
+        )),
+    }
+}
+
+pub(crate) fn spv_target_name_relu_inplace(dtype: DType, attrs: &OpAttrs) -> Result<String> {
+    match (dtype, attrs) {
+        (DType::F32, &OpAttrs::Relu { .. }) => Ok("relu_inplace_f32".to_string()),
+        (DType::I8, &OpAttrs::Relu { .. }) => Ok("relu_inplace_i8".to_string()),
+        (DType::I16, &OpAttrs::Relu { .. }) => Ok("relu_inplace_i16".to_string()),
+        (DType::I32, &OpAttrs::Relu { .. }) => Ok("relu_inplace_i32".to_string()),
+        (DType::I64, &OpAttrs::Relu { .. }) => Ok("relu_inplace_i64".to_string()),
+        (DType::U8, &OpAttrs::Relu { .. }) => Ok("relu_inplace_u8".to_string()),
+        (DType::U16, &OpAttrs::Relu { .. }) => Ok("relu_inplace_u16".to_string()),
+        (DType::U32, &OpAttrs::Relu { .. }) => Ok("relu_inplace_u32".to_string()),
+        (DType::U64, &OpAttrs::Relu { .. }) => Ok("relu_inplace_u64".to_string()),
+        (DType::Bool, &OpAttrs::Relu { .. }) => Ok("relu_inplace_bool".to_string()),
+        _ => Err(anyhow!(
+            "no Vulkan SPIR-V target for relu inplace dtype {:?}, attrs {:?}",
             dtype,
             attrs
         )),

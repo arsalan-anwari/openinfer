@@ -50,6 +50,14 @@ pub(crate) trait DeviceBackend {
         tensors: &[crate::backend::TensorStorage],
         thread_id: usize,
     ) -> Result<crate::backend::TensorStorage>;
+    fn exec_op_inplace(
+        &self,
+        op: crate::graph::OpKind,
+        attrs: &crate::graph::OpAttrs,
+        output_dtype: DType,
+        tensors: &[crate::backend::TensorStorage],
+        thread_id: usize,
+    ) -> Result<crate::backend::TensorStorage>;
 }
 
 pub(crate) fn backend_for(device: Device) -> Result<Box<dyn DeviceBackend>> {
@@ -69,6 +77,7 @@ pub struct Simulator<'a> {
     device: Device,
     trace_enabled: bool,
     timer_enabled: bool,
+    inplace_enabled: bool,
 }
 
 impl<'a> Simulator<'a> {
@@ -83,6 +92,7 @@ impl<'a> Simulator<'a> {
             device,
             trace_enabled: false,
             timer_enabled: false,
+            inplace_enabled: false,
         })
     }
 
@@ -96,6 +106,11 @@ impl<'a> Simulator<'a> {
         self
     }
 
+    pub fn with_inplace(mut self) -> Self {
+        self.inplace_enabled = true;
+        self
+    }
+
     pub fn make_executor(&self) -> Result<Executor<'a>> {
         Executor::new(
             self.model,
@@ -103,6 +118,7 @@ impl<'a> Simulator<'a> {
             self.graph.clone(),
             self.trace_enabled,
             self.timer_enabled,
+            self.inplace_enabled,
         )
     }
 }

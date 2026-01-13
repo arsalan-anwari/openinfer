@@ -13,7 +13,10 @@ compatibility, constant mutation, scalar-only attributes, sizevar resolution),
 and `make_executor()` reuses the validated graph.
 
 By default, the simulator does not print trace output or time ops. Enable
-`with_trace()` for trace logging and `with_timer()` for timing data.
+`with_trace()` for trace logging and `with_timer()` for timing data. Use
+`with_inplace()` to opt into in-place execution for supported ops when the
+output aliases an input (e.g. `op add(x, y) >> x`), which is useful for
+measuring allocation overhead vs. the standard out-of-place behavior.
 
 ## Step through nodes with logging + timing
 

@@ -63,3 +63,7 @@ path = "../examples/rust/prefix_table.rs"
 [[example]]
 name = "loop"
 path = "../examples/rust/loop.rs"
+
+[[example]]
+name = "worst_case"
+path = "../examples/rust/worst_case.rs"

@@ -106,6 +106,11 @@ Notes and Limitations
   Unsupported dtypes return an error before kernel dispatch.
 - `abs` for unsigned/bool can be short-circuited in Rust without launching
   a kernel (see `openinfer/src/ops/vulkan/abs/mod.rs`).
+- The simulator defaults to out-of-place ops, which means every op allocates a
+  fresh output buffer. On Vulkan this can be noticeably slower because each
+  dispatch pays allocation and synchronization costs. Use
+  `Simulator::with_inplace()` to allow in-place kernels when output aliases an
+  input (e.g. `op add(x, w) >> x`) and compare performance.
 - If you add a dtype or op, update:
   - `shaders.json` (path + spv_dir)
   - op registry + kernel launcher

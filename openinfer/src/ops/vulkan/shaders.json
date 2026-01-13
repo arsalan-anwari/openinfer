@@ -13,8 +13,18 @@
       "spv_dir": "src/ops/vulkan/add/bin",
       "push_constants_size": 16
     },
+    "add_inplace": {
+      "path": "src/ops/vulkan/add/add_inplace.slang",
+      "spv_dir": "src/ops/vulkan/add/bin",
+      "push_constants_size": 16
+    },
     "mul": {
       "path": "src/ops/vulkan/mul/mul.slang",
+      "spv_dir": "src/ops/vulkan/mul/bin",
+      "push_constants_size": 16
+    },
+    "mul_inplace": {
+      "path": "src/ops/vulkan/mul/mul_inplace.slang",
       "spv_dir": "src/ops/vulkan/mul/bin",
       "push_constants_size": 16
     },
@@ -27,6 +37,19 @@
       "path": "src/ops/vulkan/relu/relu.slang",
       "spv_dir": "src/ops/vulkan/relu/bin",
       "push_constants_size": 16
+    },
+    "relu_inplace": {
+      "path": "src/ops/vulkan/relu/relu_inplace.slang",
+      "spv_dir": "src/ops/vulkan/relu/bin",
+      "push_constants_size": 16
+    },
+    "abs_inplace": {
+      "path": "src/ops/vulkan/abs/abs_inplace.slang",
+      "spv_dir": "src/ops/vulkan/abs/bin",
+      "push_constants_size": 16,
+      "settings": {
+        "abs_unsigned_is_identity": true
+      }
     }
   }
 }

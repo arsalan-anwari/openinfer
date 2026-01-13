@@ -9,6 +9,7 @@ use serde_json::Value;
 use crate::backend::{DeviceTensor, OpShaderInfo, ShaderRegistry, TensorStorage, VulkanBuffer};
 use crate::graph::{OpAttrs, OpKind};
 use crate::ops::{broadcast_enabled, lookup_kernel, KernelFn};
+use crate::ops::vulkan::registry::lookup_kernel_vulkan_inplace;
 use crate::simulator::{Device, DeviceBackend};
 use crate::tensor::{broadcast_shapes, Bitset, DType, F16, TensorValue};
 
@@ -50,7 +51,18 @@ impl VulkanShaderRegistry {
             })?;
         let mut ops = HashMap::new();
         for (name, entry) in manifest.ops {
-            if !matches!(name.as_str(), "abs" | "add" | "mul" | "relu" | "broadcast") {
+            if !matches!(
+                name.as_str(),
+                "abs"
+                    | "add"
+                    | "mul"
+                    | "relu"
+                    | "broadcast"
+                    | "abs_inplace"
+                    | "add_inplace"
+                    | "mul_inplace"
+                    | "relu_inplace"
+            ) {
                 continue;
             }
             let spv_by_target = embedded_spirv::embedded_spirv_for_op(name.as_str());
@@ -67,6 +79,10 @@ impl VulkanShaderRegistry {
 
     pub fn load_default() -> Result<Self> {
         Self::load_from_file(Self::default_manifest_path())
+    }
+
+    pub fn shader_for_name(&self, name: &str) -> Option<Arc<OpShaderInfo>> {
+        self.ops.get(name).cloned()
     }
 
     pub fn default_manifest_path() -> PathBuf {
@@ -241,6 +257,48 @@ impl DeviceBackend for VulkanBackend {
         let buffer_refs: Vec<&VulkanBuffer> = buffers.iter().collect();
         let kernel = lookup_kernel(self.device(), op, output_dtype, &input_dtypes, attrs)
             .ok_or_else(|| anyhow!("unsupported op {}", op.as_str()))?;
+        match kernel {
+            KernelFn::Vulkan(func) => Ok(TensorStorage::Device(DeviceTensor::Vulkan(
+                (func)(attrs, &buffer_refs, thread_id)?,
+            ))),
+            KernelFn::Host(_) => Err(anyhow!("vulkan backend cannot run host kernel")),
+        }
+    }
+
+    fn exec_op_inplace(
+        &self,
+        op: OpKind,
+        attrs: &OpAttrs,
+        output_dtype: DType,
+        tensors: &[TensorStorage],
+        thread_id: usize,
+    ) -> Result<TensorStorage> {
+        let input_dtypes: Vec<DType> = tensors.iter().map(|t| t.dtype()).collect();
+        let shader = self
+            .shaders
+            .shader_for_name(&format!("{}_inplace", op.as_str()));
+        if shader.is_none() {
+            eprintln!(
+                "vulkan shaders: missing entry for op {}_inplace",
+                op.as_str()
+            );
+        }
+        let buffers = to_vulkan_buffers(tensors, shader)?;
+        if buffers.len() > 1 {
+            let first = buffers[0].shape.clone();
+            for buffer in buffers.iter().skip(1) {
+                if buffer.shape != first {
+                    return Err(anyhow!(
+                        "op {} inplace requires identical input shapes on {:?}",
+                        op.as_str(),
+                        self.device()
+                    ));
+                }
+            }
+        }
+        let buffer_refs: Vec<&VulkanBuffer> = buffers.iter().collect();
+        let kernel = lookup_kernel_vulkan_inplace(op, output_dtype, &input_dtypes, attrs)
+            .ok_or_else(|| anyhow!("unsupported inplace op {}", op.as_str()))?;
         match kernel {
             KernelFn::Vulkan(func) => Ok(TensorStorage::Device(DeviceTensor::Vulkan(
                 (func)(attrs, &buffer_refs, thread_id)?,

@@ -106,6 +106,7 @@ pub struct Executor<'a> {
     storage: HashMap<String, StoredTensor>,
     kinds: HashMap<String, MemoryKind>,
     temps: HashSet<String>,
+    inplace_enabled: bool,
     state: ExecState,
     frames: Vec<ExecFrame>,
     loop_vars: HashMap<String, usize>,
@@ -121,6 +122,7 @@ impl<'a> Executor<'a> {
         graph: Graph,
         trace_enabled: bool,
         timer_enabled: bool,
+        inplace_enabled: bool,
     ) -> Result<Self> {
         let mut storage = HashMap::new();
         let mut kinds = HashMap::new();
@@ -141,6 +143,7 @@ impl<'a> Executor<'a> {
             storage,
             kinds,
             temps: HashSet::new(),
+            inplace_enabled,
             state: ExecState::NotStarted,
             frames: Vec::new(),
             loop_vars: HashMap::new(),
@@ -499,7 +502,13 @@ impl<'a> Executor<'a> {
         output: &str,
     ) -> Result<()> {
         let mut tensors = Vec::new();
-        for input in inputs {
+        let mut inplace_index = None;
+        let mut inplace_hits = 0usize;
+        for (idx, input) in inputs.iter().enumerate() {
+            if input == output {
+                inplace_index = Some(idx);
+                inplace_hits += 1;
+            }
             tensors.push(self.get_tensor(input)?);
         }
         if self.kinds.get(output) == Some(&MemoryKind::Constant) {
@@ -519,10 +528,26 @@ impl<'a> Executor<'a> {
                 .ok_or_else(|| anyhow!("op {} expects at least 1 input", op.as_str()))?
                 .dtype(),
         };
-
-        let result = self
-            .backend
-            .exec_op(op, &resolved_attrs, output_dtype, &tensors, self.thread_id)?;
+        let use_inplace = self.inplace_enabled
+            && inplace_index.is_some()
+            && inplace_hits == 1
+            && supports_inplace(op)
+            && tensors.len() == inputs.len();
+        let result = if use_inplace {
+            let index = inplace_index.unwrap();
+            if index != 0 {
+                tensors.swap(0, index);
+            }
+            self.backend.exec_op_inplace(
+                op,
+                &resolved_attrs,
+                output_dtype,
+                &tensors,
+                self.thread_id,
+            )?
+        } else {
+            self.backend.exec_op(op, &resolved_attrs, output_dtype, &tensors, self.thread_id)?
+        };
 
         if self.kinds.get(output) == Some(&MemoryKind::Dynamic) {
             self.dynamic.insert(output.to_string(), result);
@@ -669,6 +694,10 @@ impl<'a> Executor<'a> {
         }
         event
     }
+}
+
+fn supports_inplace(op: OpKind) -> bool {
+    matches!(op, OpKind::Add | OpKind::Mul | OpKind::Abs | OpKind::Relu)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]

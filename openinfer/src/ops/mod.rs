@@ -1,10 +1,10 @@
-mod cpu;
+pub(crate) mod cpu;
 
 #[cfg(feature = "avx")]
-mod cpu_avx;
+pub(crate) mod cpu_avx;
 
 #[cfg(feature = "avx2")]
-mod cpu_avx2;
+pub(crate) mod cpu_avx2;
 
 #[cfg(feature = "vulkan")]
 pub(crate) mod vulkan;

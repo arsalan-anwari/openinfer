@@ -17,3 +17,33 @@ pub fn lookup_kernel_vulkan(
         OpKind::Relu => relu::registry::lookup_kernel_vulkan_relu(output_dtype, input_dtypes, attrs),
     }
 }
+
+pub fn lookup_kernel_vulkan_inplace(
+    op: OpKind,
+    output_dtype: DType,
+    input_dtypes: &[DType],
+    attrs: &OpAttrs,
+) -> Option<KernelFn> {
+    match op {
+        OpKind::Add => add::registry_inplace::lookup_kernel_vulkan_add_inplace(
+            output_dtype,
+            input_dtypes,
+            attrs,
+        ),
+        OpKind::Mul => mul::registry_inplace::lookup_kernel_vulkan_mul_inplace(
+            output_dtype,
+            input_dtypes,
+            attrs,
+        ),
+        OpKind::Abs => abs::registry_inplace::lookup_kernel_vulkan_abs_inplace(
+            output_dtype,
+            input_dtypes,
+            attrs,
+        ),
+        OpKind::Relu => relu::registry_inplace::lookup_kernel_vulkan_relu_inplace(
+            output_dtype,
+            input_dtypes,
+            attrs,
+        ),
+    }
+}
