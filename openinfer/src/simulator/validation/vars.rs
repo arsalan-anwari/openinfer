@@ -18,6 +18,12 @@ pub(crate) fn var_signature(
                 name
             ));
         }
+        if decl.kind == crate::types::MemoryKind::Persistent && !decl.table_indices.is_empty() {
+            return Err(anyhow!(
+                "persistent cache {} must be accessed via cache operations",
+                name
+            ));
+        }
         return Ok((decl.dtype, decl.dims.clone()));
     }
     if let Some((dtype, dims)) = temps.get(name) {

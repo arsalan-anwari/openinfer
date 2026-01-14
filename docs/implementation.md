@@ -26,13 +26,15 @@ expands it into Rust code that constructs a runtime `Graph`.
 
 With the current level of support of the DSL it has two top-level sections:
 
-- Memory sections: `dynamic { ... }` or `volatile { ... }`
+- Memory sections: `dynamic { ... }`, `volatile { ... }`, `constant { ... }`, or `persistent { ... }`
 - Blocks: `block entry { ... }` with nodes inside
 
 Node types inside a block:
 
 - `assign name: dtype[Dims];` declares a temporary variable
 - `op add(x, y) >> out;` invokes an op
+- `cache.read`, `cache.write`, `cache.increment`, `cache.decrement`, `cache.reset` for persistent cache access
+- `loop name (i in start..end) { ... }` for repeated blocks
 - `return;` stops the block
 
 > Please not as the new features of the DSL are being added this guide will change.
@@ -42,12 +44,15 @@ Node types inside a block:
 Parsing happens in `impl Parse for GraphDsl` and the helpers in
 `openinfer-dsl/src/lib.rs`. Each memory section parses variable declarations
 (`VarDecl`) that include `dtype`, optional `dims`, and optional `@init(...)`.
-Each block parses nodes into one of `Assign`, `Op`, or `Return`.
+Persistent variables may additionally carry `@table`, `@auto_dim(...)`, and
+`@fixed(...)` attributes which are stored on the declaration.
+Each block parses nodes into one of `Assign`, `Op`, cache operations, `Loop`, or `Return`.
 
 Expansion is in `GraphDsl::expand`:
 
 - Creates a new `Graph` via `Graph::new()`
-- Adds variables with `Graph::add_var(kind, name, dtype, dims, init)`
+- Adds variables with `Graph::add_var(...)` including prefix-table metadata
+  (`pattern`, `table_indices`) and cache metadata (`table`, `auto_dim`, `fixed`)
 - Adds blocks with `Graph::add_block(name)`
 - Adds nodes with `Graph::add_node(block, NodeKind::...)`
 
@@ -59,8 +64,8 @@ the `Graph` value at runtime.
 `Graph` is defined in `openinfer/src/graph.rs` and is serializable via serde.
 It has:
 
-- `vars: HashMap<String, VarDecl>` describing memory, dtype, dims, and optional
-  init values.
+- `vars: HashMap<String, VarDecl>` describing memory, dtype, dims, optional init
+  values, and cache attributes (`table`, `auto_dim`, `fixed`) when applicable.
 - `blocks: HashMap<String, Block>` with ordered nodes.
 - `next_index` used to assign monotonically increasing node indices.
 
@@ -68,7 +73,8 @@ Each `Block` holds an ordered list of `Node`, and each `Node` contains:
 
 - `index`: the order in which it was inserted
 - `uuid`: a unique identifier
-- `kind`: one of `Assign`, `Op`, or `Return`
+- `kind`: one of `Assign`, `Op`, `CacheRead`, `CacheWrite`, `CacheIncrement`,
+  `CacheDecrement`, `CacheReset`, `Loop`, or `Return`
 
 Example (conceptual):
 

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use anyhow::{anyhow, Result};
 
-use crate::graph::{Block, NodeKind, OpAttrs, OpKind};
+use crate::graph::{Block, CacheAccess, CacheIndexExpr, CacheIndexValue, NodeKind, OpAttrs, OpKind};
 use crate::ops::{broadcast_enabled, lookup_kernel};
 use crate::prefix::{parse_prefix_access, resolve_prefix_name};
 use crate::tensor::DType;
@@ -36,6 +36,21 @@ fn validate_nodes(
                 output,
             } => {
                 validate_op(ctx, temps, *op, attrs, inputs, output)?;
+            }
+            NodeKind::CacheRead { src, dst } => {
+                validate_cache_read(ctx, temps, src, dst)?;
+            }
+            NodeKind::CacheWrite { src, dst } => {
+                validate_cache_write(ctx, temps, src, dst)?;
+            }
+            NodeKind::CacheIncrement { target, .. } => {
+                validate_cache_scalar(ctx, target)?;
+            }
+            NodeKind::CacheDecrement { target, .. } => {
+                validate_cache_scalar(ctx, target)?;
+            }
+            NodeKind::CacheReset { target } => {
+                validate_cache_reset(ctx, target)?;
             }
             NodeKind::Loop {
                 name,
@@ -111,6 +126,12 @@ fn validate_op(
     if let Some(decl) = ctx.graph.vars.get(output) {
         if decl.kind == MemoryKind::Constant {
             return Err(anyhow!("cannot write to constant memory: {}", output));
+        }
+        if decl.kind == MemoryKind::Persistent {
+            return Err(anyhow!(
+                "persistent cache {} must be written via cache.write",
+                output
+            ));
         }
     }
 
@@ -218,6 +239,250 @@ fn input_signature(
     }
 
     let (dtype, dims) = var_signature(ctx, temps, input)?;
+    if let Some(decl) = ctx.graph.vars.get(input) {
+        if decl.kind == MemoryKind::Persistent {
+            return Err(anyhow!(
+                "persistent cache {} must be read via cache.read",
+                input
+            ));
+        }
+    }
     let shape = ctx.model.resolve_shape(&dims)?;
     Ok((dtype, shape))
+}
+
+fn validate_cache_scalar(ctx: &ValidationContext, name: &str) -> Result<()> {
+    let decl = ctx
+        .graph
+        .vars
+        .get(name)
+        .ok_or_else(|| anyhow!("unknown cache variable {}", name))?;
+    if decl.kind != MemoryKind::Persistent {
+        return Err(anyhow!(
+            "cache operation expects persistent variable, got {:?} {}",
+            decl.kind,
+            name
+        ));
+    }
+    if !decl.dims.is_empty() || !decl.table_indices.is_empty() {
+        return Err(anyhow!("cache increment expects scalar {}", name));
+    }
+    if matches!(decl.dtype, DType::Bool | DType::Bitset) {
+        return Err(anyhow!(
+            "cache increment does not support dtype {:?} for {}",
+            decl.dtype,
+            name
+        ));
+    }
+    Ok(())
+}
+
+fn validate_cache_read(
+    ctx: &ValidationContext,
+    temps: &HashMap<String, (DType, Vec<String>)>,
+    src: &CacheAccess,
+    dst: &str,
+) -> Result<()> {
+    let decl = ctx
+        .graph
+        .vars
+        .get(&src.base)
+        .ok_or_else(|| anyhow!("unknown cache variable {}", src.base))?;
+    if decl.kind != MemoryKind::Persistent {
+        return Err(anyhow!(
+            "cache.read expects persistent variable, got {:?} {}",
+            decl.kind,
+            src.base
+        ));
+    }
+    if let Some(output_decl) = ctx.graph.vars.get(dst) {
+        if output_decl.kind == MemoryKind::Constant || output_decl.kind == MemoryKind::Persistent {
+            return Err(anyhow!(
+                "cache.read output {} must be mutable non-persistent memory",
+                dst
+            ));
+        }
+    }
+    let (out_dtype, _out_dims) = var_signature(ctx, temps, dst)?;
+    if out_dtype != decl.dtype {
+        return Err(anyhow!(
+            "cache.read {} -> {} dtype mismatch {:?} vs {:?}",
+            src.base,
+            dst,
+            decl.dtype,
+            out_dtype
+        ));
+    }
+    if decl.is_cache_table() {
+        validate_cache_indices(src, decl, true)?;
+        return Ok(());
+    }
+    if decl.has_auto_dim() {
+        validate_cache_indices(src, decl, false)?;
+        return Ok(());
+    }
+    if src.bracketed {
+        return Err(anyhow!(
+            "cache.read {} does not accept indices",
+            src.base
+        ));
+    }
+    Ok(())
+}
+
+fn validate_cache_write(
+    ctx: &ValidationContext,
+    temps: &HashMap<String, (DType, Vec<String>)>,
+    src: &str,
+    dst: &CacheAccess,
+) -> Result<()> {
+    let decl = ctx
+        .graph
+        .vars
+        .get(&dst.base)
+        .ok_or_else(|| anyhow!("unknown cache variable {}", dst.base))?;
+    if decl.kind != MemoryKind::Persistent {
+        return Err(anyhow!(
+            "cache.write expects persistent variable, got {:?} {}",
+            decl.kind,
+            dst.base
+        ));
+    }
+    let (in_dtype, _in_dims) = input_signature(ctx, temps, src)?;
+    if in_dtype != decl.dtype {
+        return Err(anyhow!(
+            "cache.write {} -> {} dtype mismatch {:?} vs {:?}",
+            src,
+            dst.base,
+            in_dtype,
+            decl.dtype
+        ));
+    }
+    if decl.is_cache_table() {
+        validate_cache_indices(dst, decl, true)?;
+        ensure_no_cache_slices(dst)?;
+        return Ok(());
+    }
+    if decl.has_auto_dim() {
+        validate_cache_indices(dst, decl, false)?;
+        return Ok(());
+    }
+    if dst.bracketed {
+        return Err(anyhow!(
+            "cache.write {} does not accept indices",
+            dst.base
+        ));
+    }
+    Ok(())
+}
+
+fn validate_cache_reset(ctx: &ValidationContext, target: &CacheAccess) -> Result<()> {
+    let decl = ctx
+        .graph
+        .vars
+        .get(&target.base)
+        .ok_or_else(|| anyhow!("unknown cache variable {}", target.base))?;
+    if decl.kind != MemoryKind::Persistent {
+        return Err(anyhow!(
+            "cache.reset expects persistent variable, got {:?} {}",
+            decl.kind,
+            target.base
+        ));
+    }
+    if decl.is_cache_table() {
+        validate_cache_indices(target, decl, false)?;
+        return Ok(());
+    }
+    if decl.has_auto_dim() && target.bracketed {
+        return Err(anyhow!(
+            "cache.reset {} does not accept indices",
+            target.base
+        ));
+    }
+    Ok(())
+}
+
+fn validate_cache_indices(
+    access: &CacheAccess,
+    decl: &crate::types::VarDecl,
+    exact: bool,
+) -> Result<()> {
+    if !access.bracketed {
+        return Err(anyhow!(
+            "cache access {} requires indices",
+            access.base
+        ));
+    }
+    if decl.is_cache_table() {
+        let table_indices = decl.cache_table_indices();
+        if exact && access.indices.len() != table_indices.len() && !access.indices.is_empty() {
+            return Err(anyhow!(
+                "cache table {} expects {} indices, got {}",
+                access.base,
+                table_indices.len(),
+                access.indices.len()
+            ));
+        }
+        if access.indices.is_empty() {
+            return Ok(());
+        }
+        for index in &access.indices {
+            validate_cache_index_expr(index)?;
+        }
+        return Ok(());
+    }
+    if decl.has_auto_dim() {
+        if exact && access.indices.len() != decl.auto_dim.len() && !access.indices.is_empty() {
+            return Err(anyhow!(
+                "cache auto_dim {} expects {} indices, got {}",
+                access.base,
+                decl.auto_dim.len(),
+                access.indices.len()
+            ));
+        }
+        for index in &access.indices {
+            validate_cache_index_expr(index)?;
+        }
+        return Ok(());
+    }
+    Ok(())
+}
+
+fn ensure_no_cache_slices(access: &CacheAccess) -> Result<()> {
+    for index in &access.indices {
+        if matches!(index, CacheIndexExpr::Slice { .. }) {
+            return Err(anyhow!(
+                "cache.write {} does not support slice indices",
+                access.base
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_cache_index_expr(index: &CacheIndexExpr) -> Result<()> {
+    match index {
+        CacheIndexExpr::Single(value) => validate_cache_index_value(value, false),
+        CacheIndexExpr::Slice { start, end } => {
+            if let Some(start) = start {
+                validate_cache_index_value(start, false)?;
+            }
+            if let Some(end) = end {
+                validate_cache_index_value(end, true)?;
+            }
+            Ok(())
+        }
+    }
+}
+
+fn validate_cache_index_value(value: &CacheIndexValue, allow_negative: bool) -> Result<()> {
+    match value {
+        CacheIndexValue::Ident(_) => Ok(()),
+        CacheIndexValue::Lit(value) => {
+            if *value < 0 && !allow_negative {
+                return Err(anyhow!("cache index cannot be negative"));
+            }
+            Ok(())
+        }
+    }
 }

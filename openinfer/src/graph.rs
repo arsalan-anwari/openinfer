@@ -33,6 +33,28 @@ pub enum AttrValue {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum CacheIndexValue {
+    Ident(String),
+    Lit(i64),
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum CacheIndexExpr {
+    Single(CacheIndexValue),
+    Slice {
+        start: Option<CacheIndexValue>,
+        end: Option<CacheIndexValue>,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CacheAccess {
+    pub base: String,
+    pub indices: Vec<CacheIndexExpr>,
+    pub bracketed: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum OpAttrs {
     None,
     Relu {
@@ -49,6 +71,25 @@ pub enum NodeKind {
         attrs: OpAttrs,
         inputs: Vec<String>,
         output: String,
+    },
+    CacheRead {
+        src: CacheAccess,
+        dst: String,
+    },
+    CacheWrite {
+        src: String,
+        dst: CacheAccess,
+    },
+    CacheIncrement {
+        target: String,
+        amount: i64,
+    },
+    CacheDecrement {
+        target: String,
+        amount: i64,
+    },
+    CacheReset {
+        target: CacheAccess,
     },
     Loop {
         name: String,
@@ -108,6 +149,9 @@ impl Graph {
         ref_name: Option<String>,
         table_indices: Vec<String>,
         pattern: Option<String>,
+        table: bool,
+        auto_dim: Vec<String>,
+        fixed: Vec<(String, usize)>,
     ) {
         let name = name.into();
         self.vars.insert(
@@ -117,6 +161,9 @@ impl Graph {
                 ref_name,
                 pattern,
                 table_indices,
+                table,
+                auto_dim,
+                fixed,
                 dtype,
                 dims,
                 kind,
@@ -201,6 +248,32 @@ pub fn describe_node(kind: &NodeKind) -> String {
         } => {
             format!("op {}({}) >> {}", op.as_str(), inputs.join(","), output)
         }
+        NodeKind::CacheRead { src, dst } => {
+            let access = format_cache_access(src);
+            format!("cache.read {} >> {}", access, dst)
+        }
+        NodeKind::CacheWrite { src, dst } => {
+            let access = format_cache_access(dst);
+            format!("cache.write {} >> {}", src, access)
+        }
+        NodeKind::CacheIncrement { target, amount } => {
+            if *amount == 1 {
+                format!("cache.increment {}", target)
+            } else {
+                format!("cache.increment {} {}", amount, target)
+            }
+        }
+        NodeKind::CacheDecrement { target, amount } => {
+            if *amount == 1 {
+                format!("cache.decrement {}", target)
+            } else {
+                format!("cache.decrement {} {}", amount, target)
+            }
+        }
+        NodeKind::CacheReset { target } => {
+            let access = format_cache_access(target);
+            format!("cache.reset {}", access)
+        }
         NodeKind::Loop {
             name,
             index,
@@ -209,5 +282,40 @@ pub fn describe_node(kind: &NodeKind) -> String {
             ..
         } => format!("loop {} ({} in {}..{})", name, index, start, end),
         NodeKind::Return => "return".to_string(),
+    }
+}
+
+fn format_cache_access(access: &CacheAccess) -> String {
+    if !access.bracketed {
+        return access.base.clone();
+    }
+    if access.indices.is_empty() {
+        return format!("{}[]", access.base);
+    }
+    let rendered = access
+        .indices
+        .iter()
+        .map(|index| match index {
+            CacheIndexExpr::Single(value) => format_cache_value(value),
+            CacheIndexExpr::Slice { start, end } => {
+                let start = start.as_ref().map(format_cache_value);
+                let end = end.as_ref().map(format_cache_value);
+                match (start, end) {
+                    (Some(start), Some(end)) => format!("{}..{}", start, end),
+                    (Some(start), None) => format!("{}..", start),
+                    (None, Some(end)) => format!("..{}", end),
+                    (None, None) => String::new(),
+                }
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(",");
+    format!("{}[{}]", access.base, rendered)
+}
+
+fn format_cache_value(value: &CacheIndexValue) -> String {
+    match value {
+        CacheIndexValue::Ident(name) => name.clone(),
+        CacheIndexValue::Lit(value) => value.to_string(),
     }
 }

@@ -2,7 +2,7 @@
   {
     "block_name": "entry",
     "node_index": 0,
-    "node_uuid": "076d7ee5-70c6-4d75-ab25-e229f584424c",
+    "node_uuid": "f0f7a721-10e6-429c-9101-c6428d2c741b",
     "kind": "Assign",
     "params": [],
     "output": [
@@ -17,7 +17,7 @@
   {
     "block_name": "entry",
     "node_index": 1,
-    "node_uuid": "8e174e0c-e2fa-4d9a-9e5d-d75a6686a2a1",
+    "node_uuid": "79f86f9e-ca29-409c-a8fe-39c6662292be",
     "kind": "OpExecute",
     "params": [
       "x",
@@ -28,14 +28,14 @@
     ],
     "micros": [
       0,
-      11,
-      562
+      25,
+      321
     ]
   },
   {
     "block_name": "entry",
     "node_index": 2,
-    "node_uuid": "eae164a4-23f0-45d7-9324-3b4ded221b83",
+    "node_uuid": "34ff49a0-852e-48f9-b153-e0c022c54412",
     "kind": "OpExecute",
     "params": [
       "y",
@@ -46,14 +46,14 @@
     ],
     "micros": [
       0,
-      11,
-      41
+      24,
+      19
     ]
   },
   {
     "block_name": "entry",
     "node_index": 3,
-    "node_uuid": "0d64c719-73ae-421f-894c-737af6574621",
+    "node_uuid": "949f13ae-bd7d-425c-b10c-da03972e07da",
     "kind": "Return",
     "params": [],
     "output": [],

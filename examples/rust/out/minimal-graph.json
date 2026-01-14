@@ -14,7 +14,7 @@
               "name": "t0"
             }
           },
-          "uuid": "c8749abe-4f4e-4da0-ab63-bc90181c987a"
+          "uuid": "11a01bf0-7b32-4513-87d5-7260e30464ba"
         },
         {
           "index": 1,
@@ -29,7 +29,7 @@
               "output": "t0"
             }
           },
-          "uuid": "0bb9e323-a510-42b0-bf51-a2fbdd22e96c"
+          "uuid": "28786df1-586c-4bce-87b3-2e0f374a3dfc"
         },
         {
           "index": 2,
@@ -44,12 +44,12 @@
               "output": "y"
             }
           },
-          "uuid": "cc8569bc-754d-4cbb-94e5-5bf569a2e7df"
+          "uuid": "e970462f-425b-45aa-9b47-1433561de242"
         },
         {
           "index": 3,
           "kind": "Return",
-          "uuid": "9e3253fc-2446-4e08-aa7b-7a1089fa20b9"
+          "uuid": "0b7200d1-1e06-42d7-80e4-f4b47332fead"
         }
       ]
     }
@@ -57,34 +57,42 @@
   "next_index": 4,
   "vars": {
     "a": {
+      "auto_dim": [],
       "dims": [
         "B"
       ],
       "dtype": "F32",
+      "fixed": [],
       "init": null,
       "kind": "Volatile",
       "name": "a",
       "pattern": null,
       "ref_name": null,
+      "table": false,
       "table_indices": []
     },
     "x": {
+      "auto_dim": [],
       "dims": [
         "B"
       ],
       "dtype": "F32",
+      "fixed": [],
       "init": null,
       "kind": "Dynamic",
       "name": "x",
       "pattern": null,
       "ref_name": null,
+      "table": false,
       "table_indices": []
     },
     "y": {
+      "auto_dim": [],
       "dims": [
         "B"
       ],
       "dtype": "F32",
+      "fixed": [],
       "init": {
         "F32": 5.0
       },
@@ -92,6 +100,7 @@
       "name": "y",
       "pattern": null,
       "ref_name": null,
+      "table": false,
       "table_indices": []
     }
   }

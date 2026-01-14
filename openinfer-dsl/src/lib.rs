@@ -8,11 +8,21 @@ mod kw {
     syn::custom_keyword!(dynamic);
     syn::custom_keyword!(volatile);
     syn::custom_keyword!(constant);
+    syn::custom_keyword!(persistent);
     syn::custom_keyword!(block);
     syn::custom_keyword!(assign);
     syn::custom_keyword!(op);
+    syn::custom_keyword!(cache);
+    syn::custom_keyword!(read);
+    syn::custom_keyword!(write);
+    syn::custom_keyword!(increment);
+    syn::custom_keyword!(decrement);
+    syn::custom_keyword!(reset);
     syn::custom_keyword!(init);
     syn::custom_keyword!(pattern);
+    syn::custom_keyword!(table);
+    syn::custom_keyword!(fixed);
+    syn::custom_keyword!(auto_dim);
 }
 
 mod validation;
@@ -44,6 +54,7 @@ enum MemoryKindToken {
     Dynamic,
     Volatile,
     Constant,
+    Persistent,
 }
 
 struct VarDecl {
@@ -54,6 +65,9 @@ struct VarDecl {
     ref_name: Option<syn::LitStr>,
     pattern: Option<syn::LitStr>,
     table_indices: Vec<Ident>,
+    table: bool,
+    auto_dim: Vec<Ident>,
+    fixed: Vec<(Ident, LitInt)>,
 }
 
 enum Dim {
@@ -80,6 +94,11 @@ struct BlockSection {
 enum Node {
     Assign(AssignNode),
     Op(OpNode),
+    CacheRead(CacheReadNode),
+    CacheWrite(CacheWriteNode),
+    CacheInc(CacheIncNode),
+    CacheDec(CacheDecNode),
+    CacheReset(CacheResetNode),
     Loop(LoopNode),
     Return,
 }
@@ -105,6 +124,30 @@ struct LoopNode {
     body: Vec<Node>,
 }
 
+struct CacheReadNode {
+    src: CacheAccess,
+    dst: VarRef,
+}
+
+struct CacheWriteNode {
+    src: VarRef,
+    dst: CacheAccess,
+}
+
+struct CacheIncNode {
+    target: Ident,
+    amount: i64,
+}
+
+struct CacheDecNode {
+    target: Ident,
+    amount: i64,
+}
+
+struct CacheResetNode {
+    target: CacheAccess,
+}
+
 #[derive(Clone)]
 struct OpSetting {
     name: Ident,
@@ -127,6 +170,25 @@ struct VarRef {
     indices: Vec<IndexExpr>,
 }
 
+struct CacheAccess {
+    name: Ident,
+    indices: Vec<CacheIndexExpr>,
+    bracketed: bool,
+}
+
+enum CacheIndexExpr {
+    Single(CacheIndexValue),
+    Slice {
+        start: Option<CacheIndexValue>,
+        end: Option<CacheIndexValue>,
+    },
+}
+
+enum CacheIndexValue {
+    Ident(Ident),
+    Lit(i64),
+}
+
 enum IndexExpr {
     Ident(Ident),
     Lit(LitInt),
@@ -141,7 +203,11 @@ impl Parse for GraphDsl {
     fn parse(input: ParseStream) -> Result<Self> {
         let mut sections = Vec::new();
         while !input.is_empty() {
-            if input.peek(kw::dynamic) || input.peek(kw::volatile) || input.peek(kw::constant) {
+            if input.peek(kw::dynamic)
+                || input.peek(kw::volatile)
+                || input.peek(kw::constant)
+                || input.peek(kw::persistent)
+            {
                 sections.push(Section::Memory(input.parse()?));
             } else if input.peek(kw::block) {
                 sections.push(Section::Block(input.parse()?));
@@ -161,9 +227,12 @@ impl Parse for MemorySection {
         } else if input.peek(kw::volatile) {
             input.parse::<kw::volatile>()?;
             MemoryKindToken::Volatile
-        } else {
+        } else if input.peek(kw::constant) {
             input.parse::<kw::constant>()?;
             MemoryKindToken::Constant
+        } else {
+            input.parse::<kw::persistent>()?;
+            MemoryKindToken::Persistent
         };
 
         let content;
@@ -208,6 +277,9 @@ impl Parse for VarDecl {
             ref_name: attrs.ref_name,
             pattern: attrs.pattern,
             table_indices,
+            table: attrs.table,
+            auto_dim: attrs.auto_dim,
+            fixed: attrs.fixed,
         })
     }
 }
@@ -228,7 +300,44 @@ impl Parse for BlockSection {
 
 impl Parse for Node {
     fn parse(input: ParseStream) -> Result<Self> {
-        if input.peek(kw::assign) {
+        if input.peek(kw::cache) {
+            input.parse::<kw::cache>()?;
+            input.parse::<Token![.]>()?;
+            if input.peek(kw::read) {
+                input.parse::<kw::read>()?;
+                let src = parse_cache_access(input)?;
+                input.parse::<Token![>>]>()?;
+                let dst = parse_var_ref(input)?;
+                input.parse::<Token![;]>()?;
+                Ok(Node::CacheRead(CacheReadNode { src, dst }))
+            } else if input.peek(kw::write) {
+                input.parse::<kw::write>()?;
+                let src = parse_var_ref(input)?;
+                input.parse::<Token![>>]>()?;
+                let dst = parse_cache_access(input)?;
+                input.parse::<Token![;]>()?;
+                Ok(Node::CacheWrite(CacheWriteNode { src, dst }))
+            } else if input.peek(kw::increment) {
+                input.parse::<kw::increment>()?;
+                let amount = parse_cache_amount(input)?;
+                let target: Ident = input.parse()?;
+                input.parse::<Token![;]>()?;
+                Ok(Node::CacheInc(CacheIncNode { target, amount }))
+            } else if input.peek(kw::decrement) {
+                input.parse::<kw::decrement>()?;
+                let amount = parse_cache_amount(input)?;
+                let target: Ident = input.parse()?;
+                input.parse::<Token![;]>()?;
+                Ok(Node::CacheDec(CacheDecNode { target, amount }))
+            } else if input.peek(kw::reset) {
+                input.parse::<kw::reset>()?;
+                let target = parse_cache_access(input)?;
+                input.parse::<Token![;]>()?;
+                Ok(Node::CacheReset(CacheResetNode { target }))
+            } else {
+                Err(input.error("unsupported cache operation"))
+            }
+        } else if input.peek(kw::assign) {
             input.parse::<kw::assign>()?;
             let name: Ident = input.parse()?;
             input.parse::<Token![:]>()?;
@@ -382,6 +491,119 @@ fn parse_indices(input: ParseStream) -> Result<Vec<IndexExpr>> {
     Ok(indices)
 }
 
+fn parse_var_ref(input: ParseStream) -> Result<VarRef> {
+    let name: Ident = input.parse()?;
+    let indices = if input.peek(syn::token::Bracket) {
+        parse_indices(input)?
+    } else {
+        Vec::new()
+    };
+    Ok(VarRef { name, indices })
+}
+
+fn parse_cache_access(input: ParseStream) -> Result<CacheAccess> {
+    let name: Ident = input.parse()?;
+    if input.peek(syn::token::Bracket) {
+        let indices = parse_cache_indices(input)?;
+        Ok(CacheAccess {
+            name,
+            indices,
+            bracketed: true,
+        })
+    } else {
+        Ok(CacheAccess {
+            name,
+            indices: Vec::new(),
+            bracketed: false,
+        })
+    }
+}
+
+fn parse_cache_indices(input: ParseStream) -> Result<Vec<CacheIndexExpr>> {
+    let content;
+    syn::bracketed!(content in input);
+    let mut indices = Vec::new();
+    while !content.is_empty() {
+        if content.peek(Token![,]) {
+            content.parse::<Token![,]>()?;
+            indices.push(CacheIndexExpr::Slice {
+                start: None,
+                end: None,
+            });
+            continue;
+        }
+        let entry = if content.peek(Token![..]) {
+            content.parse::<Token![..]>()?;
+            let end = parse_cache_index_value_opt(&content)?;
+            CacheIndexExpr::Slice { start: None, end }
+        } else {
+            let start = parse_cache_index_value(&content)?;
+            if content.peek(Token![..]) {
+                content.parse::<Token![..]>()?;
+                let end = parse_cache_index_value_opt(&content)?;
+                CacheIndexExpr::Slice {
+                    start: Some(start),
+                    end,
+                }
+            } else {
+                CacheIndexExpr::Single(start)
+            }
+        };
+        indices.push(entry);
+        if content.peek(Token![,]) {
+            content.parse::<Token![,]>()?;
+            if content.is_empty() {
+                indices.push(CacheIndexExpr::Slice {
+                    start: None,
+                    end: None,
+                });
+            }
+        }
+    }
+    Ok(indices)
+}
+
+fn parse_cache_index_value_opt(input: ParseStream) -> Result<Option<CacheIndexValue>> {
+    if input.is_empty() || input.peek(Token![,]) {
+        return Ok(None);
+    }
+    Ok(Some(parse_cache_index_value(input)?))
+}
+
+fn parse_cache_index_value(input: ParseStream) -> Result<CacheIndexValue> {
+    let negative = if input.peek(Token![-]) {
+        input.parse::<Token![-]>()?;
+        true
+    } else {
+        false
+    };
+    if input.peek(LitInt) {
+        let lit: LitInt = input.parse()?;
+        let mut value: i64 = lit.base10_parse()?;
+        if negative {
+            value = -value;
+        }
+        return Ok(CacheIndexValue::Lit(value));
+    }
+    if input.peek(Ident) {
+        if negative {
+            return Err(input.error("unexpected '-' before identifier"));
+        }
+        let ident: Ident = input.parse()?;
+        return Ok(CacheIndexValue::Ident(ident));
+    }
+    Err(input.error("expected identifier or integer for cache index"))
+}
+
+fn parse_cache_amount(input: ParseStream) -> Result<i64> {
+    if input.peek(LitInt) {
+        let lit: LitInt = input.parse()?;
+        let value: i64 = lit.base10_parse()?;
+        return Ok(value);
+    }
+    Ok(1)
+}
+
 fn parse_dim_atom(input: ParseStream) -> Result<DimAtom> {
     if input.peek(LitInt) {
         Ok(DimAtom::Lit(input.parse()?))
@@ -468,6 +690,7 @@ impl GraphDsl {
                         MemoryKindToken::Dynamic => quote! { ::openinfer::MemoryKind::Dynamic },
                         MemoryKindToken::Volatile => quote! { ::openinfer::MemoryKind::Volatile },
                         MemoryKindToken::Constant => quote! { ::openinfer::MemoryKind::Constant },
+                        MemoryKindToken::Persistent => quote! { ::openinfer::MemoryKind::Persistent },
                     };
                     for var in mem.vars {
                         let name = var.name.to_string();
@@ -482,10 +705,24 @@ impl GraphDsl {
                             Some(lit) => quote! { Some(#lit.to_string()) },
                             None => quote! { None },
                         };
+                        let table = var.table;
                         let table_indices = var.table_indices.iter().map(|index| {
                             let s = index.to_string();
                             quote! { #s.to_string() }
                         });
+                        let auto_dim = var.auto_dim.iter().map(|index| {
+                            let s = index.to_string();
+                            quote! { #s.to_string() }
+                        });
+                        let fixed_entries: Vec<proc_macro2::TokenStream> = var
+                            .fixed
+                            .iter()
+                            .map(|(name, value)| {
+                            let name = name.to_string();
+                            let value: usize = value.base10_parse()?;
+                            Ok(quote! { (#name.to_string(), #value) })
+                        })
+                        .collect::<Result<Vec<_>>>()?;
                         stmts.push(quote! {
                             g.add_var(
                                 #kind_expr,
@@ -496,6 +733,9 @@ impl GraphDsl {
                                 #ref_name,
                                 vec![#(#table_indices),*],
                                 #pattern,
+                                #table,
+                                vec![#(#auto_dim),*],
+                                vec![#(#fixed_entries),*],
                             );
                         });
                     }
@@ -615,6 +855,54 @@ fn node_kind_expr(node: &Node) -> Result<proc_macro2::TokenStream> {
                 }
             })
         }
+        Node::CacheRead(node) => {
+            let src = cache_access_expr(&node.src)?;
+            let dst = var_ref_string(&node.dst);
+            Ok(quote! {
+                ::openinfer::NodeKind::CacheRead {
+                    src: #src,
+                    dst: #dst.to_string(),
+                }
+            })
+        }
+        Node::CacheWrite(node) => {
+            let src = var_ref_string(&node.src);
+            let dst = cache_access_expr(&node.dst)?;
+            Ok(quote! {
+                ::openinfer::NodeKind::CacheWrite {
+                    src: #src.to_string(),
+                    dst: #dst,
+                }
+            })
+        }
+        Node::CacheInc(node) => {
+            let target = node.target.to_string();
+            let amount = node.amount;
+            Ok(quote! {
+                ::openinfer::NodeKind::CacheIncrement {
+                    target: #target.to_string(),
+                    amount: #amount,
+                }
+            })
+        }
+        Node::CacheDec(node) => {
+            let target = node.target.to_string();
+            let amount = node.amount;
+            Ok(quote! {
+                ::openinfer::NodeKind::CacheDecrement {
+                    target: #target.to_string(),
+                    amount: #amount,
+                }
+            })
+        }
+        Node::CacheReset(node) => {
+            let target = cache_access_expr(&node.target)?;
+            Ok(quote! {
+                ::openinfer::NodeKind::CacheReset {
+                    target: #target,
+                }
+            })
+        }
         Node::Loop(loop_node) => {
             let name = loop_node.name.to_string();
             let index = loop_node.index.to_string();
@@ -632,6 +920,60 @@ fn node_kind_expr(node: &Node) -> Result<proc_macro2::TokenStream> {
             })
         }
         Node::Return => Ok(quote! { ::openinfer::NodeKind::Return }),
+    }
+}
+
+fn cache_access_expr(access: &CacheAccess) -> Result<proc_macro2::TokenStream> {
+    let base = access.name.to_string();
+    let bracketed = access.bracketed;
+    let indices = access.indices.iter().map(cache_index_expr);
+    Ok(quote! {
+        ::openinfer::CacheAccess {
+            base: #base.to_string(),
+            indices: vec![#(#indices),*],
+            bracketed: #bracketed,
+        }
+    })
+}
+
+fn cache_index_expr(index: &CacheIndexExpr) -> proc_macro2::TokenStream {
+    match index {
+        CacheIndexExpr::Single(value) => {
+            let value = cache_index_value(value);
+            quote! { ::openinfer::CacheIndexExpr::Single(#value) }
+        }
+        CacheIndexExpr::Slice { start, end } => {
+            let start = cache_index_value_opt(start);
+            let end = cache_index_value_opt(end);
+            quote! {
+                ::openinfer::CacheIndexExpr::Slice {
+                    start: #start,
+                    end: #end,
+                }
+            }
+        }
+    }
+}
+
+fn cache_index_value_opt(value: &Option<CacheIndexValue>) -> proc_macro2::TokenStream {
+    match value {
+        Some(value) => {
+            let out = cache_index_value(value);
+            quote! { Some(#out) }
+        }
+        None => quote! { None },
+    }
+}
+
+fn cache_index_value(value: &CacheIndexValue) -> proc_macro2::TokenStream {
+    match value {
+        CacheIndexValue::Ident(ident) => {
+            let name = ident.to_string();
+            quote! { ::openinfer::CacheIndexValue::Ident(#name.to_string()) }
+        }
+        CacheIndexValue::Lit(value) => {
+            quote! { ::openinfer::CacheIndexValue::Lit(#value) }
+        }
     }
 }
 

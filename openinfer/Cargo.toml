@@ -67,3 +67,23 @@ path = "../examples/rust/loop.rs"
 [[example]]
 name = "worst_case"
 path = "../examples/rust/worst_case.rs"
+
+[[example]]
+name = "cache_scalar"
+path = "../examples/rust/cache_scalar.rs"
+
+[[example]]
+name = "cache_table"
+path = "../examples/rust/cache_table.rs"
+
+[[example]]
+name = "cache_auto_dim"
+path = "../examples/rust/cache_auto_dim.rs"
+
+[[example]]
+name = "cache_weight_update"
+path = "../examples/rust/cache_weight_update.rs"
+
+[[example]]
+name = "cache_fixed_limit"
+path = "../examples/rust/cache_fixed_limit.rs"
