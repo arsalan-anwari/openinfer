@@ -1,0 +1,61 @@
+use syn::parse::{ParseStream, Result};
+use syn::{Ident, LitInt, Token};
+
+use crate::parsers::var::parse_indices;
+use crate::types::{OpArg, OpAttrValue, OpSetting, VarRef};
+
+pub(crate) fn parse_op_arg(input: ParseStream) -> Result<OpArg> {
+    let name: Ident = input.parse()?;
+    if input.peek(Token![=]) {
+        input.parse::<Token![=]>()?;
+        let value = parse_op_attr_value(input)?;
+        Ok(OpArg::Setting(OpSetting { name, value }))
+    } else if input.peek(syn::token::Bracket) {
+        let indices = parse_indices(input)?;
+        Ok(OpArg::Input(VarRef { name, indices }))
+    } else {
+        Ok(OpArg::Input(VarRef {
+            name,
+            indices: Vec::new(),
+        }))
+    }
+}
+
+pub(crate) fn parse_op_attr_value(input: ParseStream) -> Result<OpAttrValue> {
+    let negative = if input.peek(Token![-]) {
+        input.parse::<Token![-]>()?;
+        true
+    } else {
+        false
+    };
+
+    if input.peek(syn::LitFloat) {
+        let lit: syn::LitFloat = input.parse()?;
+        let mut value: f32 = lit.base10_parse()?;
+        if negative {
+            value = -value;
+        }
+        return Ok(OpAttrValue::Literal(value));
+    }
+    if input.peek(LitInt) {
+        let lit: LitInt = input.parse()?;
+        let mut value: f32 = lit.base10_parse::<i64>()? as f32;
+        if negative {
+            value = -value;
+        }
+        return Ok(OpAttrValue::Literal(value));
+    }
+    if input.peek(Ident) {
+        let ident: Ident = input.parse()?;
+        if negative {
+            return Err(input.error("unexpected '-' before identifier"));
+        }
+        let name = ident.to_string();
+        if name == "inf" {
+            return Ok(OpAttrValue::Literal(f32::INFINITY));
+        }
+        return Ok(OpAttrValue::Var(ident));
+    }
+
+    Err(input.error("expected literal or identifier for op setting"))
+}

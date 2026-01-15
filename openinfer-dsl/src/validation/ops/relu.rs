@@ -2,7 +2,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::Ident;
 
-use crate::{OpAttrValue, OpSetting};
+use crate::types::{OpAttrValue, OpSetting};
 
 use super::{attr_value_expr, SettingsMap};
 

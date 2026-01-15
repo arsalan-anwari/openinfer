@@ -1,7 +1,8 @@
 use syn::parse::{ParseStream, Result};
 use syn::Token;
 
-use crate::{kw, InitValue};
+use crate::kw;
+use crate::types::InitValue;
 
 mod init;
 mod pattern;

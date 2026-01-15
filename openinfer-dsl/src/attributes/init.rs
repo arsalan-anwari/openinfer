@@ -1,7 +1,7 @@
 use syn::parse::{ParseStream, Result};
 use syn::{parenthesized, LitInt, Token};
 
-use crate::InitValue;
+use crate::types::InitValue;
 
 pub fn parse_init_value(input: ParseStream) -> Result<InitValue> {
     let content;
