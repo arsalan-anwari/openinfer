@@ -15,6 +15,9 @@ Checklist of features described in the README and current implementation status.
 - [x] Reference attribute and custom attribute parsing support
 - [x] Prefix tables in `volatile` and `constant`
 - [x] Loops (loop blocks and loop-exit semantics)
+- [x] Inplace kernels for faster simulation when possible
+- [x] Cache operations beyond basic memory access
+- [x] Prefixed/autodim cache ergonomics
 
 ## DSL Gaps
 
@@ -22,8 +25,6 @@ Features described in the README DSL sections that are not fully supported yet.
 
 - [ ] Branching and yielding across blocks
 - [ ] Barrier and explicit control dependency nodes
-- [ ] Cache operations beyond basic memory access
-- [ ] Prefixed/autodim cache ergonomics
 
 ## In Progress / Planned
 

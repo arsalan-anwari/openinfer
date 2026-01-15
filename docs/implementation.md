@@ -126,7 +126,7 @@ This becomes `ModelLoader.vars: HashMap<String, VarInfo>`.
 
 ### Lazy loading path
 
-Lazy access happens in the `Executor` (`openinfer/src/simulator/executor.rs`):
+Lazy access happens in the `Executor` (`openinfer/src/simulator/executor/mod.rs`):
 
 1. `Executor::new` sets non-dynamic variables to `StoredTensor::Unloaded`.
 2. When an op needs an input, `Executor::get_tensor` is called.
