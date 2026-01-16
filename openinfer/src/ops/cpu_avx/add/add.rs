@@ -1,8 +1,7 @@
 use anyhow::{anyhow, Result};
 use std::arch::x86_64::{
     __m128i, _mm256_add_pd, _mm256_add_ps, _mm256_loadu_pd, _mm256_loadu_ps, _mm256_storeu_pd,
-    _mm256_storeu_ps, _mm_add_epi16, _mm_add_epi32, _mm_add_epi64, _mm_add_epi8,
-    _mm_loadu_si128, _mm_or_si128, _mm_storeu_si128,
+    _mm256_storeu_ps, _mm_add_epi16, _mm_add_epi8, _mm_loadu_si128, _mm_storeu_si128,
 };
 
 use crate::timer::Timer;
@@ -137,4 +136,3 @@ pub fn add_u8(a: &[u8], b: &[u8], thread_id: usize) -> Result<Vec<u8>> {
     Timer::stop(thread_id);
     Ok(out)
 }
-

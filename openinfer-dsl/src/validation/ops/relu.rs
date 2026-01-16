@@ -10,9 +10,13 @@ pub(crate) fn build_attrs(op: &Ident, settings: &[OpSetting]) -> syn::Result<Tok
     let mut settings = SettingsMap::new(op, settings)?;
 
     let negative_slope =
-        settings.take_value("negative_slope").unwrap_or_else(|| OpAttrValue::Literal(0.0));
+        settings
+            .take_value("negative_slope")
+            .unwrap_or_else(|| OpAttrValue::Float(0.0));
     let clamp_max =
-        settings.take_value("clamp_max").unwrap_or_else(|| OpAttrValue::Literal(f32::INFINITY));
+        settings
+            .take_value("clamp_max")
+            .unwrap_or_else(|| OpAttrValue::Float(f32::INFINITY));
 
     settings.ensure_empty()?;
 

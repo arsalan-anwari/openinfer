@@ -1,0 +1,111 @@
+[
+  {
+    "block_name": "entry",
+    "node_index": 0,
+    "node_uuid": "6cd99e22-70bd-4e76-b87b-03f5e0c0d506",
+    "kind": "OpExecute",
+    "params": [
+      "x",
+      "w"
+    ],
+    "output": [
+      "h"
+    ],
+    "micros": [
+      1,
+      534,
+      687
+    ]
+  },
+  {
+    "block_name": "entry",
+    "node_index": 1,
+    "node_uuid": "2bac50a8-240e-48a8-9fc1-3b7012032291",
+    "kind": "OpExecute",
+    "params": [
+      "h"
+    ],
+    "output": [
+      "cond"
+    ],
+    "micros": [
+      0,
+      8,
+      854
+    ]
+  },
+  {
+    "block_name": "bad",
+    "node_index": 7,
+    "node_uuid": "2b11321e-52f5-4df2-9628-b79728d0b4d4",
+    "kind": "OpExecute",
+    "params": [
+      "h"
+    ],
+    "output": [
+      "h"
+    ],
+    "micros": [
+      0,
+      52,
+      708
+    ]
+  },
+  {
+    "block_name": "bad",
+    "node_index": 8,
+    "node_uuid": "69f805e7-d269-4aa7-a744-0fee0258c507",
+    "kind": "Return",
+    "params": [],
+    "output": [],
+    "micros": [
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "block_name": "algorithm",
+    "node_index": 9,
+    "node_uuid": "74a0fbf6-2548-420d-967d-c0bccd012f7b",
+    "kind": "OpExecute",
+    "params": [
+      "h",
+      "x"
+    ],
+    "output": [
+      "h"
+    ],
+    "micros": [
+      0,
+      64,
+      10
+    ]
+  },
+  {
+    "block_name": "algorithm",
+    "node_index": 10,
+    "node_uuid": "780e8994-a9bf-4aff-a8f8-0628612ed9e5",
+    "kind": "Return",
+    "params": [],
+    "output": [],
+    "micros": [
+      0,
+      0,
+      0
+    ]
+  },
+  {
+    "block_name": "entry",
+    "node_index": 4,
+    "node_uuid": "7ef2841c-d799-41c3-ad60-5ff78c4df827",
+    "kind": "Return",
+    "params": [],
+    "output": [],
+    "micros": [
+      0,
+      0,
+      0
+    ]
+  }
+]

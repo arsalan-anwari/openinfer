@@ -13,8 +13,8 @@ and timing explicitly on construction, for example
 are only stored when tracing is enabled. The simulator retains the validated
 graph, so `make_executor()` no longer needs it as an argument.
 During construction the simulator validates the graph against the model (sizevars,
-dtype compatibility, constant mutation, scalar-only attributes) and stores the
-validated graph for executor creation.
+dtype compatibility, constant mutation, scalar-only attributes, and per-op
+attribute type checks) and stores the validated graph for executor creation.
 
 ## DSL Parsing -> Graph
 
@@ -37,7 +37,24 @@ Node types inside a block:
 - `loop name (i in start..end) { ... }` for repeated blocks
 - `return;` stops the block
 
-> Please not as the new features of the DSL are being added this guide will change.
+> Please note as the new features of the DSL are being added this guide will change.
+
+### Op attributes and literal types
+
+Op settings are parsed into `AttrValue` in `openinfer/src/graph.rs`. Literals are
+typed at parse time:
+
+- `Float(f32)` for float literals (e.g. `0.1`)
+- `Int(i64)` for signed integers (e.g. `-1`)
+- `UInt(u64)` for unsigned integers (produced when constants are loaded from the
+  model)
+- `Bool(bool)` for `true`/`false`
+- `Var(String)` for constant references
+
+The executor resolves attribute variables by reading scalar constants and
+preserves the literal type. This matters for `fill`, which requires the
+value dtype to match the input dtype (validated in
+`openinfer/src/simulator/validation/block.rs`).
 
 ### Parsing and expansion
 
@@ -196,6 +213,20 @@ Broadcasting is treated as backend preprocessing rather than an op. CPU uses
 inputs before kernel dispatch, and Vulkan uses
 `openinfer/src/backend/vulkan/broadcast.rs` to expand buffers when an op allows
 broadcasting.
+
+### Vulkan execution notes
+
+The Vulkan backend compiles Slang shaders into SPIR-V at build time and embeds
+them in `OUT_DIR`. During dispatch, the runtime:
+
+- Selects a SPIR-V blob by target name (e.g. `add_f32`)
+- Extracts the descriptor set index from the SPIR-V and binds a descriptor set
+  at that index
+- Uses a fixed descriptor layout (bindings 0/1/2 for input0/input1/output) and
+  a 16-byte push constant block (`len`, `flags`, `pad0`, `pad1`)
+
+This allows ops to split float/signed/unsigned kernels into separate shaders
+without exceeding descriptor set limits.
 
 ### Example serialized graph
 

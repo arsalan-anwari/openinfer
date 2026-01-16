@@ -8,7 +8,7 @@ use crate::parsers::op::parse_op_arg;
 use crate::parsers::range::parse_range_value;
 use crate::parsers::var::parse_var_ref;
 use crate::types::{
-    AssignNode, CacheDecNode, CacheIncNode, CacheReadNode, CacheResetNode, CacheWriteNode, Node,
+    AssignNode, BranchNode, CacheDecNode, CacheIncNode, CacheReadNode, CacheResetNode, CacheWriteNode, Node,
     LoopNode, OpArg, OpNode,
 };
 
@@ -95,6 +95,29 @@ impl Parse for Node {
                 settings,
                 output,
             }))
+        } else if input.peek(kw::branch) {
+            input.parse::<kw::branch>()?;
+            let first = input.parse()?;
+            if input.peek(Token![;]) {
+                input.parse::<Token![;]>()?;
+                Ok(Node::Branch(BranchNode {
+                    cond: None,
+                    then_block: first,
+                    else_block: None,
+                }))
+            } else {
+                let second = input.parse()?;
+                if input.peek(Token![;]) {
+                    return Err(input.error("branch expects condition and two target blocks"));
+                }
+                let third = input.parse()?;
+                input.parse::<Token![;]>()?;
+                Ok(Node::Branch(BranchNode {
+                    cond: Some(first),
+                    then_block: second,
+                    else_block: Some(third),
+                }))
+            }
         } else if input.peek(Token![loop]) {
             input.parse::<Token![loop]>()?;
             let name = input.parse()?;

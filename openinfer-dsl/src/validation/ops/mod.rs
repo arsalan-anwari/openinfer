@@ -7,6 +7,7 @@ use syn::Ident;
 use crate::types::{OpAttrValue, OpSetting};
 
 mod relu;
+mod fill;
 
 type OpAttrHandler = fn(&Ident, &[OpSetting]) -> syn::Result<TokenStream>;
 
@@ -28,7 +29,10 @@ pub(crate) fn op_attrs_expr(op: &Ident, settings: &[OpSetting]) -> syn::Result<T
 }
 
 fn handler_for(name: &str) -> Option<OpAttrHandler> {
-    const OPS: &[(&str, OpAttrHandler)] = &[("relu", relu::build_attrs)];
+    const OPS: &[(&str, OpAttrHandler)] = &[
+        ("relu", relu::build_attrs),
+        ("fill", fill::build_attrs),
+    ];
     OPS.iter()
         .find_map(|(op_name, handler)| (*op_name == name).then_some(*handler))
 }
@@ -74,17 +78,24 @@ impl SettingsMap {
 
 fn attr_value_expr(value: &OpAttrValue) -> TokenStream {
     match value {
-        OpAttrValue::Literal(val) => {
+        OpAttrValue::Float(val) => {
             if val.is_infinite() {
                 if val.is_sign_negative() {
-                    quote! { ::openinfer::AttrValue::Literal(::std::f32::NEG_INFINITY) }
+                    quote! { ::openinfer::AttrValue::Float(::std::f32::NEG_INFINITY) }
                 } else {
-                    quote! { ::openinfer::AttrValue::Literal(::std::f32::INFINITY) }
+                    quote! { ::openinfer::AttrValue::Float(::std::f32::INFINITY) }
                 }
             } else {
                 let lit = proc_macro2::Literal::f32_unsuffixed(*val);
-                quote! { ::openinfer::AttrValue::Literal(#lit) }
+                quote! { ::openinfer::AttrValue::Float(#lit) }
             }
+        }
+        OpAttrValue::Int(val) => {
+            let lit = proc_macro2::Literal::i64_unsuffixed(*val);
+            quote! { ::openinfer::AttrValue::Int(#lit) }
+        }
+        OpAttrValue::Bool(val) => {
+            quote! { ::openinfer::AttrValue::Bool(#val) }
         }
         OpAttrValue::Var(ident) => {
             let s = ident.to_string();

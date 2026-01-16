@@ -14,6 +14,7 @@ Usage: ./scripts/run_rust_examples.sh [options] [cargo args...]
 
 Options:
   --features <list>     Cargo features to enable (passed through to cargo).
+  --ignore <list>       Comma-separated example names to skip (no .rs suffix).
   --target <value>      Example target: cpu|avx|avx2|vulkan|all.
   --help                Show this help.
 
@@ -39,6 +40,7 @@ fi
 
 cargo_args=()
 selected_target=""
+declare -A ignore_map=()
 targets=(cpu avx avx2 vulkan)
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -52,6 +54,20 @@ while [[ $# -gt 0 ]]; do
         exit 1
       fi
       cargo_args+=("$1" "$2")
+      shift 2
+      ;;
+    --ignore)
+      if [[ -z "${2:-}" ]]; then
+        echo "error: --ignore requires a value" >&2
+        exit 1
+      fi
+      IFS=',' read -r -a ignore_items <<< "$2"
+      for item in "${ignore_items[@]}"; do
+        item="${item%.rs}"
+        if [[ -n "$item" ]]; then
+          ignore_map["$item"]=1
+        fi
+      done
       shift 2
       ;;
     --target)
@@ -73,7 +89,20 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-echo "Running Rust examples (${#examples[@]})..."
+filtered_examples=()
+for example in "${examples[@]}"; do
+  if [[ -n "${ignore_map[$example]:-}" ]]; then
+    continue
+  fi
+  filtered_examples+=("$example")
+done
+
+if [[ ${#filtered_examples[@]} -eq 0 ]]; then
+  echo "error: no Rust examples left to run after applying --ignore" >&2
+  exit 1
+fi
+
+echo "Running Rust examples (${#filtered_examples[@]})..."
 
 run_one() {
   local example="$1"
@@ -102,20 +131,20 @@ if [[ -n "$selected_target" ]]; then
     exit 1
   fi
   if [[ "$selected_target" == "all" ]]; then
-    for example in "${examples[@]}"; do
+    for example in "${filtered_examples[@]}"; do
       echo "=== Example: $example ==="
       for target in "${targets[@]}"; do
         run_one "$example" --target "$target"
       done
     done
   else
-    for example in "${examples[@]}"; do
+    for example in "${filtered_examples[@]}"; do
       echo "=== Example: $example ==="
       run_one "$example" --target "$selected_target"
     done
   fi
 else
-  for example in "${examples[@]}"; do
+  for example in "${filtered_examples[@]}"; do
     echo "=== Example: $example ==="
     run_one "$example"
   done

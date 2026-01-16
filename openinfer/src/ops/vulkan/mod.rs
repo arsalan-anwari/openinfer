@@ -1,5 +1,8 @@
 pub mod abs;
 pub mod add;
+pub mod fill;
+pub mod is_finite;
+pub mod matmul;
 pub mod mul;
 pub mod relu;
 pub mod registry;
@@ -30,6 +33,9 @@ pub(crate) fn spv_target_name(op: OpKind, dtype: DType, attrs: &OpAttrs) -> Resu
     match op {
         OpKind::Abs => abs::spv_target_name_abs(dtype, attrs),
         OpKind::Add => add::spv_target_name_add(dtype, attrs),
+        OpKind::Fill => fill::spv_target_name_fill(dtype, attrs),
+        OpKind::IsFinite => is_finite::spv_target_name_is_finite(dtype, attrs),
+        OpKind::Matmul => matmul::spv_target_name_matmul(dtype, attrs),
         OpKind::Mul => mul::spv_target_name_mul(dtype, attrs),
         OpKind::Relu => relu::spv_target_name_relu(dtype, attrs),
     }

@@ -1,4 +1,4 @@
-// Abs kernel (single source, multiple entry points).
+// Abs kernel (signed integers).
 struct PushConsts {
     uint len;
     uint flags;
@@ -13,20 +13,10 @@ struct AbsBuffers<T> {
     [[vk::binding(2, 0)]] RWStructuredBuffer<T, Std430DataLayout> output0;
 };
 
-ParameterBlock<AbsBuffers<float>> gAbs_f32;
 ParameterBlock<AbsBuffers<int>> gAbs_i8;
 ParameterBlock<AbsBuffers<int>> gAbs_i16;
 ParameterBlock<AbsBuffers<int>> gAbs_i32;
 ParameterBlock<AbsBuffers<int64_t>> gAbs_i64;
-
-[shader("compute")]
-[numthreads(256, 1, 1)]
-void abs_f32(uint3 tid : SV_DispatchThreadID, uniform PushConsts pc) {
-    uint i = tid.x;
-    if (i < pc.len) {
-        gAbs_f32.output0[i] = abs(gAbs_f32.input0[i]);
-    }
-}
 
 [shader("compute")]
 [numthreads(256, 1, 1)]

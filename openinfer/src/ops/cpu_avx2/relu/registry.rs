@@ -21,6 +21,9 @@ pub fn lookup_kernel_cpu_avx2_relu(
         (DType::F64, [DType::F64], &OpAttrs::Relu { .. }) => Some(KernelFn::Host(cpu_kernel(
             cpu_relu::relu_f64 as fn(&OpAttrs, &[f64], usize) -> Result<Vec<f64>>,
         ))),
+        (DType::F16, [DType::F16], &OpAttrs::Relu { .. }) => Some(KernelFn::Host(cpu_kernel(
+            cpu_relu::relu_f16 as fn(&OpAttrs, &[crate::tensor::F16], usize) -> Result<Vec<crate::tensor::F16>>,
+        ))),
         (DType::I8, [DType::I8], &OpAttrs::Relu { .. }) => Some(KernelFn::Host(cpu_kernel(
             cpu_relu::relu_i8 as fn(&OpAttrs, &[i8], usize) -> Result<Vec<i8>>,
         ))),
@@ -47,6 +50,9 @@ pub fn lookup_kernel_cpu_avx2_relu(
         ))),
         (DType::Bool, [DType::Bool], &OpAttrs::Relu { .. }) => Some(KernelFn::Host(cpu_kernel(
             cpu_relu::relu_bool as fn(&OpAttrs, &[bool], usize) -> Result<Vec<bool>>,
+        ))),
+        (DType::Bitset, [DType::Bitset], &OpAttrs::Relu { .. }) => Some(KernelFn::Host(cpu_kernel(
+            cpu_relu::relu_bitset as fn(&OpAttrs, &[crate::tensor::Bitset], usize) -> Result<Vec<crate::tensor::Bitset>>,
         ))),
         _ => None,
     }

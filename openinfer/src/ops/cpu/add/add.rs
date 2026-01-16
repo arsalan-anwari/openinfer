@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
 
+use crate::tensor::{Bitset, F16};
 use crate::timer::Timer;
 
 pub fn add_i8(a: &[i8], b: &[i8], thread_id: usize) -> Result<Vec<i8>> {
@@ -54,6 +55,18 @@ pub fn add_f64(a: &[f64], b: &[f64], thread_id: usize) -> Result<Vec<f64>> {
     Ok(out)
 }
 
+pub fn add_f16(a: &[F16], b: &[F16], thread_id: usize) -> Result<Vec<F16>> {
+    if a.len() != b.len() {
+        return Err(anyhow!("add op shape mismatch"));
+    }
+    let mut out = Vec::with_capacity(a.len());
+    Timer::start(thread_id);
+    for i in 0..a.len() {
+        out.push(F16::from_f32(a[i].to_f32() + b[i].to_f32()));
+    }
+    Timer::stop(thread_id);
+    Ok(out)
+}
 pub fn add_u8(a: &[u8], b: &[u8], thread_id: usize) -> Result<Vec<u8>> {
     if a.len() != b.len() {
         return Err(anyhow!("add op shape mismatch"));
@@ -140,6 +153,21 @@ pub fn add_bool(a: &[bool], b: &[bool], thread_id: usize) -> Result<Vec<bool>> {
     Timer::start(thread_id);
     for i in 0..a.len() {
         out.push(a[i] || b[i]);
+    }
+    Timer::stop(thread_id);
+    Ok(out)
+}
+
+pub fn add_bitset(a: &[Bitset], b: &[Bitset], thread_id: usize) -> Result<Vec<Bitset>> {
+    if a.len() != b.len() {
+        return Err(anyhow!("add op shape mismatch"));
+    }
+    let mut out = Vec::with_capacity(a.len());
+    Timer::start(thread_id);
+    for i in 0..a.len() {
+        out.push(Bitset {
+            bits: a[i].bits.wrapping_add(b[i].bits),
+        });
     }
     Timer::stop(thread_id);
     Ok(out)

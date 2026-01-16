@@ -87,3 +87,15 @@ path = "../examples/rust/cache_weight_update.rs"
 [[example]]
 name = "cache_fixed_limit"
 path = "../examples/rust/cache_fixed_limit.rs"
+
+[[example]]
+name = "branching_good"
+path = "../examples/rust/branching_good.rs"
+
+[[example]]
+name = "branching_bad"
+path = "../examples/rust/branching_bad.rs"
+
+[[example]]
+name = "ops_matrix"
+path = "../examples/rust/ops_matrix.rs"

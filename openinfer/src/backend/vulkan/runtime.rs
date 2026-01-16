@@ -23,7 +23,10 @@ pub struct VulkanRuntime {
     supports_i64: bool,
     supports_timestamps: bool,
     timestamp_period: f32,
+    max_descriptor_sets: u32,
 }
+
+const MIN_DESCRIPTOR_SETS: u32 = 1;
 
 pub struct VulkanBufferInner {
     pub buffer: vk::Buffer,
@@ -35,6 +38,10 @@ pub struct VulkanBufferInner {
 impl VulkanRuntime {
     pub fn new() -> Result<Self> {
         let entry = unsafe { Entry::load()? };
+        let trace = std::env::var("OPENINFER_VULKAN_TRACE").is_ok();
+        if trace {
+            eprintln!("vulkan init: creating instance");
+        }
         let app_name = CString::new("openinfer").unwrap_or_else(|_| CString::new("openinfer").expect("static"));
         let app_info = vk::ApplicationInfo::builder()
             .application_name(&app_name)
@@ -46,12 +53,18 @@ impl VulkanRuntime {
         let instance_info = vk::InstanceCreateInfo::builder().application_info(&app_info);
         let instance = unsafe { entry.create_instance(&instance_info, None)? };
 
+        if trace {
+            eprintln!("vulkan init: enumerate physical devices");
+        }
         let physical_devices = unsafe { instance.enumerate_physical_devices()? };
         let (physical_device, queue_family_index) = physical_devices
             .iter()
             .find_map(|device| pick_compute_queue(&instance, *device))
             .ok_or_else(|| anyhow!("no Vulkan compute queue found"))?;
 
+        if trace {
+            eprintln!("vulkan init: create device");
+        }
         let priorities = [1.0f32];
         let queue_info = vk::DeviceQueueCreateInfo::builder()
             .queue_family_index(queue_family_index)
@@ -61,6 +74,7 @@ impl VulkanRuntime {
         let mut enabled = vk::PhysicalDeviceFeatures::default();
         enabled.shader_int64 = supported.shader_int64;
         enabled.shader_float64 = supported.shader_float64;
+        let max_descriptor_sets = props.limits.max_bound_descriptor_sets.max(MIN_DESCRIPTOR_SETS);
         let device_info = vk::DeviceCreateInfo::builder()
             .queue_create_infos(std::slice::from_ref(&queue_info))
             .enabled_features(&enabled);
@@ -71,6 +85,9 @@ impl VulkanRuntime {
             .queue_family_index(queue_family_index)
             .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER);
         let command_pool = unsafe { device.create_command_pool(&command_pool_info, None)? };
+        if trace {
+            eprintln!("vulkan init: create command pool");
+        }
 
         let descriptor_pool_sizes = [vk::DescriptorPoolSize {
             ty: vk::DescriptorType::STORAGE_BUFFER,
@@ -81,6 +98,9 @@ impl VulkanRuntime {
             .pool_sizes(&descriptor_pool_sizes)
             .flags(vk::DescriptorPoolCreateFlags::FREE_DESCRIPTOR_SET);
         let descriptor_pool = unsafe { device.create_descriptor_pool(&descriptor_pool_info, None)? };
+        if trace {
+            eprintln!("vulkan init: create descriptor pool");
+        }
 
         let bindings = [
             vk::DescriptorSetLayoutBinding::builder()
@@ -104,16 +124,26 @@ impl VulkanRuntime {
         ];
         let set_layout_info = vk::DescriptorSetLayoutCreateInfo::builder().bindings(&bindings);
         let descriptor_set_layout = unsafe { device.create_descriptor_set_layout(&set_layout_info, None)? };
+        if trace {
+            eprintln!("vulkan init: create descriptor set layout");
+        }
 
         let push_constant_range = vk::PushConstantRange::builder()
             .stage_flags(vk::ShaderStageFlags::COMPUTE)
             .offset(0)
             .size(16)
             .build();
+        let set_layouts = vec![descriptor_set_layout; max_descriptor_sets as usize];
         let pipeline_layout_info = vk::PipelineLayoutCreateInfo::builder()
-            .set_layouts(std::slice::from_ref(&descriptor_set_layout))
+            .set_layouts(&set_layouts)
             .push_constant_ranges(std::slice::from_ref(&push_constant_range));
         let pipeline_layout = unsafe { device.create_pipeline_layout(&pipeline_layout_info, None)? };
+        if trace {
+            eprintln!(
+                "vulkan init: create pipeline layout (set_layouts={})",
+                set_layouts.len()
+            );
+        }
 
         Ok(Self {
             entry,
@@ -129,6 +159,7 @@ impl VulkanRuntime {
             supports_i64: supported.shader_int64 != 0,
             supports_timestamps: props.limits.timestamp_compute_and_graphics != 0,
             timestamp_period: props.limits.timestamp_period,
+            max_descriptor_sets,
         })
     }
 
@@ -232,6 +263,25 @@ impl VulkanRuntime {
         if len == 0 {
             return Ok(0);
         }
+        let set_index = descriptor_set_index_from_spirv(spirv).unwrap_or(0);
+        if set_index >= self.max_descriptor_sets {
+            return Err(anyhow!(
+                "vulkan descriptor set index {} exceeds max {}",
+                set_index,
+                self.max_descriptor_sets
+            ));
+        }
+        if std::env::var("OPENINFER_VULKAN_TRACE").is_ok() {
+            eprintln!(
+                "vulkan dispatch op={} dtype={:?} entry={} len={} push={:?} set={}",
+                op.as_str(),
+                dtype,
+                entry_point,
+                len,
+                push,
+                set_index
+            );
+        }
         let pipeline = self.pipeline_for_op(op, dtype, pipeline_key, entry_point, spirv)?;
         let descriptor_set = self.allocate_descriptor_set()?;
 
@@ -261,6 +311,11 @@ impl VulkanRuntime {
             pool,
         });
 
+        let input1_buffer = if std::ptr::eq(input0, input1) {
+            output
+        } else {
+            input1
+        };
         let buffer_infos = [
             vk::DescriptorBufferInfo {
                 buffer: input0.buffer,
@@ -268,9 +323,9 @@ impl VulkanRuntime {
                 range: input0.size,
             },
             vk::DescriptorBufferInfo {
-                buffer: input1.buffer,
+                buffer: input1_buffer.buffer,
                 offset: 0,
-                range: input1.size,
+                range: input1_buffer.size,
             },
             vk::DescriptorBufferInfo {
                 buffer: output.buffer,
@@ -306,7 +361,9 @@ impl VulkanRuntime {
 
         unsafe {
             let pre_barrier = vk::MemoryBarrier::builder()
-                .src_access_mask(vk::AccessFlags::HOST_WRITE)
+                .src_access_mask(
+                    vk::AccessFlags::HOST_WRITE | vk::AccessFlags::SHADER_WRITE,
+                )
                 .dst_access_mask(
                     vk::AccessFlags::SHADER_READ | vk::AccessFlags::SHADER_WRITE,
                 )
@@ -316,7 +373,7 @@ impl VulkanRuntime {
             }
             self.device.cmd_pipeline_barrier(
                 command_buffer,
-                vk::PipelineStageFlags::HOST,
+                vk::PipelineStageFlags::HOST | vk::PipelineStageFlags::COMPUTE_SHADER,
                 vk::PipelineStageFlags::COMPUTE_SHADER,
                 vk::DependencyFlags::empty(),
                 std::slice::from_ref(&pre_barrier),
@@ -328,7 +385,7 @@ impl VulkanRuntime {
                 command_buffer,
                 vk::PipelineBindPoint::COMPUTE,
                 self.pipeline_layout,
-                0,
+                set_index,
                 std::slice::from_ref(&descriptor_set),
                 &[],
             );
@@ -543,4 +600,33 @@ fn create_shader_module(device: &ash::Device, spirv: &[u8]) -> Result<vk::Shader
     let info = vk::ShaderModuleCreateInfo::builder().code(&code);
     let module = unsafe { device.create_shader_module(&info, None)? };
     Ok(module)
+}
+
+fn descriptor_set_index_from_spirv(spirv: &[u8]) -> Option<u32> {
+    if spirv.len() < 20 || spirv.len() % 4 != 0 {
+        return None;
+    }
+    let mut words = Vec::with_capacity(spirv.len() / 4);
+    for chunk in spirv.chunks_exact(4) {
+        words.push(u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]));
+    }
+    let mut idx = 5;
+    while idx < words.len() {
+        let word = words[idx];
+        let op = word & 0xFFFF;
+        let count = (word >> 16) as usize;
+        if count == 0 || idx + count > words.len() {
+            break;
+        }
+        if op == 71 {
+            if idx + 3 < words.len() {
+                let decoration = words[idx + 2];
+                if decoration == 34 {
+                    return Some(words[idx + 3]);
+                }
+            }
+        }
+        idx += count;
+    }
+    None
 }

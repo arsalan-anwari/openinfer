@@ -2,8 +2,11 @@ use std::collections::HashMap;
 
 use anyhow::{anyhow, Result};
 
-use crate::graph::{Block, CacheAccess, CacheIndexExpr, CacheIndexValue, NodeKind, OpAttrs, OpKind};
+use crate::graph::{
+    AttrValue, Block, CacheAccess, CacheIndexExpr, CacheIndexValue, NodeKind, OpAttrs, OpKind,
+};
 use crate::ops::{broadcast_enabled, lookup_kernel};
+use crate::simulator::Device;
 use crate::simulator::executor::prefix::{parse_prefix_access, resolve_prefix_name};
 use crate::tensor::DType;
 use crate::types::MemoryKind;
@@ -37,6 +40,13 @@ fn validate_nodes(
             } => {
                 validate_op(ctx, temps, *op, attrs, inputs, output)?;
             }
+            NodeKind::Branch {
+                cond,
+                then_block,
+                else_block,
+            } => {
+                validate_branch(ctx, temps, cond.as_deref(), then_block, else_block.as_deref())?;
+            }
             NodeKind::CacheRead { src, dst } => {
                 validate_cache_read(ctx, temps, src, dst)?;
             }
@@ -63,6 +73,39 @@ fn validate_nodes(
                 validate_nodes(ctx, temps, body)?;
             }
             NodeKind::Return => {}
+        }
+    }
+    Ok(())
+}
+
+fn validate_branch(
+    ctx: &ValidationContext,
+    temps: &HashMap<String, (DType, Vec<String>)>,
+    cond: Option<&str>,
+    then_block: &str,
+    else_block: Option<&str>,
+) -> Result<()> {
+    if ctx.graph.blocks.get(then_block).is_none() {
+        return Err(anyhow!("branch target block not found: {}", then_block));
+    }
+    if let Some(else_block) = else_block {
+        if ctx.graph.blocks.get(else_block).is_none() {
+            return Err(anyhow!("branch target block not found: {}", else_block));
+        }
+    }
+    if let Some(cond) = cond {
+        let (dtype, dims) = var_signature(ctx, temps, cond)?;
+        if dtype != DType::Bool {
+            return Err(anyhow!("branch condition must be bool, got {:?}", dtype));
+        }
+        if !dims.is_empty() {
+            return Err(anyhow!("branch condition {} must be scalar", cond));
+        }
+        if else_block.is_none() {
+            return Err(anyhow!(
+                "conditional branch {} requires else block",
+                cond
+            ));
         }
     }
     Ok(())
@@ -137,37 +180,118 @@ fn validate_op(
 
     if !input_shapes.is_empty() {
         let output_shape = ctx.model.resolve_shape(&output_dims)?;
-        let expected_shape = if broadcast_enabled(op, ctx.device) {
-            let mut shape = input_shapes[0].clone();
-            for input_shape in input_shapes.iter().skip(1) {
-                shape = crate::tensor::broadcast_shapes(&shape, input_shape)?;
-            }
-            shape
-        } else {
-            let first = input_shapes[0].clone();
-            for input_shape in input_shapes.iter().skip(1) {
-                if *input_shape != first {
+        match op {
+            OpKind::Matmul => {
+                if inputs.len() != 2 {
+                    return Err(anyhow!("op matmul expects 2 inputs"));
+                }
+                let a_shape = input_shapes
+                    .get(0)
+                    .ok_or_else(|| anyhow!("op matmul expects input 0"))?;
+                let b_shape = input_shapes
+                    .get(1)
+                    .ok_or_else(|| anyhow!("op matmul expects input 1"))?;
+                if a_shape.len() != 2 || b_shape.len() != 2 {
                     return Err(anyhow!(
-                        "op {} requires identical input shapes on {:?}",
-                        op.as_str(),
-                        ctx.device
+                        "op matmul expects 2D inputs, got {:?} and {:?}",
+                        a_shape,
+                        b_shape
+                    ));
+                }
+                if a_shape[1] != b_shape[0] {
+                    return Err(anyhow!(
+                        "op matmul inner dims must match, got {:?} and {:?}",
+                        a_shape,
+                        b_shape
+                    ));
+                }
+                let expected_shape = vec![a_shape[0], b_shape[1]];
+                if output_shape != expected_shape {
+                    return Err(anyhow!(
+                        "op matmul output shape {:?} does not match expected {:?} for {}",
+                        output_shape,
+                        expected_shape,
+                        output
                     ));
                 }
             }
-            first
-        };
-        if output_shape != expected_shape {
-            return Err(anyhow!(
-                "op {} output shape {:?} does not match expected {:?} for {}",
-                op.as_str(),
-                output_shape,
-                expected_shape,
-                output
-            ));
+            OpKind::IsFinite => {
+                if inputs.len() != 1 {
+                    return Err(anyhow!("op is_finite expects 1 input"));
+                }
+                if output_dtype != DType::Bool {
+                    return Err(anyhow!(
+                        "op is_finite output must be bool, got {:?}",
+                        output_dtype
+                    ));
+                }
+                if !output_shape.is_empty() {
+                    return Err(anyhow!(
+                        "op is_finite output must be scalar, got shape {:?}",
+                        output_shape
+                    ));
+                }
+            }
+            _ => {
+                let expected_shape = if broadcast_enabled(op, ctx.device) {
+                    let mut shape = input_shapes[0].clone();
+                    for input_shape in input_shapes.iter().skip(1) {
+                        shape = crate::tensor::broadcast_shapes(&shape, input_shape)?;
+                    }
+                    shape
+                } else {
+                    let first = input_shapes[0].clone();
+                    for input_shape in input_shapes.iter().skip(1) {
+                        if *input_shape != first {
+                            return Err(anyhow!(
+                                "op {} requires identical input shapes on {:?}",
+                                op.as_str(),
+                                ctx.device
+                            ));
+                        }
+                    }
+                    first
+                };
+                if output_shape != expected_shape {
+                    return Err(anyhow!(
+                        "op {} output shape {:?} does not match expected {:?} for {}",
+                        op.as_str(),
+                        output_shape,
+                        expected_shape,
+                        output
+                    ));
+                }
+            }
         }
     }
 
     validate_op_attrs(ctx, attrs)?;
+    if op == OpKind::Fill {
+        if inputs.len() != 1 {
+            return Err(anyhow!("op fill expects 1 input"));
+        }
+        let input_dtype = *input_dtypes
+            .get(0)
+            .ok_or_else(|| anyhow!("op fill expects input 0"))?;
+        validate_fill_value(ctx, input_dtype, attrs)?;
+    }
+    if matches!(ctx.device, Device::Vulkan) {
+        let unsupported = [DType::F16, DType::F64, DType::Bitset];
+        let bad_dtype = if unsupported.contains(&output_dtype) {
+            Some(output_dtype)
+        } else {
+            input_dtypes
+                .iter()
+                .copied()
+                .find(|dtype| unsupported.contains(dtype))
+        };
+        if let Some(dtype) = bad_dtype {
+            return Err(anyhow!(
+                "vulkan backend does not support dtype {:?}",
+                dtype
+            ));
+        }
+    }
     if lookup_kernel(ctx.device, op, output_dtype, &input_dtypes, attrs).is_none() {
         return Err(anyhow!(
             "no kernel for op {} with output {:?} and inputs {:?} on {:?}",
@@ -178,6 +302,133 @@ fn validate_op(
         ));
     }
 
+    Ok(())
+}
+
+fn validate_fill_value(
+    ctx: &ValidationContext,
+    input_dtype: DType,
+    attrs: &OpAttrs,
+) -> Result<()> {
+    let value = match attrs {
+        OpAttrs::Fill { value } => value,
+        _ => return Ok(()),
+    };
+
+    match value {
+        AttrValue::Float(val) => validate_fill_float(input_dtype, *val),
+        AttrValue::Int(val) => validate_fill_int(input_dtype, *val),
+        AttrValue::UInt(val) => validate_fill_uint(input_dtype, *val),
+        AttrValue::Bool(val) => validate_fill_bool(input_dtype, *val),
+        AttrValue::Var(name) => {
+            let decl = ctx
+                .graph
+                .vars
+                .get(name)
+                .ok_or_else(|| anyhow!("unknown attribute variable {}", name))?;
+            if decl.dtype != input_dtype {
+                return Err(anyhow!(
+                    "fill value dtype {:?} does not match input dtype {:?}",
+                    decl.dtype,
+                    input_dtype
+                ));
+            }
+            if !decl.dims.is_empty() {
+                return Err(anyhow!(
+                    "fill value {} must be a scalar",
+                    name
+                ));
+            }
+            Ok(())
+        }
+    }
+}
+
+fn validate_fill_float(input_dtype: DType, value: f32) -> Result<()> {
+    match input_dtype {
+        DType::F16 | DType::F32 | DType::F64 => Ok(()),
+        _ => Err(anyhow!(
+            "fill value {} does not match input dtype {:?}",
+            value,
+            input_dtype
+        )),
+    }
+}
+
+fn validate_fill_int(input_dtype: DType, value: i64) -> Result<()> {
+    match input_dtype {
+        DType::I8 => validate_int_range(value, i8::MIN as i64, i8::MAX as i64, "i8"),
+        DType::I16 => validate_int_range(value, i16::MIN as i64, i16::MAX as i64, "i16"),
+        DType::I32 => validate_int_range(value, i32::MIN as i64, i32::MAX as i64, "i32"),
+        DType::I64 => Ok(()),
+        DType::U8 => validate_uint_range(value, u8::MAX as u64, "u8"),
+        DType::U16 => validate_uint_range(value, u16::MAX as u64, "u16"),
+        DType::U32 => validate_uint_range(value, u32::MAX as u64, "u32"),
+        DType::U64 => validate_uint_range(value, u64::MAX, "u64"),
+        DType::Bitset => validate_uint_range(value, u8::MAX as u64, "bitset"),
+        _ => Err(anyhow!(
+            "fill integer value {} does not match input dtype {:?}",
+            value,
+            input_dtype
+        )),
+    }
+}
+
+fn validate_fill_uint(input_dtype: DType, value: u64) -> Result<()> {
+    match input_dtype {
+        DType::U8 => validate_uint_range_u64(value, u8::MAX as u64, "u8"),
+        DType::U16 => validate_uint_range_u64(value, u16::MAX as u64, "u16"),
+        DType::U32 => validate_uint_range_u64(value, u32::MAX as u64, "u32"),
+        DType::U64 => Ok(()),
+        DType::Bitset => validate_uint_range_u64(value, u8::MAX as u64, "bitset"),
+        _ => Err(anyhow!(
+            "fill unsigned value {} does not match input dtype {:?}",
+            value,
+            input_dtype
+        )),
+    }
+}
+
+fn validate_fill_bool(input_dtype: DType, _value: bool) -> Result<()> {
+    match input_dtype {
+        DType::Bool | DType::Bitset => Ok(()),
+        _ => Err(anyhow!(
+            "fill bool value does not match input dtype {:?}",
+            input_dtype
+        )),
+    }
+}
+
+fn validate_int_range(value: i64, min: i64, max: i64, dtype: &str) -> Result<()> {
+    if value < min || value > max {
+        return Err(anyhow!(
+            "fill value {} is out of range for {}",
+            value,
+            dtype
+        ));
+    }
+    Ok(())
+}
+
+fn validate_uint_range(value: i64, max: u64, dtype: &str) -> Result<()> {
+    if value < 0 {
+        return Err(anyhow!(
+            "fill value {} is out of range for {}",
+            value,
+            dtype
+        ));
+    }
+    validate_uint_range_u64(value as u64, max, dtype)
+}
+
+fn validate_uint_range_u64(value: u64, max: u64, dtype: &str) -> Result<()> {
+    if value > max {
+        return Err(anyhow!(
+            "fill value {} is out of range for {}",
+            value,
+            dtype
+        ));
+    }
     Ok(())
 }
 

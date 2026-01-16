@@ -31,5 +31,6 @@ pub fn lookup_kernel_cpu_inplace(
             input_dtypes,
             attrs,
         ),
+        OpKind::Matmul | OpKind::IsFinite | OpKind::Fill => None,
     }
 }

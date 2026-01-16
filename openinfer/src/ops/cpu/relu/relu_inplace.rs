@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 
 use crate::graph::{AttrValue, OpAttrs};
+use crate::tensor::{Bitset, F16};
 use crate::timer::Timer;
 
 pub fn relu_inplace_f32(attrs: &OpAttrs, a: &mut [f32], thread_id: usize) -> Result<()> {
@@ -29,6 +30,16 @@ pub fn relu_inplace_f64(attrs: &OpAttrs, a: &mut [f64], thread_id: usize) -> Res
     Ok(())
 }
 
+pub fn relu_inplace_f16(attrs: &OpAttrs, a: &mut [F16], thread_id: usize) -> Result<()> {
+    let (negative_slope, clamp_max) = relu_params(attrs)?;
+    Timer::start(thread_id);
+    for x in a {
+        let y = relu_f32_value(x.to_f32(), negative_slope, clamp_max);
+        *x = F16::from_f32(y);
+    }
+    Timer::stop(thread_id);
+    Ok(())
+}
 pub fn relu_inplace_bool(attrs: &OpAttrs, a: &mut [bool], thread_id: usize) -> Result<()> {
     let (negative_slope, clamp_max) = relu_params(attrs)?;
     Timer::start(thread_id);
@@ -36,6 +47,23 @@ pub fn relu_inplace_bool(attrs: &OpAttrs, a: &mut [bool], thread_id: usize) -> R
         let val = if *x { 1.0 } else { 0.0 };
         let y = relu_f32_value(val, negative_slope, clamp_max);
         *x = y > 0.0;
+    }
+    Timer::stop(thread_id);
+    Ok(())
+}
+
+pub fn relu_inplace_bitset(attrs: &OpAttrs, a: &mut [Bitset], thread_id: usize) -> Result<()> {
+    let (negative_slope, clamp_max) = relu_params(attrs)?;
+    Timer::start(thread_id);
+    for x in a {
+        let mut y = relu_f32_value(x.bits as f32, negative_slope, clamp_max);
+        if y < 0.0 {
+            y = 0.0;
+        }
+        if y > u8::MAX as f32 {
+            y = u8::MAX as f32;
+        }
+        x.bits = y as u8;
     }
     Timer::stop(thread_id);
     Ok(())
@@ -112,7 +140,10 @@ relu_unsigned_inplace!(relu_inplace_u64, u64, u64::MAX as f32);
 
 fn attr_value_f32(value: &AttrValue) -> Result<f32> {
     match value {
-        AttrValue::Literal(val) => Ok(*val),
+        AttrValue::Float(val) => Ok(*val),
+        AttrValue::Int(val) => Ok(*val as f32),
+        AttrValue::UInt(val) => Ok(*val as f32),
+        AttrValue::Bool(_) => Err(anyhow!("relu op attrs must be numeric")),
         AttrValue::Var(name) => Err(anyhow!("relu op attrs must be resolved: {}", name)),
     }
 }

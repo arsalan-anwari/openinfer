@@ -1,5 +1,6 @@
 use anyhow::Result;
 
+use crate::tensor::{Bitset, F16};
 use crate::timer::Timer;
 
 pub fn abs_i8(a: &[i8], thread_id: usize) -> Result<Vec<i8>> {
@@ -42,6 +43,15 @@ pub fn abs_f64(a: &[f64], thread_id: usize) -> Result<Vec<f64>> {
     Ok(out)
 }
 
+pub fn abs_f16(a: &[F16], thread_id: usize) -> Result<Vec<F16>> {
+    let mut out = Vec::with_capacity(a.len());
+    Timer::start(thread_id);
+    for v in a {
+        out.push(F16::from_f32(v.to_f32().abs()));
+    }
+    Timer::stop(thread_id);
+    Ok(out)
+}
 pub fn abs_u8(a: &[u8], thread_id: usize) -> Result<Vec<u8>> {
     let out = a.to_vec();
     Timer::start(thread_id);
@@ -91,6 +101,13 @@ pub fn abs_u64(a: &[u64], thread_id: usize) -> Result<Vec<u64>> {
 }
 
 pub fn abs_bool(a: &[bool], thread_id: usize) -> Result<Vec<bool>> {
+    let out = a.to_vec();
+    Timer::start(thread_id);
+    Timer::stop(thread_id);
+    Ok(out)
+}
+
+pub fn abs_bitset(a: &[Bitset], thread_id: usize) -> Result<Vec<Bitset>> {
     let out = a.to_vec();
     Timer::start(thread_id);
     Timer::stop(thread_id);

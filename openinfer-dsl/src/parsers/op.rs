@@ -35,15 +35,22 @@ pub(crate) fn parse_op_attr_value(input: ParseStream) -> Result<OpAttrValue> {
         if negative {
             value = -value;
         }
-        return Ok(OpAttrValue::Literal(value));
+        return Ok(OpAttrValue::Float(value));
+    }
+    if input.peek(syn::LitBool) {
+        let lit: syn::LitBool = input.parse()?;
+        if negative {
+            return Err(input.error("unexpected '-' before bool literal"));
+        }
+        return Ok(OpAttrValue::Bool(lit.value));
     }
     if input.peek(LitInt) {
         let lit: LitInt = input.parse()?;
-        let mut value: f32 = lit.base10_parse::<i64>()? as f32;
+        let mut value: i64 = lit.base10_parse()?;
         if negative {
             value = -value;
         }
-        return Ok(OpAttrValue::Literal(value));
+        return Ok(OpAttrValue::Int(value));
     }
     if input.peek(Ident) {
         let ident: Ident = input.parse()?;
@@ -51,8 +58,14 @@ pub(crate) fn parse_op_attr_value(input: ParseStream) -> Result<OpAttrValue> {
             return Err(input.error("unexpected '-' before identifier"));
         }
         let name = ident.to_string();
+        if name == "true" {
+            return Ok(OpAttrValue::Bool(true));
+        }
+        if name == "false" {
+            return Ok(OpAttrValue::Bool(false));
+        }
         if name == "inf" {
-            return Ok(OpAttrValue::Literal(f32::INFINITY));
+            return Ok(OpAttrValue::Float(f32::INFINITY));
         }
         return Ok(OpAttrValue::Var(ident));
     }

@@ -3,6 +3,7 @@ use crate::ops::registry::KernelFn;
 use crate::tensor::DType;
 
 use super::{abs, add, mul, relu};
+use crate::ops::cpu;
 
 pub fn lookup_kernel_cpu_avx(
     op: OpKind,
@@ -15,5 +16,20 @@ pub fn lookup_kernel_cpu_avx(
         OpKind::Mul => mul::registry::lookup_kernel_cpu_avx_mul(output_dtype, input_dtypes, attrs),
         OpKind::Abs => abs::registry::lookup_kernel_cpu_avx_abs(output_dtype, input_dtypes, attrs),
         OpKind::Relu => relu::registry::lookup_kernel_cpu_avx_relu(output_dtype, input_dtypes, attrs),
+        OpKind::Matmul => cpu::matmul::registry::lookup_kernel_cpu_matmul(
+            output_dtype,
+            input_dtypes,
+            attrs,
+        ),
+        OpKind::IsFinite => cpu::is_finite::registry::lookup_kernel_cpu_is_finite(
+            output_dtype,
+            input_dtypes,
+            attrs,
+        ),
+        OpKind::Fill => cpu::fill::registry::lookup_kernel_cpu_fill(
+            output_dtype,
+            input_dtypes,
+            attrs,
+        ),
     }
 }

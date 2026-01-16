@@ -5,6 +5,7 @@ use crate::ops::{cpu_kernel, KernelFn};
 use crate::tensor::DType;
 
 use super::{add_bool, add_f32, add_f64, add_i16, add_i32, add_i64, add_i8, add_u16, add_u32, add_u64, add_u8};
+use crate::ops::cpu::add as cpu_add;
 
 pub fn lookup_kernel_cpu_avx2_add(
     output_dtype: DType,
@@ -23,6 +24,10 @@ pub fn lookup_kernel_cpu_avx2_add(
         ))),
         (DType::F64, [DType::F64, DType::F64], &OpAttrs::None) => Some(KernelFn::Host(cpu_kernel(
             add_f64 as fn(&[f64], &[f64] , usize) -> Result<Vec<f64>>,
+        ))),
+        (DType::F16, [DType::F16, DType::F16], &OpAttrs::None) => Some(KernelFn::Host(cpu_kernel(
+            cpu_add::add_f16
+                as fn(&[crate::tensor::F16], &[crate::tensor::F16], usize) -> Result<Vec<crate::tensor::F16>>,
         ))),
         (DType::U8, [DType::U8, DType::U8], &OpAttrs::None) => Some(KernelFn::Host(cpu_kernel(
             add_u8 as fn(&[u8], &[u8] , usize) -> Result<Vec<u8>>,
@@ -45,6 +50,12 @@ pub fn lookup_kernel_cpu_avx2_add(
         (DType::Bool, [DType::Bool, DType::Bool], &OpAttrs::None) => Some(KernelFn::Host(cpu_kernel(
             add_bool as fn(&[bool], &[bool] , usize) -> Result<Vec<bool>>,
         ))),
+        (DType::Bitset, [DType::Bitset, DType::Bitset], &OpAttrs::None) => {
+            Some(KernelFn::Host(cpu_kernel(
+                cpu_add::add_bitset
+                    as fn(&[crate::tensor::Bitset], &[crate::tensor::Bitset], usize) -> Result<Vec<crate::tensor::Bitset>>,
+            )))
+        }
         _ => None,
     }
 }

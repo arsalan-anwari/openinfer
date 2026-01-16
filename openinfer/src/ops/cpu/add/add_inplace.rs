@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
 
+use crate::tensor::{Bitset, F16};
 use crate::timer::Timer;
 
 pub fn add_inplace_i8(a: &mut [i8], b: &[i8], thread_id: usize) -> Result<()> {
@@ -50,6 +51,17 @@ pub fn add_inplace_f64(a: &mut [f64], b: &[f64], thread_id: usize) -> Result<()>
     Ok(())
 }
 
+pub fn add_inplace_f16(a: &mut [F16], b: &[F16], thread_id: usize) -> Result<()> {
+    if a.len() != b.len() {
+        return Err(anyhow!("add inplace shape mismatch"));
+    }
+    Timer::start(thread_id);
+    for i in 0..a.len() {
+        a[i] = F16::from_f32(a[i].to_f32() + b[i].to_f32());
+    }
+    Timer::stop(thread_id);
+    Ok(())
+}
 pub fn add_inplace_u8(a: &mut [u8], b: &[u8], thread_id: usize) -> Result<()> {
     if a.len() != b.len() {
         return Err(anyhow!("add inplace shape mismatch"));
@@ -129,6 +141,18 @@ pub fn add_inplace_bool(a: &mut [bool], b: &[bool], thread_id: usize) -> Result<
     Timer::start(thread_id);
     for i in 0..a.len() {
         a[i] = a[i] || b[i];
+    }
+    Timer::stop(thread_id);
+    Ok(())
+}
+
+pub fn add_inplace_bitset(a: &mut [Bitset], b: &[Bitset], thread_id: usize) -> Result<()> {
+    if a.len() != b.len() {
+        return Err(anyhow!("add inplace shape mismatch"));
+    }
+    Timer::start(thread_id);
+    for i in 0..a.len() {
+        a[i].bits = a[i].bits.wrapping_add(b[i].bits);
     }
     Timer::stop(thread_id);
     Ok(())

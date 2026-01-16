@@ -134,7 +134,10 @@ pub(crate) fn spv_target_name_relu_inplace(dtype: DType, attrs: &OpAttrs) -> Res
 
 fn attr_value_f32(value: &AttrValue) -> Result<f32> {
     match value {
-        AttrValue::Literal(val) => Ok(*val),
+        AttrValue::Float(val) => Ok(*val),
+        AttrValue::Int(val) => Ok(*val as f32),
+        AttrValue::UInt(val) => Ok(*val as f32),
+        AttrValue::Bool(_) => Err(anyhow!("relu op attrs must be numeric")),
         AttrValue::Var(name) => Err(anyhow!("relu op attrs must be resolved: {}", name)),
     }
 }

@@ -6,7 +6,7 @@ use crate::timer::Timer;
 
 use super::cache::format_cache_access;
 use super::frames::ExecFrame;
-use super::tensor_utils::tensor_scalar_to_f32_lossy;
+use super::tensor_utils::{tensor_scalar_to_attr_value, tensor_scalar_to_bool, tensor_scalar_to_f32_lossy};
 use super::trace::{format_duration_ns, TraceEvent, TraceEventKind};
 use super::Executor;
 
@@ -167,6 +167,27 @@ impl Executor<'_> {
                         micros_parts: [0, 0, 0],
                     }));
                 }
+                NodeKind::Branch {
+                    cond,
+                    then_block,
+                    else_block,
+                } => {
+                    let target = if let Some(cond) = cond {
+                        let tensor = self.get_tensor(&cond)?;
+                        let value = self.backend.download(tensor)?;
+                        if tensor_scalar_to_bool(&value, &cond)? {
+                            then_block
+                        } else {
+                            else_block.ok_or_else(|| {
+                                anyhow!("branch {} missing else block", cond)
+                            })?
+                        }
+                    } else {
+                        then_block
+                    };
+                    self.push_block_frame(target)?;
+                    continue;
+                }
                 NodeKind::Loop {
                     name,
                     index,
@@ -179,9 +200,12 @@ impl Executor<'_> {
                     continue;
                 }
                 NodeKind::Return => {
-                    self.state = super::ExecState::Finished;
-                    self.cleanup_temps();
-                    self.loop_vars.clear();
+                    let finished = self.return_from_block();
+                    if finished {
+                        self.state = super::ExecState::Finished;
+                        self.cleanup_temps();
+                        self.loop_vars.clear();
+                    }
                     return Ok(self.record_event(TraceEvent {
                         kind: TraceEventKind::Return,
                         node_index: node.index,
@@ -274,15 +298,21 @@ impl Executor<'_> {
                 negative_slope,
                 clamp_max,
             } => Ok(OpAttrs::Relu {
-                negative_slope: AttrValue::Literal(self.resolve_attr_value(negative_slope)?),
-                clamp_max: AttrValue::Literal(self.resolve_attr_value(clamp_max)?),
+                negative_slope: AttrValue::Float(self.resolve_attr_value_f32(negative_slope)?),
+                clamp_max: AttrValue::Float(self.resolve_attr_value_f32(clamp_max)?),
+            }),
+            OpAttrs::Fill { value } => Ok(OpAttrs::Fill {
+                value: self.resolve_attr_value_literal(value)?,
             }),
         }
     }
 
-    pub(super) fn resolve_attr_value(&mut self, value: &AttrValue) -> Result<f32> {
+    pub(super) fn resolve_attr_value_f32(&mut self, value: &AttrValue) -> Result<f32> {
         match value {
-            AttrValue::Literal(val) => Ok(*val),
+            AttrValue::Float(val) => Ok(*val),
+            AttrValue::Int(val) => Ok(*val as f32),
+            AttrValue::UInt(val) => Ok(*val as f32),
+            AttrValue::Bool(_) => Err(anyhow!("relu op attrs must be numeric")),
             AttrValue::Var(name) => {
                 if let Some(kind) = self.kinds.get(name) {
                     return match kind {
@@ -313,6 +343,75 @@ impl Executor<'_> {
                 Err(anyhow!("unknown variable: {}", name))
             }
         }
+    }
+
+    pub(super) fn resolve_attr_value_literal(&mut self, value: &AttrValue) -> Result<AttrValue> {
+        match value {
+            AttrValue::Var(name) => {
+                if let Some(kind) = self.kinds.get(name) {
+                    return match kind {
+                        MemoryKind::Constant => {
+                            let tensor = self.get_tensor(name)?;
+                            let host = self.backend.download(tensor)?;
+                            tensor_scalar_to_attr_value(&host, name)
+                        }
+                        _ => Err(anyhow!(
+                            "op setting must reference constant memory: {} is {:?}",
+                            name,
+                            kind
+                        )),
+                    };
+                }
+                if let Some(access) = self.resolve_prefix_access(name)? {
+                    if access.decl.kind != MemoryKind::Constant {
+                        return Err(anyhow!(
+                            "op setting must reference constant memory: {} is {:?}",
+                            name,
+                            access.decl.kind
+                        ));
+                    }
+                    let tensor = self.get_tensor(name)?;
+                    let host = self.backend.download(tensor)?;
+                    return tensor_scalar_to_attr_value(&host, name);
+                }
+                Err(anyhow!("unknown variable: {}", name))
+            }
+            _ => Ok(value.clone()),
+        }
+    }
+
+    fn push_block_frame(&mut self, name: String) -> Result<()> {
+        let block = self.graph.block(&name)?.clone();
+        self.frames.push(ExecFrame::Block(super::frames::BlockFrame {
+            name: block.name.clone(),
+            nodes: block.nodes,
+            pos: 0,
+        }));
+        Ok(())
+    }
+
+    fn return_from_block(&mut self) -> bool {
+        let mut saw_block = false;
+        while let Some(frame) = self.frames.pop() {
+            match frame {
+                ExecFrame::Loop(loop_frame) => {
+                    let index = loop_frame.index;
+                    if let Some(prev) = loop_frame.prev_value {
+                        self.loop_vars.insert(index, prev);
+                    } else {
+                        self.loop_vars.remove(&index);
+                    }
+                }
+                ExecFrame::Block(_) => {
+                    saw_block = true;
+                    break;
+                }
+            }
+        }
+        if !saw_block {
+            return true;
+        }
+        !self.frames.iter().any(|frame| matches!(frame, ExecFrame::Block(_)))
     }
 }
 

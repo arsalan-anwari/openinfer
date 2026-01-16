@@ -228,17 +228,6 @@ impl DeviceBackend for VulkanBackend {
                         }
                     })
                     .collect::<Result<Vec<_>>>()?;
-            } else {
-                let first = buffers[0].shape.clone();
-                for buffer in buffers.iter().skip(1) {
-                    if buffer.shape != first {
-                        return Err(anyhow!(
-                            "op {} requires identical input shapes on {:?}",
-                            op.as_str(),
-                            self.device()
-                        ));
-                    }
-                }
             }
         }
         let buffer_refs: Vec<&VulkanBuffer> = buffers.iter().collect();

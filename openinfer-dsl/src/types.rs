@@ -58,6 +58,7 @@ pub(crate) struct BlockSection {
 pub(crate) enum Node {
     Assign(AssignNode),
     Op(OpNode),
+    Branch(BranchNode),
     CacheRead(CacheReadNode),
     CacheWrite(CacheWriteNode),
     CacheInc(CacheIncNode),
@@ -78,6 +79,12 @@ pub(crate) struct OpNode {
     pub(crate) inputs: Vec<VarRef>,
     pub(crate) settings: Vec<OpSetting>,
     pub(crate) output: Ident,
+}
+
+pub(crate) struct BranchNode {
+    pub(crate) cond: Option<Ident>,
+    pub(crate) then_block: Ident,
+    pub(crate) else_block: Option<Ident>,
 }
 
 pub(crate) struct LoopNode {
@@ -120,7 +127,9 @@ pub(crate) struct OpSetting {
 
 #[derive(Clone)]
 pub(crate) enum OpAttrValue {
-    Literal(f32),
+    Float(f32),
+    Int(i64),
+    Bool(bool),
     Var(Ident),
 }
 

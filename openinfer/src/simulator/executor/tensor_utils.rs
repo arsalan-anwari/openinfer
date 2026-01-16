@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
 
+use crate::graph::AttrValue;
 use crate::tensor::TensorValue;
 
 pub(super) fn ensure_scalar_len(value: &TensorValue, name: &str) -> Result<()> {
@@ -33,6 +34,25 @@ pub(super) fn tensor_scalar_to_f32_lossy(value: &TensorValue, name: &str) -> Res
         TensorValue::Bool(tensor) => Ok(if tensor.data[0] { 1.0 } else { 0.0 }),
         TensorValue::F16(tensor) => Ok(tensor.data[0].to_f32()),
         TensorValue::Bitset(tensor) => Ok(tensor.data[0].bits as f32),
+    }
+}
+
+pub(super) fn tensor_scalar_to_attr_value(value: &TensorValue, name: &str) -> Result<AttrValue> {
+    ensure_scalar_len(value, name)?;
+    match value {
+        TensorValue::F32(tensor) => Ok(AttrValue::Float(tensor.data[0])),
+        TensorValue::F64(tensor) => Ok(AttrValue::Float(tensor.data[0] as f32)),
+        TensorValue::F16(tensor) => Ok(AttrValue::Float(tensor.data[0].to_f32())),
+        TensorValue::I8(tensor) => Ok(AttrValue::Int(tensor.data[0] as i64)),
+        TensorValue::I16(tensor) => Ok(AttrValue::Int(tensor.data[0] as i64)),
+        TensorValue::I32(tensor) => Ok(AttrValue::Int(tensor.data[0] as i64)),
+        TensorValue::I64(tensor) => Ok(AttrValue::Int(tensor.data[0])),
+        TensorValue::U8(tensor) => Ok(AttrValue::UInt(tensor.data[0] as u64)),
+        TensorValue::U16(tensor) => Ok(AttrValue::UInt(tensor.data[0] as u64)),
+        TensorValue::U32(tensor) => Ok(AttrValue::UInt(tensor.data[0] as u64)),
+        TensorValue::U64(tensor) => Ok(AttrValue::UInt(tensor.data[0])),
+        TensorValue::Bool(tensor) => Ok(AttrValue::Bool(tensor.data[0])),
+        TensorValue::Bitset(tensor) => Ok(AttrValue::UInt(tensor.data[0].bits as u64)),
     }
 }
 

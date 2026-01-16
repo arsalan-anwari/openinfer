@@ -14,7 +14,8 @@ struct VulkanShaderManifest {
 
 #[derive(Debug, Deserialize)]
 struct VulkanShaderEntry {
-    path: String,
+    path: Option<String>,
+    paths: Option<Vec<String>>,
     spv_dir: String,
 }
 
@@ -37,40 +38,36 @@ fn main() -> Result<()> {
 
     #[allow(unused_variables)]
     for (op_name, entry) in &manifest.ops {
-        compile_op(&manifest_dir, op_name, &entry.path, &entry.spv_dir)?;
+        compile_op(&manifest_dir, op_name, entry)?;
     }
     let include_broadcast = !manifest.ops.contains_key(BROADCAST_OP);
     if include_broadcast {
-        compile_op(
-            &manifest_dir,
-            BROADCAST_OP,
-            BROADCAST_PATH,
-            BROADCAST_SPV_DIR,
-        )?;
+        let broadcast_entry = VulkanShaderEntry {
+            path: Some(BROADCAST_PATH.to_string()),
+            paths: None,
+            spv_dir: BROADCAST_SPV_DIR.to_string(),
+        };
+        compile_op(&manifest_dir, BROADCAST_OP, &broadcast_entry)?;
     }
 
     write_embedded_module(&manifest_dir, &manifest, include_broadcast)?;
     Ok(())
 }
 
-fn compile_op(
-    manifest_dir: &Path,
-    op_name: &str,
-    path: &str,
-    spv_dir: &str,
-) -> Result<()> {
-    let src_path = manifest_dir.join(path);
-    println!("cargo:rerun-if-changed={}", src_path.display());
-
-    let spv_dir = manifest_dir.join(spv_dir);
-    let targets = slang_entry_points(&src_path)
-        .with_context(|| format!("failed to parse entry points for {}", src_path.display()))?;
-    for target in &targets {
-        let spv_path = spv_dir.join(format!("{}.spv", target));
-        let should_compile = needs_rebuild(&src_path, &spv_path)?;
-        if should_compile {
-            compile_slang(&src_path, &spv_path, target)
-                .with_context(|| format!("failed to compile {}", op_name))?;
+fn compile_op(manifest_dir: &Path, op_name: &str, entry: &VulkanShaderEntry) -> Result<()> {
+    let paths = shader_paths(manifest_dir, entry)?;
+    let spv_dir = manifest_dir.join(&entry.spv_dir);
+    for src_path in paths {
+        println!("cargo:rerun-if-changed={}", src_path.display());
+        let targets = slang_entry_points(&src_path)
+            .with_context(|| format!("failed to parse entry points for {}", src_path.display()))?;
+        for target in &targets {
+            let spv_path = spv_dir.join(format!("{}.spv", target));
+            let should_compile = needs_rebuild(&src_path, &spv_path)?;
+            if should_compile {
+                compile_slang(&src_path, &spv_path, target)
+                    .with_context(|| format!("failed to compile {}", op_name))?;
+            }
         }
     }
     Ok(())
@@ -139,8 +136,15 @@ fn write_embedded_module(
     for (op_name, entry) in &manifest.ops {
         contents.push_str(&format!("        \"{}\" => {{\n", op_name));
         let spv_dir = manifest_dir.join(&entry.spv_dir);
-        let targets = slang_entry_points(&manifest_dir.join(&entry.path))
-            .with_context(|| format!("failed to parse entry points for {}", entry.path))?;
+        let mut targets = Vec::new();
+        for src_path in shader_paths(manifest_dir, entry)? {
+            let mut src_targets = slang_entry_points(&src_path).with_context(|| {
+                format!("failed to parse entry points for {}", src_path.display())
+            })?;
+            targets.append(&mut src_targets);
+        }
+        targets.sort();
+        targets.dedup();
         for target in &targets {
             let spv_path = spv_dir.join(format!("{}.spv", target));
             contents.push_str(&format!(
@@ -211,4 +215,16 @@ fn slang_entry_points(src: &Path) -> Result<Vec<String>> {
     targets.sort();
     targets.dedup();
     Ok(targets)
+}
+
+fn shader_paths(manifest_dir: &Path, entry: &VulkanShaderEntry) -> Result<Vec<PathBuf>> {
+    if let Some(paths) = &entry.paths {
+        if !paths.is_empty() {
+            return Ok(paths.iter().map(|path| manifest_dir.join(path)).collect());
+        }
+    }
+    if let Some(path) = &entry.path {
+        return Ok(vec![manifest_dir.join(path)]);
+    }
+    Err(anyhow!("vulkan shader entry missing path(s)"))
 }

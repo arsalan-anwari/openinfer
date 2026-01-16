@@ -1,5 +1,6 @@
 use anyhow::Result;
 
+use crate::tensor::{Bitset, F16};
 use crate::timer::Timer;
 
 pub fn abs_inplace_i8(a: &mut [i8], thread_id: usize) -> Result<()> {
@@ -38,6 +39,14 @@ pub fn abs_inplace_f64(a: &mut [f64], thread_id: usize) -> Result<()> {
     Ok(())
 }
 
+pub fn abs_inplace_f16(a: &mut [F16], thread_id: usize) -> Result<()> {
+    Timer::start(thread_id);
+    for v in a {
+        *v = F16::from_f32(v.to_f32().abs());
+    }
+    Timer::stop(thread_id);
+    Ok(())
+}
 pub fn abs_inplace_u8(_a: &mut [u8], thread_id: usize) -> Result<()> {
     Timer::start(thread_id);
     Timer::stop(thread_id);
@@ -81,6 +90,12 @@ pub fn abs_inplace_u64(_a: &mut [u64], thread_id: usize) -> Result<()> {
 }
 
 pub fn abs_inplace_bool(_a: &mut [bool], thread_id: usize) -> Result<()> {
+    Timer::start(thread_id);
+    Timer::stop(thread_id);
+    Ok(())
+}
+
+pub fn abs_inplace_bitset(_a: &mut [Bitset], thread_id: usize) -> Result<()> {
     Timer::start(thread_id);
     Timer::stop(thread_id);
     Ok(())

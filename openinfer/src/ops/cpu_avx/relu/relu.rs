@@ -50,7 +50,10 @@ pub fn relu_f32(attrs: &OpAttrs, a: &[f32], thread_id: usize) -> Result<Vec<f32>
 
 fn attr_value_f32(value: &AttrValue) -> Result<f32> {
     match value {
-        AttrValue::Literal(val) => Ok(*val),
+        AttrValue::Float(val) => Ok(*val),
+        AttrValue::Int(val) => Ok(*val as f32),
+        AttrValue::UInt(val) => Ok(*val as f32),
+        AttrValue::Bool(_) => Err(anyhow!("relu op attrs must be numeric")),
         AttrValue::Var(name) => Err(anyhow!("relu op attrs must be resolved: {}", name)),
     }
 }

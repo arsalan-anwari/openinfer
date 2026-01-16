@@ -122,7 +122,7 @@ Use `branch` to jump to another block (optionally based on a condition).
 ```rust
 block entry {
   assign h: f32[B, D];
-  assign cond: bool[];
+  assign cond: bool;
 
   op matmul(x, W[0]) >> h;
   op is_finite(h) >> cond;
@@ -138,7 +138,7 @@ block ok {
 }
 
 block bad {
-  op fill_nan_like(h, value=0.0) >> h;
+  op fill(h, value=0.0) >> h;
   return;
 }
 

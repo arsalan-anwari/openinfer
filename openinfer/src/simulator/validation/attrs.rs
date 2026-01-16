@@ -17,6 +17,10 @@ pub(crate) fn validate_op_attrs(ctx: &ValidationContext, attrs: &OpAttrs) -> Res
             validate_attr_value(ctx, clamp_max)?;
             Ok(())
         }
+        OpAttrs::Fill { value } => {
+            validate_attr_value(ctx, value)?;
+            Ok(())
+        }
     }
 }
 

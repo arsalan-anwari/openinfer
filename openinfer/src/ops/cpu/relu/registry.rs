@@ -4,7 +4,10 @@ use crate::graph::OpAttrs;
 use crate::ops::{cpu_kernel, KernelFn};
 use crate::tensor::DType;
 
-use super::{relu_bool, relu_f32, relu_f64, relu_i16, relu_i32, relu_i64, relu_i8, relu_u16, relu_u32, relu_u64, relu_u8};
+use super::{
+    relu_bitset, relu_bool, relu_f16, relu_f32, relu_f64, relu_i16, relu_i32, relu_i64, relu_i8,
+    relu_u16, relu_u32, relu_u64, relu_u8,
+};
 
 pub fn lookup_kernel_cpu_relu(
     output_dtype: DType,
@@ -19,6 +22,9 @@ pub fn lookup_kernel_cpu_relu(
         }
         (DType::F64, [DType::F64], &OpAttrs::Relu { .. }) => Some(KernelFn::Host(cpu_kernel(
             relu_f64 as fn(&OpAttrs, &[f64], usize) -> Result<Vec<f64>>,
+        ))),
+        (DType::F16, [DType::F16], &OpAttrs::Relu { .. }) => Some(KernelFn::Host(cpu_kernel(
+            relu_f16 as fn(&OpAttrs, &[crate::tensor::F16], usize) -> Result<Vec<crate::tensor::F16>>,
         ))),
         (DType::I8, [DType::I8], &OpAttrs::Relu { .. }) => Some(KernelFn::Host(cpu_kernel(
             relu_i8 as fn(&OpAttrs, &[i8], usize) -> Result<Vec<i8>>,
@@ -46,6 +52,9 @@ pub fn lookup_kernel_cpu_relu(
         ))),
         (DType::Bool, [DType::Bool], &OpAttrs::Relu { .. }) => Some(KernelFn::Host(cpu_kernel(
             relu_bool as fn(&OpAttrs, &[bool], usize) -> Result<Vec<bool>>,
+        ))),
+        (DType::Bitset, [DType::Bitset], &OpAttrs::Relu { .. }) => Some(KernelFn::Host(cpu_kernel(
+            relu_bitset as fn(&OpAttrs, &[crate::tensor::Bitset], usize) -> Result<Vec<crate::tensor::Bitset>>,
         ))),
         _ => None,
     }

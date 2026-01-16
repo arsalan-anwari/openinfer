@@ -89,7 +89,7 @@ fn main() -> anyhow::Result<()> {
         }
 
         block bad {
-            op fill_nan_like(h, value=0.0) >> h;
+            op fill(h, value=0.0) >> h;
             return;
         }
     };
@@ -115,7 +115,7 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 ```
-> Some ops in the examles may not yet be implements, see [docs/progress.md](docs/progress.md) and [docs/ops.md](docs/ops.md) for current support. 
+> Some ops in the examples may not yet be implemented; see [docs/progress.md](docs/progress.md) and [docs/ops.md](docs/ops.md) for current support. 
 
 ## Philosophy
 
@@ -134,6 +134,7 @@ OpenInfer favors explicit, structured graphs with visible control flow and side 
 
 - Rust toolchain (cargo)
 - Python 3 + pip (for OINF tools and Python examples)
+- Slang compiler (`slangc`) for Vulkan builds (set `SLANGC` or add to PATH)
 - Python deps: `pip install -r requirements.txt`
 
 ## Build
@@ -174,6 +175,7 @@ Targeted modes:
 - Architectures: CPU (scalar kernels), CPU SIMD on x86_64, and Vulkan GPU backend
 - SIMD extensions: AVX, AVX2 (feature-gated; see [docs/ops.md](docs/ops.md))
 - GPU drivers: Vulkan-capable drivers (feature-gated; see [docs/vulkan-interop.md](docs/vulkan-interop.md))
+- Vulkan dtype support: `f32`, `i8/i16/i32/i64`, `u8/u16/u32/u64`, `bool` (no `f16/f64/bitset`)
 
 ## Status
 

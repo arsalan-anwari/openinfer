@@ -63,13 +63,6 @@ impl DeviceBackend for CpuBackend {
                     .iter()
                     .map(|value| broadcast::broadcast_value_to_shape(value, &out_shape))
                     .collect::<Result<Vec<_>>>()?;
-            } else {
-                let first = host[0].shape();
-                for value in host.iter().skip(1) {
-                    if value.shape() != first {
-                        return Err(anyhow!("op {} requires identical input shapes on {:?}", op.as_str(), self.device));
-                    }
-                }
             }
         }
         let kernel = lookup_kernel(self.device, op, output_dtype, &input_dtypes, attrs)

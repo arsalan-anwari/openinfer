@@ -7,7 +7,7 @@ use crate::codegen::memory::match_dtype;
 use crate::types::{Node, RangeValue, VarRef};
 use crate::validation;
 
-use crate::types::{AssignNode, LoopNode, OpNode};
+use crate::types::{AssignNode, BranchNode, LoopNode, OpNode};
 
 pub(crate) fn node_stmt(node: &Node, block_name: &str) -> syn::Result<proc_macro2::TokenStream> {
     match node {
@@ -42,6 +42,7 @@ pub(crate) fn node_kind_expr(node: &Node) -> syn::Result<proc_macro2::TokenStrea
     match node {
         Node::Assign(assign) => assign_node_expr(assign),
         Node::Op(op) => op_node_expr(op),
+        Node::Branch(branch) => branch_node_expr(branch),
         Node::CacheRead(node) => {
             let src = cache_access_expr(&node.src)?;
             let dst = var_ref_string(&node.dst);
@@ -180,6 +181,29 @@ pub(crate) fn loop_body_expr(nodes: &[Node]) -> syn::Result<proc_macro2::TokenSt
     }})
 }
 
+fn branch_node_expr(branch: &BranchNode) -> syn::Result<proc_macro2::TokenStream> {
+    let cond = if let Some(cond) = branch.cond.as_ref() {
+        let cond = cond.to_string();
+        quote! { Some(#cond.to_string()) }
+    } else {
+        quote! { None }
+    };
+    let then_block = branch.then_block.to_string();
+    let else_block = if let Some(else_block) = branch.else_block.as_ref() {
+        let else_block = else_block.to_string();
+        quote! { Some(#else_block.to_string()) }
+    } else {
+        quote! { None }
+    };
+    Ok(quote! {
+        ::openinfer::NodeKind::Branch {
+            cond: #cond,
+            then_block: #then_block.to_string(),
+            else_block: #else_block,
+        }
+    })
+}
+
 fn match_opkind(op: &Ident) -> syn::Result<proc_macro2::TokenStream> {
     let s = op.to_string();
     match s.as_str() {
@@ -187,6 +211,9 @@ fn match_opkind(op: &Ident) -> syn::Result<proc_macro2::TokenStream> {
         "mul" => Ok(quote! { ::openinfer::OpKind::Mul }),
         "abs" => Ok(quote! { ::openinfer::OpKind::Abs }),
         "relu" => Ok(quote! { ::openinfer::OpKind::Relu }),
+        "matmul" => Ok(quote! { ::openinfer::OpKind::Matmul }),
+        "is_finite" => Ok(quote! { ::openinfer::OpKind::IsFinite }),
+        "fill" => Ok(quote! { ::openinfer::OpKind::Fill }),
         _ => Err(syn::Error::new(op.span(), "unsupported op")),
     }
 }

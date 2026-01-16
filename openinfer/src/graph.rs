@@ -13,6 +13,9 @@ pub enum OpKind {
     Mul,
     Abs,
     Relu,
+    Matmul,
+    IsFinite,
+    Fill,
 }
 
 impl OpKind {
@@ -22,13 +25,19 @@ impl OpKind {
             OpKind::Mul => "mul",
             OpKind::Abs => "abs",
             OpKind::Relu => "relu",
+            OpKind::Matmul => "matmul",
+            OpKind::IsFinite => "is_finite",
+            OpKind::Fill => "fill",
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum AttrValue {
-    Literal(f32),
+    Float(f32),
+    Int(i64),
+    UInt(u64),
+    Bool(bool),
     Var(String),
 }
 
@@ -61,6 +70,9 @@ pub enum OpAttrs {
         negative_slope: AttrValue,
         clamp_max: AttrValue,
     },
+    Fill {
+        value: AttrValue,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -71,6 +83,11 @@ pub enum NodeKind {
         attrs: OpAttrs,
         inputs: Vec<String>,
         output: String,
+    },
+    Branch {
+        cond: Option<String>,
+        then_block: String,
+        else_block: Option<String>,
     },
     CacheRead {
         src: CacheAccess,
@@ -281,6 +298,16 @@ pub fn describe_node(kind: &NodeKind) -> String {
             end,
             ..
         } => format!("loop {} ({} in {}..{})", name, index, start, end),
+        NodeKind::Branch {
+            cond,
+            then_block,
+            else_block,
+        } => match (cond, else_block) {
+            (Some(cond), Some(else_block)) => {
+                format!("branch {} {} {}", cond, then_block, else_block)
+            }
+            _ => format!("branch {}", then_block),
+        },
         NodeKind::Return => "return".to_string(),
     }
 }

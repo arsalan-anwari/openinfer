@@ -1,4 +1,8 @@
 use anyhow::{anyhow, Result};
+use std::arch::x86_64::{
+    _mm256_blendv_ps, _mm256_cmp_ps, _mm256_loadu_ps, _mm256_min_ps, _mm256_mul_ps,
+    _mm256_set1_ps, _mm256_storeu_ps, _CMP_GE_OQ,
+};
 
 use crate::graph::{AttrValue, OpAttrs};
 use crate::timer::Timer;
@@ -12,12 +16,32 @@ pub fn relu_inplace_f32(attrs: &OpAttrs, a: &mut [f32], thread_id: usize) -> Res
         _ => return Err(anyhow!("relu op expects relu attributes")),
     };
     Timer::start(thread_id);
-    for x in a {
-        let mut y = if *x >= 0.0 { *x } else { *x * negative_slope };
-        if y > clamp_max {
-            y = clamp_max;
+    unsafe {
+        let mut i = 0usize;
+        let zero = _mm256_set1_ps(0.0);
+        let neg = _mm256_set1_ps(negative_slope);
+        let clamp = _mm256_set1_ps(clamp_max);
+        while i + 8 <= a.len() {
+            let x = _mm256_loadu_ps(a.as_ptr().add(i));
+            let mask = _mm256_cmp_ps(x, zero, _CMP_GE_OQ);
+            let neg_x = _mm256_mul_ps(x, neg);
+            let y = _mm256_blendv_ps(neg_x, x, mask);
+            let y = _mm256_min_ps(y, clamp);
+            _mm256_storeu_ps(a.as_mut_ptr().add(i), y);
+            i += 8;
         }
-        *x = y;
+        while i < a.len() {
+            let mut y = if *a.get_unchecked(i) >= 0.0 {
+                *a.get_unchecked(i)
+            } else {
+                *a.get_unchecked(i) * negative_slope
+            };
+            if y > clamp_max {
+                y = clamp_max;
+            }
+            *a.get_unchecked_mut(i) = y;
+            i += 1;
+        }
     }
     Timer::stop(thread_id);
     Ok(())
@@ -25,7 +49,10 @@ pub fn relu_inplace_f32(attrs: &OpAttrs, a: &mut [f32], thread_id: usize) -> Res
 
 fn attr_value_f32(value: &AttrValue) -> Result<f32> {
     match value {
-        AttrValue::Literal(val) => Ok(*val),
+        AttrValue::Float(val) => Ok(*val),
+        AttrValue::Int(val) => Ok(*val as f32),
+        AttrValue::UInt(val) => Ok(*val as f32),
+        AttrValue::Bool(_) => Err(anyhow!("relu op attrs must be numeric")),
         AttrValue::Var(name) => Err(anyhow!("relu op attrs must be resolved: {}", name)),
     }
 }
