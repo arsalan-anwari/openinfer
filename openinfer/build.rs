@@ -20,7 +20,7 @@ struct VulkanShaderEntry {
 
 const BROADCAST_OP: &str = "broadcast";
 const BROADCAST_PATH: &str = "src/backend/vulkan/broadcast/broadcast.slang";
-const BROADCAST_SPV_DIR: &str = "backend/vulkan/broadcast/bin";
+const BROADCAST_SPV_DIR: &str = "src/backend/vulkan/broadcast/bin";
 
 fn main() -> Result<()> {
     if env::var("CARGO_FEATURE_VULKAN").is_err() {
