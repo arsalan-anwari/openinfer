@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 
 use crate::graph::{AttrValue, OpAttrs};
-use crate::prefix::parse_prefix_access;
+use crate::simulator::executor::prefix::parse_prefix_access;
 use crate::types::MemoryKind;
 
 use super::ValidationContext;

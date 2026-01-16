@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 
-use crate::prefix::validate_prefix_decl;
+use super::prefix::validate_prefix_decl;
 use crate::types::MemoryKind;
 
 use super::block::validate_block;

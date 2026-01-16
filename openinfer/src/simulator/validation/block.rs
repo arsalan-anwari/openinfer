@@ -4,7 +4,7 @@ use anyhow::{anyhow, Result};
 
 use crate::graph::{Block, CacheAccess, CacheIndexExpr, CacheIndexValue, NodeKind, OpAttrs, OpKind};
 use crate::ops::{broadcast_enabled, lookup_kernel};
-use crate::prefix::{parse_prefix_access, resolve_prefix_name};
+use crate::simulator::executor::prefix::{parse_prefix_access, resolve_prefix_name};
 use crate::tensor::DType;
 use crate::types::MemoryKind;
 

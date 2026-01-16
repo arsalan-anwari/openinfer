@@ -7,7 +7,7 @@ use anyhow::{anyhow, Result};
 use crate::backend::TensorStorage;
 use crate::graph::Graph;
 use crate::model_loader::ModelLoader;
-use crate::prefix::{parse_prefix_access, resolve_prefix_name};
+use self::prefix::{parse_prefix_access, resolve_prefix_name};
 use crate::tensor::{Tensor, TensorElement, TensorValue};
 use crate::timer::Timer;
 use crate::types::MemoryKind;
@@ -17,6 +17,7 @@ use super::{backend_for, Device, DeviceBackend};
 mod cache;
 mod dispatch;
 mod frames;
+pub(crate) mod prefix;
 mod tensor_utils;
 mod trace;
 

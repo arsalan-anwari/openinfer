@@ -12,7 +12,6 @@ mod timer;
 mod formatting;
 mod graph_serde;
 mod random;
-mod prefix;
 
 pub use simulator::{Device, Executor, Fetchable, Simulator, TraceEvent, TraceEventKind};
 pub use graph::{

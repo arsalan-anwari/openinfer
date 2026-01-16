@@ -9,6 +9,7 @@ mod attrs;
 mod block;
 mod dims;
 mod graph;
+mod prefix;
 mod vars;
 
 pub(crate) struct ValidationContext<'a> {

@@ -14,7 +14,7 @@
               "name": "t0"
             }
           },
-          "uuid": "c9219242-c931-4726-8066-c3b9b6a6edce"
+          "uuid": "357b7b3a-b055-4340-ae5b-e1b61cc35ac3"
         },
         {
           "index": 1,
@@ -29,7 +29,7 @@
               "output": "t0"
             }
           },
-          "uuid": "eb5dc3fb-05a1-4ab9-838c-9a952cf3a78a"
+          "uuid": "5005c764-5f08-459a-a162-04b94e05b422"
         },
         {
           "index": 2,
@@ -44,12 +44,12 @@
               "output": "y"
             }
           },
-          "uuid": "19b11598-4089-4081-b985-f396f6ed26c8"
+          "uuid": "c5169623-e185-4453-bc24-bdffc0c0756f"
         },
         {
           "index": 3,
           "kind": "Return",
-          "uuid": "f61c8dfb-8325-4456-b6a1-be26272bce4a"
+          "uuid": "4b180c17-761d-4a0a-8842-1b7dfda0dfd3"
         }
       ]
     }
