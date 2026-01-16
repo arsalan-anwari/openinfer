@@ -1,6 +1,8 @@
+use std::sync::Arc;
+
 use anyhow::{anyhow, Result};
 
-use crate::backend::vulkan::{embedded_spirv_for_op, storage_size_bytes};
+use crate::backend::vulkan::{embedded_spirv_for_op, storage_size_bytes, VulkanRuntime};
 use crate::backend::VulkanBuffer;
 use crate::graph::OpKind;
 use crate::tensor::{compute_strides, numel, DType};
@@ -10,7 +12,7 @@ pub fn broadcast_buffer(
     out_shape: &[usize],
     _thread_id: usize,
 ) -> Result<VulkanBuffer> {
-    let runtime = super::runtime_from_buffers(input, None)?;
+    let runtime = runtime_from_buffers(input, None)?;
     let len = numel(out_shape);
     let target = spv_target_name_broadcast(input.dtype)?;
     let entry = "main";
@@ -52,10 +54,39 @@ pub fn broadcast_buffer(
     })
 }
 
+fn runtime_from_buffers(
+    a: &VulkanBuffer,
+    b: Option<&VulkanBuffer>,
+) -> Result<Arc<VulkanRuntime>> {
+    let runtime = Arc::clone(a.inner.runtime());
+    if let Some(b) = b {
+        if !Arc::ptr_eq(a.inner.runtime(), b.inner.runtime()) {
+            return Err(anyhow!("vulkan buffers are from different runtimes"));
+        }
+    }
+    Ok(runtime)
+}
+
 fn spv_target_name_broadcast(dtype: DType) -> Result<String> {
-    let suffix = super::dtype_suffix(dtype)
+    let suffix = dtype_suffix(dtype)
         .ok_or_else(|| anyhow!("broadcast not supported for dtype {:?}", dtype))?;
     Ok(format!("broadcast_{}", suffix))
+}
+
+fn dtype_suffix(dtype: DType) -> Option<&'static str> {
+    match dtype {
+        DType::I8 => Some("i8"),
+        DType::I16 => Some("i16"),
+        DType::F32 => Some("f32"),
+        DType::Bool => Some("bool"),
+        DType::U8 => Some("u8"),
+        DType::U16 => Some("u16"),
+        DType::I32 => Some("i32"),
+        DType::U32 => Some("u32"),
+        DType::I64 => Some("i64"),
+        DType::U64 => Some("u64"),
+        _ => None,
+    }
 }
 
 fn build_metadata(

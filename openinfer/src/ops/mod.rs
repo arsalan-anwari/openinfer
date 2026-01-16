@@ -9,11 +9,19 @@ pub(crate) mod cpu_avx2;
 #[cfg(feature = "vulkan")]
 pub(crate) mod vulkan;
 
-mod registry;
+pub(crate) mod registry;
 mod adapter;
 
 #[allow(unused_imports)]
-pub use registry::{broadcast_enabled, broadcast_policy, BroadcastPolicy, lookup_kernel, KernelFn};
+pub use registry::{
+    broadcast_enabled,
+    broadcast_policy,
+    lookup_kernel,
+    lookup_kernel_inplace,
+    BroadcastPolicy,
+    InplaceKernelFn,
+    KernelFn,
+};
 
 #[allow(unused_imports)]
 pub use adapter::{cpu_kernel, CpuKernelAdapter};

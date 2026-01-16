@@ -3,3 +3,4 @@ pub mod add;
 pub mod mul;
 pub mod relu;
 pub mod registry;
+pub mod registry_inplace;

@@ -18,6 +18,10 @@ struct VulkanShaderEntry {
     spv_dir: String,
 }
 
+const BROADCAST_OP: &str = "broadcast";
+const BROADCAST_PATH: &str = "src/backend/vulkan/broadcast/broadcast.slang";
+const BROADCAST_SPV_DIR: &str = "backend/vulkan/broadcast/bin";
+
 fn main() -> Result<()> {
     if env::var("CARGO_FEATURE_VULKAN").is_err() {
         return Ok(());
@@ -33,22 +37,42 @@ fn main() -> Result<()> {
 
     #[allow(unused_variables)]
     for (op_name, entry) in &manifest.ops {
-        let src_path = manifest_dir.join(&entry.path);
-        println!("cargo:rerun-if-changed={}", src_path.display());
-
-        let spv_dir = manifest_dir.join(&entry.spv_dir);
-        let targets = slang_entry_points(&src_path)
-            .with_context(|| format!("failed to parse entry points for {}", src_path.display()))?;
-        for target in &targets {
-            let spv_path = spv_dir.join(format!("{}.spv", target));
-            let should_compile = needs_rebuild(&src_path, &spv_path)?;
-            if should_compile {
-                compile_slang(&src_path, &spv_path, target)?;
-            }
-        }
+        compile_op(&manifest_dir, op_name, &entry.path, &entry.spv_dir)?;
+    }
+    let include_broadcast = !manifest.ops.contains_key(BROADCAST_OP);
+    if include_broadcast {
+        compile_op(
+            &manifest_dir,
+            BROADCAST_OP,
+            BROADCAST_PATH,
+            BROADCAST_SPV_DIR,
+        )?;
     }
 
-    write_embedded_module(&manifest_dir, &manifest)?;
+    write_embedded_module(&manifest_dir, &manifest, include_broadcast)?;
+    Ok(())
+}
+
+fn compile_op(
+    manifest_dir: &Path,
+    op_name: &str,
+    path: &str,
+    spv_dir: &str,
+) -> Result<()> {
+    let src_path = manifest_dir.join(path);
+    println!("cargo:rerun-if-changed={}", src_path.display());
+
+    let spv_dir = manifest_dir.join(spv_dir);
+    let targets = slang_entry_points(&src_path)
+        .with_context(|| format!("failed to parse entry points for {}", src_path.display()))?;
+    for target in &targets {
+        let spv_path = spv_dir.join(format!("{}.spv", target));
+        let should_compile = needs_rebuild(&src_path, &spv_path)?;
+        if should_compile {
+            compile_slang(&src_path, &spv_path, target)
+                .with_context(|| format!("failed to compile {}", op_name))?;
+        }
+    }
     Ok(())
 }
 
@@ -99,7 +123,11 @@ fn compile_slang(src: &Path, spv: &Path, entry_point: &str) -> Result<()> {
     Ok(())
 }
 
-fn write_embedded_module(manifest_dir: &Path, manifest: &VulkanShaderManifest) -> Result<()> {
+fn write_embedded_module(
+    manifest_dir: &Path,
+    manifest: &VulkanShaderManifest,
+    include_broadcast: bool,
+) -> Result<()> {
     let out_dir = PathBuf::from(env::var("OUT_DIR").context("missing OUT_DIR")?);
     let out_path = out_dir.join("vulkan_spirv.rs");
 
@@ -113,6 +141,21 @@ fn write_embedded_module(manifest_dir: &Path, manifest: &VulkanShaderManifest) -
         let spv_dir = manifest_dir.join(&entry.spv_dir);
         let targets = slang_entry_points(&manifest_dir.join(&entry.path))
             .with_context(|| format!("failed to parse entry points for {}", entry.path))?;
+        for target in &targets {
+            let spv_path = spv_dir.join(format!("{}.spv", target));
+            contents.push_str(&format!(
+                "            map.insert(\"{}\".to_string(), &include_bytes!(r\"{}\")[..]);\n",
+                target,
+                spv_path.display()
+            ));
+        }
+        contents.push_str("        }\n");
+    }
+    if include_broadcast {
+        contents.push_str(&format!("        \"{}\" => {{\n", BROADCAST_OP));
+        let spv_dir = manifest_dir.join(BROADCAST_SPV_DIR);
+        let targets = slang_entry_points(&manifest_dir.join(BROADCAST_PATH))
+            .with_context(|| format!("failed to parse entry points for {}", BROADCAST_PATH))?;
         for target in &targets {
             let spv_path = spv_dir.join(format!("{}.spv", target));
             contents.push_str(&format!(

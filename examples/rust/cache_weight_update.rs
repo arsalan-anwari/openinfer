@@ -1,7 +1,10 @@
 use openinfer::{
-    fetch_executor, graph, insert_executor, Device, ModelLoader, Random, Simulator, Tensor,
+    fetch_executor, graph, insert_executor, ModelLoader, Random, Simulator, Tensor,
 };
 use std::path::Path;
+
+mod util;
+use util::select_device;
 
 fn main() -> anyhow::Result<()> {
     let model_path =
@@ -33,7 +36,7 @@ fn main() -> anyhow::Result<()> {
         }
     };
 
-    let sim = Simulator::new(&model, &g, Device::Cpu)?;
+    let sim = Simulator::new(&model, &g, select_device()?)?;
     let mut exec = sim.make_executor()?;
 
     let len = model.size_of("D")?;

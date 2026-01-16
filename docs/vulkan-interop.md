@@ -12,10 +12,12 @@ High-Level Flow
 1) `build.rs` reads `openinfer/src/ops/vulkan/shaders.json`, scans each Slang
    file for compute entry points, compiles each target via `slangc` into a `.spv`
    file, then generates a small Rust module in `OUT_DIR` that embeds those blobs.
+   Broadcast is a special-case shader with a fixed path and SPV output directory
+   (hardcoded in `build.rs`), so it is not listed in `shaders.json`.
 2) The Vulkan shader registry loads `shaders.json` and uses the generated
-   module to fill `OpShaderInfo` with embedded SPIR-V bytes.
+   module to fill `OpShaderInfo` with embedded SPIR-V bytes for each op.
 3) Vulkan ops use `VulkanRuntime` to create buffers, pipelines, and dispatch
-   compute workloads.
+   compute workloads. Pre-processing like broadcast lives in the backend.
 
 Key Files
 ---------
@@ -26,6 +28,8 @@ Key Files
   - `ash` setup, buffer allocation, pipeline creation, dispatch.
 - `openinfer/src/backend/vulkan/mod.rs`
   - Shader registry loads `shaders.json` and embeds SPIR-V per target.
+- `openinfer/src/backend/vulkan/broadcast.rs`
+  - Broadcast preprocessing for Vulkan tensors.
 - `openinfer/src/ops/vulkan/*`
   - Per-op kernel launchers and Slang shaders.
 - `openinfer/src/ops/vulkan/shaders.json`
@@ -33,7 +37,8 @@ Key Files
 
 Shader Manifest Format
 ----------------------
-`openinfer/src/ops/vulkan/shaders.json` describes each op:
+`openinfer/src/ops/vulkan/shaders.json` describes each op (broadcast is omitted
+because its shader path/output are hardcoded in `build.rs`):
 
 - `path`: path to the Slang shader source (`.slang`).
 - `spv_dir`: directory where SPIR-V outputs live for this op.
@@ -57,6 +62,8 @@ Slang Shader Conventions
 ------------------------
 - Each op has a single `.slang` file under `openinfer/src/ops/vulkan/<op>/`.
 - SPIR-V output lives under `openinfer/src/ops/vulkan/<op>/bin/`.
+- Broadcast is stored under `openinfer/src/backend/vulkan/broadcast/` with SPIR-V
+  emitted to `backend/vulkan/broadcast/bin/`.
 - Entry points are compiled per target name (e.g., `add_f32`), but the Vulkan
   runtime uses `main` for pipeline creation while selecting the SPIR-V blob by
   target.
@@ -73,13 +80,15 @@ Adding a New Vulkan Op
 2) Ensure the Slang shader defines the compute entry points (e.g. `add_f32`).
    `build.rs` will compile each `[shader("compute")]` entry into:
    - `src/ops/vulkan/<op>/bin/<entry>.spv`
-3) Add target selection patterns:
+3) Add the op to `openinfer/src/ops/vulkan/shaders.json` so it is compiled and
+   embedded (broadcast is the only built-in exception).
+4) Add target selection patterns:
    - `openinfer/src/ops/vulkan/mod.rs` for per-op dispatch.
    - `openinfer/src/ops/vulkan/<op>/mod.rs` for the op-specific matcher.
-4) Add the op kernel and registry entries:
+5) Add the op kernel and registry entries:
    - `openinfer/src/ops/vulkan/<op>/mod.rs` should call `runtime.dispatch(...)`.
    - `openinfer/src/ops/vulkan/<op>/registry.rs` should register the Vulkan kernel.
-5) Ensure dtype support is enforced:
+6) Ensure dtype support is enforced:
    - `openinfer/src/backend/vulkan/mod.rs` has `ensure_supported_dtype(...)`.
    - Return a clean error if the dtype is not supported on the current GPU.
 

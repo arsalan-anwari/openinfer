@@ -1,5 +1,14 @@
+use anyhow::anyhow;
+
 use crate::graph::OpAttrs;
-use crate::tensor::DType;
+use crate::ops::registry::{HostInplaceKernel, InplaceKernelFn};
+use crate::tensor::{DType, TensorValue};
+
+use super::{
+    relu_inplace_bool, relu_inplace_f32, relu_inplace_f64, relu_inplace_i16, relu_inplace_i32,
+    relu_inplace_i64, relu_inplace_i8, relu_inplace_u16, relu_inplace_u32, relu_inplace_u64,
+    relu_inplace_u8,
+};
 
 #[allow(dead_code)]
 pub fn supports_relu_inplace(output_dtype: DType, input_dtypes: &[DType], attrs: &OpAttrs) -> bool {
@@ -17,4 +26,31 @@ pub fn supports_relu_inplace(output_dtype: DType, input_dtypes: &[DType], attrs:
             | (DType::U64, [DType::U64], OpAttrs::Relu { .. })
             | (DType::Bool, [DType::Bool], OpAttrs::Relu { .. })
     )
+}
+
+pub fn lookup_kernel_cpu_relu_inplace(
+    output_dtype: DType,
+    input_dtypes: &[DType],
+    attrs: &OpAttrs,
+) -> Option<InplaceKernelFn> {
+    if !supports_relu_inplace(output_dtype, input_dtypes, attrs) {
+        return None;
+    }
+    let kernel: HostInplaceKernel = Box::new(|attrs, output, _inputs, thread_id| {
+        match output {
+            TensorValue::F32(out) => relu_inplace_f32(attrs, &mut out.data, thread_id),
+            TensorValue::F64(out) => relu_inplace_f64(attrs, &mut out.data, thread_id),
+            TensorValue::I8(out) => relu_inplace_i8(attrs, &mut out.data, thread_id),
+            TensorValue::I16(out) => relu_inplace_i16(attrs, &mut out.data, thread_id),
+            TensorValue::I32(out) => relu_inplace_i32(attrs, &mut out.data, thread_id),
+            TensorValue::I64(out) => relu_inplace_i64(attrs, &mut out.data, thread_id),
+            TensorValue::U8(out) => relu_inplace_u8(attrs, &mut out.data, thread_id),
+            TensorValue::U16(out) => relu_inplace_u16(attrs, &mut out.data, thread_id),
+            TensorValue::U32(out) => relu_inplace_u32(attrs, &mut out.data, thread_id),
+            TensorValue::U64(out) => relu_inplace_u64(attrs, &mut out.data, thread_id),
+            TensorValue::Bool(out) => relu_inplace_bool(attrs, &mut out.data, thread_id),
+            _ => Err(anyhow!("inplace relu dtype mismatch")),
+        }
+    });
+    Some(InplaceKernelFn::Host(kernel))
 }

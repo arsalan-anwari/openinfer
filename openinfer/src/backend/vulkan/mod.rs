@@ -9,12 +9,13 @@ use serde_json::Value;
 use crate::backend::{DeviceTensor, OpShaderInfo, ShaderRegistry, TensorStorage, VulkanBuffer};
 use crate::graph::{OpAttrs, OpKind};
 use crate::ops::{broadcast_enabled, lookup_kernel, KernelFn};
-use crate::ops::vulkan::registry::lookup_kernel_vulkan_inplace;
+use crate::ops::registry::lookup_kernel_inplace;
 use crate::simulator::{Device, DeviceBackend};
 use crate::tensor::{broadcast_shapes, Bitset, DType, F16, TensorValue};
 
 pub mod runtime;
 pub use runtime::{storage_size_bytes, VulkanBufferInner, VulkanRuntime};
+pub mod broadcast;
 
 mod embedded_spirv {
     include!(concat!(env!("OUT_DIR"), "/vulkan_spirv.rs"));
@@ -51,20 +52,6 @@ impl VulkanShaderRegistry {
             })?;
         let mut ops = HashMap::new();
         for (name, entry) in manifest.ops {
-            if !matches!(
-                name.as_str(),
-                "abs"
-                    | "add"
-                    | "mul"
-                    | "relu"
-                    | "broadcast"
-                    | "abs_inplace"
-                    | "add_inplace"
-                    | "mul_inplace"
-                    | "relu_inplace"
-            ) {
-                continue;
-            }
             let spv_by_target = embedded_spirv::embedded_spirv_for_op(name.as_str());
             ops.insert(
                 name,
@@ -233,7 +220,7 @@ impl DeviceBackend for VulkanBackend {
                         if buffer.shape == out_shape {
                             Ok(buffer)
                         } else {
-                            crate::ops::vulkan::broadcast::broadcast_buffer(
+                            crate::backend::vulkan::broadcast::broadcast_buffer(
                                 &buffer,
                                 out_shape.as_slice(),
                                 thread_id,
@@ -297,13 +284,17 @@ impl DeviceBackend for VulkanBackend {
             }
         }
         let buffer_refs: Vec<&VulkanBuffer> = buffers.iter().collect();
-        let kernel = lookup_kernel_vulkan_inplace(op, output_dtype, &input_dtypes, attrs)
+        let kernel = lookup_kernel_inplace(self.device(), op, output_dtype, &input_dtypes, attrs)
             .ok_or_else(|| anyhow!("unsupported inplace op {}", op.as_str()))?;
         match kernel {
-            KernelFn::Vulkan(func) => Ok(TensorStorage::Device(DeviceTensor::Vulkan(
+            crate::ops::registry::InplaceKernelFn::Vulkan(func) => {
+                Ok(TensorStorage::Device(DeviceTensor::Vulkan(
                 (func)(attrs, &buffer_refs, thread_id)?,
-            ))),
-            KernelFn::Host(_) => Err(anyhow!("vulkan backend cannot run host kernel")),
+                )))
+            }
+            crate::ops::registry::InplaceKernelFn::Host(_) => {
+                Err(anyhow!("vulkan backend cannot run host kernel"))
+            }
         }
     }
 }

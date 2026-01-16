@@ -184,6 +184,19 @@ Runtime op selection flows through `Executor::exec_op`:
 This dispatch is centralized in `openinfer/src/ops/registry.rs`, which forwards
 to device-specific registries (e.g. `openinfer/src/ops/cpu/registry.rs`).
 
+### In-place ops and preprocessing
+
+Backends also expose an in-place execution path. The dispatcher for those lives
+in `openinfer/src/ops/registry.rs` via `lookup_kernel_inplace`, which forwards
+to per-op `registry_inplace.rs` modules for each device. The CPU backend uses
+this lookup directly, while Vulkan reuses the same pattern.
+
+Broadcasting is treated as backend preprocessing rather than an op. CPU uses
+`broadcast_shapes` plus `openinfer/src/backend/cpu/broadcast.rs` to expand
+inputs before kernel dispatch, and Vulkan uses
+`openinfer/src/backend/vulkan/broadcast.rs` to expand buffers when an op allows
+broadcasting.
+
 ### Example serialized graph
 
 > `examples/rust/out/minimal-graph.json`

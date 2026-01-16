@@ -40,6 +40,17 @@ pub enum KernelFn {
     Vulkan(VulkanKernel),
 }
 
+pub type HostInplaceKernel =
+    Box<dyn Fn(&OpAttrs, &mut TensorValue, &[TensorValue], usize) -> Result<()> + Send + Sync>;
+#[cfg(feature = "vulkan")]
+pub type VulkanInplaceKernel = VulkanKernel;
+
+pub enum InplaceKernelFn {
+    Host(HostInplaceKernel),
+    #[cfg(feature = "vulkan")]
+    Vulkan(VulkanInplaceKernel),
+}
+
 pub fn lookup_kernel(
     device: Device,
     op: OpKind,
@@ -75,6 +86,50 @@ pub fn lookup_kernel(
             input_dtypes,
             attrs,
         ),
+        #[allow(unreachable_patterns)]
+        _ => None,
+    }
+}
+
+pub fn lookup_kernel_inplace(
+    device: Device,
+    op: OpKind,
+    output_dtype: DType,
+    input_dtypes: &[DType],
+    attrs: &OpAttrs,
+) -> Option<InplaceKernelFn> {
+    match device {
+        Device::Cpu => super::cpu::registry_inplace::lookup_kernel_cpu_inplace(
+            op,
+            output_dtype,
+            input_dtypes,
+            attrs,
+        ),
+        #[cfg(feature = "avx")]
+        Device::CpuAvx => super::cpu_avx::registry_inplace::lookup_kernel_cpu_avx_inplace(
+            op,
+            output_dtype,
+            input_dtypes,
+            attrs,
+        ),
+        #[cfg(feature = "avx2")]
+        Device::CpuAvx2 => super::cpu_avx2::registry_inplace::lookup_kernel_cpu_avx2_inplace(
+            op,
+            output_dtype,
+            input_dtypes,
+            attrs,
+        ),
+        #[cfg(feature = "vulkan")]
+        Device::Vulkan => super::vulkan::registry::lookup_kernel_vulkan_inplace(
+            op,
+            output_dtype,
+            input_dtypes,
+            attrs,
+        )
+        .and_then(|kernel| match kernel {
+            KernelFn::Vulkan(func) => Some(InplaceKernelFn::Vulkan(func)),
+            KernelFn::Host(_) => None,
+        }),
         #[allow(unreachable_patterns)]
         _ => None,
     }
