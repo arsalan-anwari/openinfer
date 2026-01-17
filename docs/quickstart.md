@@ -48,7 +48,7 @@ fn main() -> anyhow::Result<()> {
     let input = Random::<f32>::generate_with_seed(0, (-10.0, 10.0), len)?;
 
     insert_executor!(exec, { x: input });
-    exec.run_step()?;
+    exec.step()?;
 
     fetch_executor!(exec, { y: Tensor<f32> });
     println!("y[0..100] = {:?}", &y.data[..100.min(y.len())]);

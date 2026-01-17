@@ -13,6 +13,8 @@ pub enum TraceEventKind {
     CacheIncrement,
     CacheDecrement,
     CacheReset,
+    Yield,
+    Await,
     Return,
 }
 
@@ -26,6 +28,8 @@ impl fmt::Display for TraceEventKind {
             TraceEventKind::CacheIncrement => write!(f, "CacheIncrement"),
             TraceEventKind::CacheDecrement => write!(f, "CacheDecrement"),
             TraceEventKind::CacheReset => write!(f, "CacheReset"),
+            TraceEventKind::Yield => write!(f, "Yield"),
+            TraceEventKind::Await => write!(f, "Await"),
             TraceEventKind::Return => write!(f, "Return"),
         }
     }

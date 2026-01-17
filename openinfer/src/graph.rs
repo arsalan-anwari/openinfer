@@ -108,6 +108,12 @@ pub enum NodeKind {
     CacheReset {
         target: CacheAccess,
     },
+    Yield {
+        vars: Vec<String>,
+    },
+    Await {
+        vars: Vec<String>,
+    },
     Loop {
         name: String,
         index: String,
@@ -291,6 +297,8 @@ pub fn describe_node(kind: &NodeKind) -> String {
             let access = format_cache_access(target);
             format!("cache.reset {}", access)
         }
+        NodeKind::Yield { vars } => format!("yield {}", vars.join(", ")),
+        NodeKind::Await { vars } => format!("await {}", vars.join(", ")),
         NodeKind::Loop {
             name,
             index,

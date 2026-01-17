@@ -12,7 +12,7 @@
 2. **Developers write the execution logic**
 
    * Inputs and outputs
-   * Control flow (loops, branches)
+   * Control flow (loops, branches, yields)
    * Explicit operations
    * Explicit persistent memory access
 

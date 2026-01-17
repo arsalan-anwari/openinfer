@@ -10,6 +10,7 @@ use crate::simulator::{Device, DeviceBackend};
 use crate::tensor::{broadcast_shapes, DType, TensorValue};
 
 pub mod broadcast;
+pub mod scheduler;
 
 #[derive(Debug)]
 pub struct CpuBackend {

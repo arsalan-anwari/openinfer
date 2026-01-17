@@ -7,6 +7,7 @@ use anyhow::{anyhow, Result};
 use crate::backend::TensorStorage;
 use crate::graph::Graph;
 use crate::model_loader::ModelLoader;
+use std::sync::Arc;
 use self::prefix::{parse_prefix_access, resolve_prefix_name};
 use crate::tensor::{Tensor, TensorElement, TensorValue};
 use crate::timer::Timer;
@@ -33,6 +34,8 @@ use self::tensor_utils::{
 };
 use self::trace::format_step_line;
 
+#[cfg(feature = "vulkan")]
+use crate::backend::vulkan::scheduler::VulkanScheduler;
 static NEXT_THREAD_ID: AtomicUsize = AtomicUsize::new(0);
 
 pub trait Fetchable: Sized {
@@ -79,9 +82,18 @@ impl_fetch_scalar!(crate::tensor::F16, tensor_scalar_to_f16);
 impl_fetch_scalar!(crate::tensor::Bitset, tensor_scalar_to_bitset);
 
 #[derive(Debug, Clone)]
-enum StoredTensor {
+pub(crate) enum StoredTensor {
     Unloaded,
     Data(TensorStorage),
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct ExecutorSnapshot {
+    pub storage: HashMap<String, StoredTensor>,
+    pub dynamic: HashMap<String, TensorStorage>,
+    pub temps: HashSet<String>,
+    pub cache_tables: HashMap<String, CacheTable>,
+    pub auto_dims: HashMap<String, AutoDimState>,
 }
 
 #[derive(Debug, Clone)]
@@ -91,9 +103,9 @@ struct ResolvedPrefixAccess {
     decl: crate::types::VarDecl,
 }
 
-pub struct Executor<'a> {
-    model: &'a ModelLoader,
-    backend: Box<dyn DeviceBackend>,
+pub struct Executor {
+    model: Arc<ModelLoader>,
+    backend: Arc<dyn DeviceBackend>,
     graph: Graph,
     dynamic: HashMap<String, TensorStorage>,
     storage: HashMap<String, StoredTensor>,
@@ -107,17 +119,67 @@ pub struct Executor<'a> {
     loop_vars: HashMap<String, usize>,
     trace_events: Vec<TraceEvent>,
     trace_enabled: bool,
+    timer_enabled: bool,
     thread_id: usize,
+    device: Device,
+    cpu_scheduler: Option<Arc<crate::backend::cpu::scheduler::CpuScheduler>>,
+    #[cfg(feature = "vulkan")]
+    vulkan_scheduler: Option<Arc<VulkanScheduler>>,
+    last_yield_vars: Option<Vec<String>>,
 }
 
-impl<'a> Executor<'a> {
+impl Executor {
     pub(crate) fn new(
-        model: &'a ModelLoader,
+        model: Arc<ModelLoader>,
         device: Device,
         graph: Graph,
         trace_enabled: bool,
         timer_enabled: bool,
         inplace_enabled: bool,
+    ) -> Result<Self> {
+        #[cfg(feature = "vulkan")]
+        let backend = backend_for(device)?;
+        #[cfg(feature = "vulkan")]
+        return Self::new_with_backend(
+            model,
+            device,
+            graph,
+            backend,
+            trace_enabled,
+            timer_enabled,
+            inplace_enabled,
+            None,
+            None,
+        )
+        ;
+        #[cfg(not(feature = "vulkan"))]
+        {
+            let backend = backend_for(device)?;
+            Self::new_with_backend(
+                model,
+                device,
+                graph,
+                backend,
+                trace_enabled,
+                timer_enabled,
+                inplace_enabled,
+                None,
+            )
+        }
+    }
+
+    #[cfg(feature = "vulkan")]
+    fn new_with_backend(
+        model: Arc<ModelLoader>,
+        device: Device,
+        graph: Graph,
+        backend: Arc<dyn DeviceBackend>,
+        trace_enabled: bool,
+        timer_enabled: bool,
+        inplace_enabled: bool,
+        cpu_scheduler_override: Option<Arc<crate::backend::cpu::scheduler::CpuScheduler>>,
+        #[cfg(feature = "vulkan")]
+        vulkan_scheduler_override: Option<Arc<VulkanScheduler>>,
     ) -> Result<Self> {
         let mut storage = HashMap::new();
         let mut kinds = HashMap::new();
@@ -164,9 +226,33 @@ impl<'a> Executor<'a> {
 
         let thread_id = NEXT_THREAD_ID.fetch_add(1, Ordering::Relaxed);
         Timer::set_enabled(thread_id, timer_enabled);
+        let cpu_scheduler = if cpu_scheduler_override.is_some() {
+            cpu_scheduler_override
+        } else {
+            crate::backend::cpu::scheduler::CpuScheduler::maybe_new(
+                device,
+                &graph,
+                trace_enabled,
+                timer_enabled,
+                inplace_enabled,
+            )?
+        };
+        #[cfg(feature = "vulkan")]
+        let vulkan_scheduler = if vulkan_scheduler_override.is_some() {
+            vulkan_scheduler_override
+        } else {
+            VulkanScheduler::maybe_new(
+                device,
+                &graph,
+                backend.clone(),
+                trace_enabled,
+                timer_enabled,
+                inplace_enabled,
+            )?
+        };
         Ok(Self {
             model,
-            backend: backend_for(device)?,
+            backend,
             graph,
             dynamic: HashMap::new(),
             storage,
@@ -180,8 +266,168 @@ impl<'a> Executor<'a> {
             loop_vars: HashMap::new(),
             trace_events: Vec::new(),
             trace_enabled,
+            timer_enabled,
             thread_id,
+            device,
+            cpu_scheduler,
+            #[cfg(feature = "vulkan")]
+            vulkan_scheduler,
+            last_yield_vars: None,
         })
+    }
+
+    #[cfg(not(feature = "vulkan"))]
+    fn new_with_backend(
+        model: Arc<ModelLoader>,
+        device: Device,
+        graph: Graph,
+        backend: Arc<dyn DeviceBackend>,
+        trace_enabled: bool,
+        timer_enabled: bool,
+        inplace_enabled: bool,
+        cpu_scheduler_override: Option<Arc<crate::backend::cpu::scheduler::CpuScheduler>>,
+    ) -> Result<Self> {
+        let mut storage = HashMap::new();
+        let mut kinds = HashMap::new();
+        let mut cache_tables = HashMap::new();
+        let mut auto_dims = HashMap::new();
+        for (name, decl) in &graph.vars {
+            kinds.insert(name.clone(), decl.kind);
+            if decl.kind != MemoryKind::Dynamic {
+                storage.insert(name.clone(), StoredTensor::Unloaded);
+            }
+            if decl.is_cache_table() {
+                let base_shape = model.resolve_shape(&decl.dims)?;
+                let table_indices = decl.cache_table_indices();
+                let (fixed_sizes, sizes) = init_cache_table_sizes(decl, &table_indices)?;
+                cache_tables.insert(
+                    name.clone(),
+                    CacheTable {
+                        decl: decl.clone(),
+                        base_shape,
+                        table_indices,
+                        fixed_sizes,
+                        sizes,
+                        entries: HashMap::new(),
+                    },
+                );
+            }
+            if decl.has_auto_dim() {
+                let base_shape = model.resolve_shape(&decl.dims)?;
+                let max = decl
+                    .auto_dim
+                    .iter()
+                    .map(|index| fixed_size_for(decl, index))
+                    .collect::<Vec<_>>();
+                auto_dims.insert(
+                    name.clone(),
+                    AutoDimState {
+                        base_shape,
+                        counts: vec![0; decl.auto_dim.len()],
+                        max,
+                    },
+                );
+            }
+        }
+
+        let thread_id = NEXT_THREAD_ID.fetch_add(1, Ordering::Relaxed);
+        Timer::set_enabled(thread_id, timer_enabled);
+        let cpu_scheduler = if cpu_scheduler_override.is_some() {
+            cpu_scheduler_override
+        } else {
+            crate::backend::cpu::scheduler::CpuScheduler::maybe_new(
+                device,
+                &graph,
+                trace_enabled,
+                timer_enabled,
+                inplace_enabled,
+            )?
+        };
+        Ok(Self {
+            model,
+            backend,
+            graph,
+            dynamic: HashMap::new(),
+            storage,
+            cache_tables,
+            auto_dims,
+            kinds,
+            temps: HashSet::new(),
+            inplace_enabled,
+            state: ExecState::NotStarted,
+            frames: Vec::new(),
+            loop_vars: HashMap::new(),
+            trace_events: Vec::new(),
+            trace_enabled,
+            timer_enabled,
+            thread_id,
+            device,
+            cpu_scheduler,
+            last_yield_vars: None,
+        })
+    }
+
+    pub(crate) fn from_snapshot(
+        model: Arc<ModelLoader>,
+        device: Device,
+        graph: Graph,
+        trace_enabled: bool,
+        timer_enabled: bool,
+        inplace_enabled: bool,
+        snapshot: ExecutorSnapshot,
+        scheduler: Option<Arc<crate::backend::cpu::scheduler::CpuScheduler>>,
+    ) -> Result<Self> {
+        let backend = backend_for(device)?;
+        let mut exec = Self::new_with_backend(
+            model,
+            device,
+            graph,
+            backend,
+            trace_enabled,
+            timer_enabled,
+            inplace_enabled,
+            scheduler,
+            #[cfg(feature = "vulkan")]
+            None,
+        )?;
+        exec.storage.extend(snapshot.storage);
+        exec.dynamic.extend(snapshot.dynamic);
+        exec.temps.extend(snapshot.temps);
+        exec.cache_tables = snapshot.cache_tables;
+        exec.auto_dims = snapshot.auto_dims;
+        Ok(exec)
+    }
+
+    #[cfg(feature = "vulkan")]
+    pub(crate) fn from_snapshot_with_backend(
+        model: Arc<ModelLoader>,
+        device: Device,
+        graph: Graph,
+        backend: Arc<dyn DeviceBackend>,
+        trace_enabled: bool,
+        timer_enabled: bool,
+        inplace_enabled: bool,
+        snapshot: ExecutorSnapshot,
+        cpu_scheduler: Option<Arc<crate::backend::cpu::scheduler::CpuScheduler>>,
+        vulkan_scheduler: Option<Arc<VulkanScheduler>>,
+    ) -> Result<Self> {
+        let mut exec = Self::new_with_backend(
+            model,
+            device,
+            graph,
+            backend,
+            trace_enabled,
+            timer_enabled,
+            inplace_enabled,
+            cpu_scheduler,
+            vulkan_scheduler,
+        )?;
+        exec.storage.extend(snapshot.storage);
+        exec.dynamic.extend(snapshot.dynamic);
+        exec.temps.extend(snapshot.temps);
+        exec.cache_tables = snapshot.cache_tables;
+        exec.auto_dims = snapshot.auto_dims;
+        Ok(exec)
     }
 
     pub fn insert_dynamic<T: Into<TensorValue>>(&mut self, name: &str, data: T) -> Result<()> {
@@ -277,15 +523,20 @@ impl<'a> Executor<'a> {
         Ok(())
     }
 
-    pub fn run_step(&mut self) -> Result<()> {
-        self.step()
-    }
-
     fn is_running(&self) -> bool {
         self.state != ExecState::Finished
     }
 
-    fn prepare_step(&mut self) -> Result<()> {
+    fn prepare_step(&mut self, reset_scheduler: bool) -> Result<()> {
+        if reset_scheduler {
+            if let Some(scheduler) = self.cpu_scheduler.as_ref() {
+                scheduler.reset();
+            }
+            #[cfg(feature = "vulkan")]
+            if let Some(scheduler) = self.vulkan_scheduler.as_ref() {
+                scheduler.reset();
+            }
+        }
         self.advance_auto_dims()
     }
 
@@ -302,15 +553,75 @@ impl<'a> Executor<'a> {
         Ok(())
     }
 
-    pub fn iterate(&'a mut self) -> ExecutorIter<'a> {
+    pub(crate) fn run_block(&mut self, block_name: &str) -> Result<BlockExit> {
+        self.state = ExecState::Running;
+        self.frames.clear();
+        self.loop_vars.clear();
+        self.prepare_step(false)?;
+        let block = self.graph.block(block_name)?.clone();
+        self.frames.push(ExecFrame::Block(frames::BlockFrame {
+            name: block.name.clone(),
+            nodes: block.nodes,
+            pos: 0,
+        }));
+        while self.is_running() {
+            let event = self.next_node()?;
+            if self.trace_enabled {
+                println!("{}", format_step_line(&event));
+            }
+            match event.kind {
+                TraceEventKind::Yield => {
+                    if let Some(vars) = self.last_yield_vars.take() {
+                        return Ok(BlockExit::Yield(vars));
+                    }
+                }
+                TraceEventKind::Return => {
+                    if self.state == ExecState::Finished {
+                        return Ok(BlockExit::Return);
+                    }
+                }
+                _ => {}
+            }
+        }
+        Ok(BlockExit::Return)
+    }
+
+    pub fn iterate(&mut self) -> ExecutorIter<'_> {
         ExecutorIter {
-            exec: self as *mut Executor<'a>,
+            exec: self as *mut Executor,
             marker: PhantomData,
         }
     }
 
     pub fn trace(&self) -> &[TraceEvent] {
         &self.trace_events
+    }
+
+    pub(crate) fn snapshot(&self) -> ExecutorSnapshot {
+        ExecutorSnapshot {
+            storage: self
+                .storage
+                .iter()
+                .filter_map(|(name, stored)| match stored {
+                    StoredTensor::Data(data) => Some((name.clone(), StoredTensor::Data(data.clone()))),
+                    StoredTensor::Unloaded => None,
+                })
+                .collect(),
+            dynamic: self.dynamic.clone(),
+            temps: self.temps.clone(),
+            cache_tables: self.cache_tables.clone(),
+            auto_dims: self.auto_dims.clone(),
+        }
+    }
+
+    pub(crate) fn apply_updates(&mut self, updates: HashMap<String, TensorStorage>) {
+        for (name, data) in updates {
+            if self.kinds.get(&name) == Some(&MemoryKind::Dynamic) {
+                self.dynamic.insert(name, data);
+            } else {
+                self.storage.insert(name, StoredTensor::Data(data));
+            }
+        }
     }
 
     fn resolve_trace_name(&self, name: &str) -> String {
@@ -409,7 +720,7 @@ impl<'a> Executor<'a> {
                 .ok_or_else(|| anyhow!("unknown variable: {}", name))?;
             let model_name = decl.model_name();
             let data =
-                load_decl_tensor(self.model, &mut *self.backend, decl, model_name, false)?;
+                load_decl_tensor(self.model.as_ref(), &*self.backend, decl, model_name, false)?;
             self.storage
                 .insert(name.to_string(), StoredTensor::Data(data.clone()));
             return Ok(data);
@@ -419,8 +730,8 @@ impl<'a> Executor<'a> {
                 return Ok(data.clone());
             }
             let data = load_decl_tensor(
-                self.model,
-                &mut *self.backend,
+            self.model.as_ref(),
+                &*self.backend,
                 &access.decl,
                 &access.model_name,
                 true,
@@ -433,6 +744,10 @@ impl<'a> Executor<'a> {
             return Err(anyhow!("temporary variable missing: {}", name));
         }
         Err(anyhow!("unknown variable: {}", name))
+    }
+
+    pub(crate) fn get_tensor_for_scheduler(&mut self, name: &str) -> Result<TensorStorage> {
+        self.get_tensor(name)
     }
 
     fn cleanup_temps(&mut self) {
@@ -456,9 +771,14 @@ enum ExecState {
     Finished,
 }
 
+pub(crate) enum BlockExit {
+    Return,
+    Yield(Vec<String>),
+}
+
 fn load_decl_tensor(
     model: &ModelLoader,
-    backend: &mut dyn DeviceBackend,
+    backend: &dyn DeviceBackend,
     decl: &crate::types::VarDecl,
     model_name: &str,
     require_model: bool,
@@ -493,8 +813,8 @@ fn load_decl_tensor(
 }
 
 pub struct ExecutorIter<'a> {
-    exec: *mut Executor<'a>,
-    marker: PhantomData<&'a mut Executor<'a>>,
+    exec: *mut Executor,
+    marker: PhantomData<&'a mut Executor>,
 }
 
 impl<'a> Iterator for ExecutorIter<'a> {
@@ -518,12 +838,12 @@ impl<'a> Iterator for ExecutorIter<'a> {
 
 pub struct TraceStep<'a> {
     pub event: TraceEvent,
-    exec: *mut Executor<'a>,
-    marker: PhantomData<&'a mut Executor<'a>>,
+    exec: *mut Executor,
+    marker: PhantomData<&'a mut Executor>,
 }
 
 impl<'a> std::ops::Deref for TraceStep<'a> {
-    type Target = Executor<'a>;
+    type Target = Executor;
 
     fn deref(&self) -> &Self::Target {
         unsafe { &*self.exec }

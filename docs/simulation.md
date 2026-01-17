@@ -18,6 +18,9 @@ By default, the simulator does not print trace output or time ops. Enable
 output aliases an input (e.g. `op add(x, y) >> x`), which is useful for
 measuring allocation overhead vs. the standard out-of-place behavior.
 
+Yield/await blocks can execute concurrently on CPU and Vulkan; trace output
+will interleave block names to make concurrency visible (see `examples/rust/yield.rs`).
+
 ## Step through nodes with logging + timing
 
 ```rust
@@ -61,7 +64,7 @@ let sim = Simulator::new(&model, &g, Device::Cpu)?
 let mut exec = sim.make_executor()?;
 let input = Tensor::from_vec(input)?;
 insert_executor!(exec, { x: input });
-exec.run_step()?;
+exec.step()?;
 let trace = exec.trace();
 std::fs::write("build/trace.json", serde_json::to_string_pretty(&trace)?)?;
 ```

@@ -9,7 +9,7 @@ use crate::parsers::range::parse_range_value;
 use crate::parsers::var::parse_var_ref;
 use crate::types::{
     AssignNode, BranchNode, CacheDecNode, CacheIncNode, CacheReadNode, CacheResetNode, CacheWriteNode, Node,
-    LoopNode, OpArg, OpNode,
+    AwaitNode, LoopNode, OpArg, OpNode, YieldNode,
 };
 
 impl Parse for Node {
@@ -141,6 +141,38 @@ impl Parse for Node {
                 end,
                 body,
             }))
+        } else if input.peek(Token![yield]) {
+            input.parse::<Token![yield]>()?;
+            let mut vars = Vec::new();
+            while !input.peek(Token![;]) {
+                vars.push(input.parse()?);
+                if input.peek(Token![,]) {
+                    input.parse::<Token![,]>()?;
+                } else {
+                    break;
+                }
+            }
+            if vars.is_empty() {
+                return Err(input.error("yield expects at least one variable"));
+            }
+            input.parse::<Token![;]>()?;
+            Ok(Node::Yield(YieldNode { vars }))
+        } else if input.peek(Token![await]) {
+            input.parse::<Token![await]>()?;
+            let mut vars = Vec::new();
+            while !input.peek(Token![;]) {
+                vars.push(input.parse()?);
+                if input.peek(Token![,]) {
+                    input.parse::<Token![,]>()?;
+                } else {
+                    break;
+                }
+            }
+            if vars.is_empty() {
+                return Err(input.error("await expects at least one variable"));
+            }
+            input.parse::<Token![;]>()?;
+            Ok(Node::Await(AwaitNode { vars }))
         } else if input.peek(Token![return]) {
             input.parse::<Token![return]>()?;
             input.parse::<Token![;]>()?;

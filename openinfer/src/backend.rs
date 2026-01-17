@@ -50,6 +50,9 @@ pub enum TensorStorage {
     Device(DeviceTensor),
 }
 
+// TensorStorage is moved across threads but not shared concurrently.
+unsafe impl Send for TensorStorage {}
+
 impl TensorStorage {
     pub fn dtype(&self) -> DType {
         match self {

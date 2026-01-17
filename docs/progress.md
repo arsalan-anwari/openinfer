@@ -18,12 +18,12 @@ Checklist of features described in the README and current implementation status.
 - [x] Inplace kernels for faster simulation when possible
 - [x] Cache operations beyond basic memory access
 - [x] Prefixed/autodim cache ergonomics
+- [x] Branching and yielding across blocks
 
 ## DSL Gaps
 
 Features described in the README DSL sections that are not fully supported yet.
 
-- [ ] Branching and yielding across blocks
 - [ ] Barrier and explicit control dependency nodes
 
 ## In Progress / Planned
@@ -33,4 +33,3 @@ Features described in the README DSL sections that are not fully supported yet.
 - [ ] Device architecture JSON input for the synthesizer
 - [ ] Analyzer and optimization passes
 - [ ] Porting remaining kernels from C to Rust
-

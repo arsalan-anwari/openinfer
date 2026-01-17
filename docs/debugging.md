@@ -23,6 +23,7 @@ Graph and Execution Traces
   - `examples/rust/branching_good.rs`
   - `examples/rust/branching_bad.rs`
   - `examples/rust/ops_matrix.rs`
+  - `examples/rust/yield.rs`
 - The trace output includes block names so you can confirm control-flow paths.
 
 Model and DSL Validation

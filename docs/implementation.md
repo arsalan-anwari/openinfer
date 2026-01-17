@@ -34,6 +34,8 @@ Node types inside a block:
 - `assign name: dtype[Dims];` declares a temporary variable
 - `op add(x, y) >> out;` invokes an op
 - `cache.read`, `cache.write`, `cache.increment`, `cache.decrement`, `cache.reset` for persistent cache access
+- `branch cond then else;` or `branch target;` for control flow
+- `yield a, b;` and `await a, b;` for concurrent block execution
 - `loop name (i in start..end) { ... }` for repeated blocks
 - `return;` stops the block
 
@@ -63,7 +65,8 @@ Parsing happens in `impl Parse for GraphDsl` and the helpers in
 (`VarDecl`) that include `dtype`, optional `dims`, and optional `@init(...)`.
 Persistent variables may additionally carry `@table`, `@auto_dim(...)`, and
 `@fixed(...)` attributes which are stored on the declaration.
-Each block parses nodes into one of `Assign`, `Op`, cache operations, `Loop`, or `Return`.
+Each block parses nodes into one of `Assign`, `Op`, cache operations, `Branch`,
+`Yield`, `Await`, `Loop`, or `Return`.
 
 Expansion is in `GraphDsl::expand`:
 
@@ -91,7 +94,7 @@ Each `Block` holds an ordered list of `Node`, and each `Node` contains:
 - `index`: the order in which it was inserted
 - `uuid`: a unique identifier
 - `kind`: one of `Assign`, `Op`, `CacheRead`, `CacheWrite`, `CacheIncrement`,
-  `CacheDecrement`, `CacheReset`, `Loop`, or `Return`
+  `CacheDecrement`, `CacheReset`, `Branch`, `Yield`, `Await`, `Loop`, or `Return`
 
 Example (conceptual):
 
@@ -227,6 +230,10 @@ them in `OUT_DIR`. During dispatch, the runtime:
 
 This allows ops to split float/signed/unsigned kernels into separate shaders
 without exceeding descriptor set limits.
+
+Yield/await scheduling is implemented in `openinfer/src/backend/vulkan/`. Consumer
+blocks are dispatched asynchronously on the GPU and synchronized back to the entry
+block via host-side fences.
 
 ### Example serialized graph
 

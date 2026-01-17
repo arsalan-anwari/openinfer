@@ -196,10 +196,10 @@ let mut sim = Simulator::new(&model, &g, Device::Cpu)?;
 let exec = sim.make_executor()?;
 
 insert_executor!(exec, { x: first_token });
-exec.run_step()?;
+exec.step()?;
 
 insert_executor!(exec, { x: second_token });
-exec.run_step()?;
+exec.step()?;
 ```
 
 Each invocation:

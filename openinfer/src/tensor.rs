@@ -160,6 +160,10 @@ pub struct Tensor<T> {
     view_cache: UnsafeCell<TensorView<T>>,
 }
 
+// Tensor owns its backing storage; moving between threads is safe when it is
+// not accessed concurrently.
+unsafe impl<T: Send> Send for Tensor<T> {}
+
 impl<T: Clone> Clone for Tensor<T> {
     fn clone(&self) -> Self {
         let data = self.data.clone();
@@ -669,6 +673,9 @@ pub enum TensorValue {
     Bitset(Tensor<Bitset>),
     F16(Tensor<F16>),
 }
+
+// TensorValue is moved across threads but not shared concurrently.
+unsafe impl Send for TensorValue {}
 
 impl TensorValue {
     pub fn dtype(&self) -> DType {

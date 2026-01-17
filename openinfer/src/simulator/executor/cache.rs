@@ -12,14 +12,14 @@ use super::tensor_utils::{
 use super::Executor;
 
 #[derive(Debug, Clone)]
-pub(super) struct AutoDimState {
+pub(crate) struct AutoDimState {
     pub(super) base_shape: Vec<usize>,
     pub(super) counts: Vec<usize>,
     pub(super) max: Vec<Option<usize>>,
 }
 
 #[derive(Debug, Clone)]
-pub(super) struct CacheTable {
+pub(crate) struct CacheTable {
     pub(super) decl: crate::types::VarDecl,
     #[allow(dead_code)]
     pub(super) base_shape: Vec<usize>,
@@ -47,7 +47,7 @@ pub(super) enum ResolvedCacheIndexExpr {
     Slice { start: Option<i64>, end: Option<i64> },
 }
 
-impl Executor<'_> {
+impl Executor {
     pub(super) fn advance_auto_dims(&mut self) -> Result<()> {
         let names: Vec<String> = self.auto_dims.keys().cloned().collect();
         for name in names {

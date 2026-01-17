@@ -25,7 +25,7 @@ pub(super) enum ExecFrame {
     Loop(LoopFrame),
 }
 
-impl Executor<'_> {
+impl Executor {
     pub(super) fn next_node_from_frames(&mut self) -> Result<Option<crate::graph::Node>> {
         loop {
             let Some(frame) = self.frames.last_mut() else {

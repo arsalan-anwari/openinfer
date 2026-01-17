@@ -99,3 +99,7 @@ path = "../examples/rust/branching_bad.rs"
 [[example]]
 name = "ops_matrix"
 path = "../examples/rust/ops_matrix.rs"
+
+[[example]]
+name = "yield"
+path = "../examples/rust/yield.rs"

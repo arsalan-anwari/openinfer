@@ -150,11 +150,11 @@ block algorithm {
 
 ### Yield
 
-Use `yield {var}` when you want the entry block to remove temporary access to a variable
+Use `yield {var}` when you want the entry block to remove temporary access to a variable.
 
 This is useful for async or streaming execution.
 
-After yielding, the entry block cannot mutate the variable used by the consuming blocks. However its free to execute other code.
+After yielding, the entry block cannot mutate the variable used by the consuming blocks. However it is free to execute other code.
 
 Using `await {var}`, multiple blocks can consume the same variable, but only one can mutate it.
 
@@ -164,20 +164,21 @@ Entry block has access to the variable whenever all consumers yield the variable
 block entry {
   assign h: f32[B, D];
   assign x: i32[D];
+  assign h2: f32[B, D];
 
   op matmul(x, W[0]) >> h;
   yield x; //x not available anymore to entry
 
-  // These ops are executed in parrallel
+  // These ops are executed in parallel
   op relu(h, negative_slope=0.0, clamp_max=6.0) >> h;
 
-  // Waitng for all consumers to be done.
+  // Waiting for all consumers to be done.
   await x;
   // do something with x modified by consumer blocks...
   return h;
 }
 
-// A different device, core or thread could execute execute this
+// A different device, core or thread could execute this
 // The exact scheduling model is backend-defined.
 
 block consumer_1 {
@@ -188,7 +189,7 @@ block consumer_1 {
 
 block consumer_2 {
   await x;
-  // some compute reading x.
+  op relu(x, negative_slope=0.0, clamp_max=6.0) >> h2;
   yield x;
 }
 
@@ -204,6 +205,8 @@ Notes:
 * For sub blocks `yield` is a terminator like `return`. For the entry block its an invokation.
 * It defines an explicit control-flow edge to a continuation block.
 * Backends may interpret `yield` as "pause and resume", "send to a queue", or "schedule on another device". Implementation depends on device.
-* Each consumer will have the last know value of the variable that was yielded by the entry block. This means that the consumer which mutates x will not affect other consumers which read x.
+* Each consumer will have the last known value of the variable that was yielded by the entry block. This means that the consumer which mutates x will not affect other consumers which read x.
+* Yield/await is supported on CPU and Vulkan backends; other backends reject it during validation.
+* The runtime requires an `await` to complete a yield phase before the entry block can yield again.
 
-> You can `yield` and `await` multiple variable like: `yield a, b, c;` and `await a, b, c;`. In this case the `await` will be serialized untill all variables are available. This also means multiple blocks can mutate different variables, but the rule of 1 block per variable still applies. So for example `b1` mutates `a` and `b2` mutates `b, c`.
+> You can `yield` and `await` multiple variable like: `yield a, b, c;` and `await a, b, c;`. In this case the `await` will be serialized until all variables are available. This also means multiple blocks can mutate different variables, but the rule of 1 block per variable still applies. So for example `b1` mutates `a` and `b2` mutates `b, c`.

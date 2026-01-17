@@ -65,6 +65,8 @@ pub(crate) enum Node {
     CacheDec(CacheDecNode),
     CacheReset(CacheResetNode),
     Loop(LoopNode),
+    Yield(YieldNode),
+    Await(AwaitNode),
     Return,
 }
 
@@ -117,6 +119,14 @@ pub(crate) struct CacheDecNode {
 
 pub(crate) struct CacheResetNode {
     pub(crate) target: CacheAccess,
+}
+
+pub(crate) struct YieldNode {
+    pub(crate) vars: Vec<Ident>,
+}
+
+pub(crate) struct AwaitNode {
+    pub(crate) vars: Vec<Ident>,
 }
 
 #[derive(Clone)]

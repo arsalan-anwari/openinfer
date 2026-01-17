@@ -26,6 +26,10 @@ pub struct VulkanRuntime {
     max_descriptor_sets: u32,
 }
 
+// VulkanRuntime is shared across threads behind external synchronization.
+unsafe impl Send for VulkanRuntime {}
+unsafe impl Sync for VulkanRuntime {}
+
 const MIN_DESCRIPTOR_SETS: u32 = 1;
 
 pub struct VulkanBufferInner {

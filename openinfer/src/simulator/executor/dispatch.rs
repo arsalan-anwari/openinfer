@@ -10,7 +10,7 @@ use super::tensor_utils::{tensor_scalar_to_attr_value, tensor_scalar_to_bool, te
 use super::trace::{format_duration_ns, TraceEvent, TraceEventKind};
 use super::Executor;
 
-impl Executor<'_> {
+impl Executor {
     pub(super) fn next_node(&mut self) -> Result<TraceEvent> {
         if self.state == super::ExecState::Finished {
             return Err(anyhow!("executor has finished running"));
@@ -20,7 +20,7 @@ impl Executor<'_> {
             self.state = super::ExecState::Running;
             self.frames.clear();
             self.loop_vars.clear();
-            self.prepare_step()?;
+            self.prepare_step(true)?;
             let block = self.graph.block("entry")?.clone();
             self.frames.push(ExecFrame::Block(super::frames::BlockFrame {
                 name: block.name.clone(),
@@ -198,6 +198,129 @@ impl Executor<'_> {
                     let _ = name;
                     self.push_loop_frame(index, start, end, body)?;
                     continue;
+                }
+                NodeKind::Yield { vars } => {
+                    if block_name == "entry" {
+                        for var in &vars {
+                            let value = self.get_tensor(var)?;
+                            if self.kinds.get(var) == Some(&MemoryKind::Dynamic) {
+                                self.dynamic.insert(var.clone(), value);
+                            } else {
+                                self.storage
+                                    .insert(var.clone(), super::StoredTensor::Data(value));
+                            }
+                        }
+                        let snapshot = self.snapshot();
+                        match self.device {
+                            super::Device::Vulkan => {
+                                #[cfg(feature = "vulkan")]
+                                {
+                                    let scheduler = self
+                                        .vulkan_scheduler
+                                        .as_ref()
+                                        .ok_or_else(|| anyhow!("yield is only supported on Vulkan backend"))?;
+                                    scheduler.schedule_yield(
+                                        &vars,
+                                        snapshot,
+                                        self.model.clone(),
+                                        self.device,
+                                        self.graph.clone(),
+                                        self.trace_enabled,
+                                        self.timer_enabled,
+                                        self.inplace_enabled,
+                                    )?;
+                                }
+                                #[cfg(not(feature = "vulkan"))]
+                                {
+                                    let _ = snapshot;
+                                    return Err(anyhow!("vulkan feature not enabled for this build"));
+                                }
+                            }
+                            _ => {
+                                let scheduler = self
+                                    .cpu_scheduler
+                                    .as_ref()
+                                    .ok_or_else(|| anyhow!("yield is only supported on CPU backends"))?;
+                                scheduler.schedule_yield(
+                                    &vars,
+                                    snapshot,
+                                    self.model.clone(),
+                                    self.device,
+                                    self.graph.clone(),
+                                    self.trace_enabled,
+                                    self.timer_enabled,
+                                    self.inplace_enabled,
+                                )?;
+                            }
+                        }
+                    } else {
+                        self.last_yield_vars = Some(vars.clone());
+                        let finished = self.return_from_block();
+                        if finished {
+                            self.state = super::ExecState::Finished;
+                            self.cleanup_temps();
+                            self.loop_vars.clear();
+                        }
+                    }
+                    return Ok(self.record_event(TraceEvent {
+                        kind: TraceEventKind::Yield,
+                        node_index: node.index,
+                        node_uuid: node.uuid,
+                        block_name,
+                        node_desc,
+                        op_name: String::new(),
+                        params: vars,
+                        output: Vec::new(),
+                        micros: String::new(),
+                        micros_parts: [0, 0, 0],
+                    }));
+                }
+                NodeKind::Await { vars } => {
+                    match self.device {
+                        super::Device::Vulkan => {
+                            #[cfg(feature = "vulkan")]
+                            {
+                                let scheduler = self
+                                    .vulkan_scheduler
+                                    .as_ref()
+                                    .ok_or_else(|| anyhow!("await is only supported on Vulkan backend"))?;
+                                if block_name == "entry" {
+                                    let updates = scheduler.await_vars(&vars)?;
+                                    self.apply_updates(updates);
+                                } else {
+                                    scheduler.wait_for_vars(&vars)?;
+                                }
+                            }
+                            #[cfg(not(feature = "vulkan"))]
+                            {
+                                return Err(anyhow!("vulkan feature not enabled for this build"));
+                            }
+                        }
+                        _ => {
+                            let scheduler = self
+                                .cpu_scheduler
+                                .as_ref()
+                                .ok_or_else(|| anyhow!("await is only supported on CPU backends"))?;
+                            if block_name == "entry" {
+                                let updates = scheduler.await_vars(&vars)?;
+                                self.apply_updates(updates);
+                            } else {
+                                scheduler.wait_for_vars(&vars)?;
+                            }
+                        }
+                    }
+                    return Ok(self.record_event(TraceEvent {
+                        kind: TraceEventKind::Await,
+                        node_index: node.index,
+                        node_uuid: node.uuid,
+                        block_name,
+                        node_desc,
+                        op_name: String::new(),
+                        params: vars,
+                        output: Vec::new(),
+                        micros: String::new(),
+                        micros_parts: [0, 0, 0],
+                    }));
                 }
                 NodeKind::Return => {
                     let finished = self.return_from_block();

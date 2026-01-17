@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use anyhow::{anyhow, Result};
 
 use super::prefix::validate_prefix_decl;
@@ -86,8 +88,12 @@ pub(crate) fn validate_graph(ctx: &ValidationContext) -> Result<()> {
     }
 
     for block in ctx.graph.blocks.values() {
-        validate_block(ctx, block)?;
+        let is_entry = block.name == "entry";
+        validate_block(ctx, block, is_entry)?;
     }
+
+    validate_yield_backend(ctx)?;
+    validate_yield_writers(ctx)?;
 
     Ok(())
 }
@@ -183,4 +189,137 @@ fn validate_cache_decl(ctx: &ValidationContext, decl: &crate::types::VarDecl) ->
         ));
     }
     Ok(())
+}
+
+fn validate_yield_backend(ctx: &ValidationContext) -> Result<()> {
+    if ctx.device == super::Device::Cpu
+        || ctx.device == super::Device::CpuAvx
+        || ctx.device == super::Device::CpuAvx2
+        || ctx.device == super::Device::Vulkan
+    {
+        return Ok(());
+    }
+    for block in ctx.graph.blocks.values() {
+        for node in &block.nodes {
+            match &node.kind {
+                crate::graph::NodeKind::Yield { .. } | crate::graph::NodeKind::Await { .. } => {
+                    return Err(anyhow!(
+                        "yield/await is only supported on CPU backends (block {})",
+                        block.name
+                    ));
+                }
+                crate::graph::NodeKind::Loop { body, .. } => {
+                    if loop_contains_yield(body) {
+                        return Err(anyhow!(
+                            "yield/await is only supported on CPU backends (block {})",
+                            block.name
+                        ));
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    Ok(())
+}
+
+fn loop_contains_yield(nodes: &[crate::graph::Node]) -> bool {
+    for node in nodes {
+        match &node.kind {
+            crate::graph::NodeKind::Yield { .. }
+            | crate::graph::NodeKind::Await { .. } => return true,
+            crate::graph::NodeKind::Loop { body, .. } => {
+                if loop_contains_yield(body) {
+                    return true;
+                }
+            }
+            _ => {}
+        }
+    }
+    false
+}
+
+fn validate_yield_writers(ctx: &ValidationContext) -> Result<()> {
+    let mut writer_map: HashMap<String, String> = HashMap::new();
+    for block in ctx.graph.blocks.values() {
+        if block.name == "entry" {
+            continue;
+        }
+        let await_vars = block_await_vars(&block.nodes);
+        if await_vars.is_empty() {
+            continue;
+        }
+        let writes = block_write_vars(&block.nodes);
+        for var in await_vars {
+            if !writes.contains(&var) {
+                continue;
+            }
+            if let Some(existing) = writer_map.get(&var) {
+                return Err(anyhow!(
+                    "yield variable {} has multiple writers: {} and {}",
+                    var,
+                    existing,
+                    block.name
+                ));
+            }
+            writer_map.insert(var, block.name.clone());
+        }
+    }
+    Ok(())
+}
+
+fn block_await_vars(nodes: &[crate::graph::Node]) -> Vec<String> {
+    let mut vars = Vec::new();
+    for node in nodes {
+        match &node.kind {
+            crate::graph::NodeKind::Await { vars: awaited } => {
+                for var in awaited {
+                    if !vars.contains(var) {
+                        vars.push(var.clone());
+                    }
+                }
+            }
+            crate::graph::NodeKind::Loop { body, .. } => {
+                for var in block_await_vars(body) {
+                    if !vars.contains(&var) {
+                        vars.push(var);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    vars
+}
+
+fn block_write_vars(nodes: &[crate::graph::Node]) -> Vec<String> {
+    let mut vars = Vec::new();
+    for node in nodes {
+        match &node.kind {
+            crate::graph::NodeKind::Assign { name, .. } => {
+                if !vars.contains(name) {
+                    vars.push(name.clone());
+                }
+            }
+            crate::graph::NodeKind::Op { output, .. } => {
+                if !vars.contains(output) {
+                    vars.push(output.clone());
+                }
+            }
+            crate::graph::NodeKind::CacheRead { dst, .. } => {
+                if !vars.contains(dst) {
+                    vars.push(dst.clone());
+                }
+            }
+            crate::graph::NodeKind::Loop { body, .. } => {
+                for var in block_write_vars(body) {
+                    if !vars.contains(&var) {
+                        vars.push(var);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    vars
 }

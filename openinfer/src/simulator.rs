@@ -6,13 +6,14 @@ use crate::backend::cpu::CpuBackend;
 use crate::graph::{Graph, OpAttrs};
 
 use crate::model_loader::ModelLoader;
+use std::sync::Arc;
 use crate::tensor::DType;
 
 #[cfg(feature = "vulkan")]
 use crate::backend::vulkan::VulkanBackend;
 
 mod validation;
-mod executor;
+pub(crate) mod executor;
 
 pub use executor::{Executor, Fetchable, TraceEvent, TraceEventKind};
 use validation::validate_graph;
@@ -37,7 +38,7 @@ impl Device {
 }
 
 #[allow(unused)]
-pub(crate) trait DeviceBackend {
+pub(crate) trait DeviceBackend: Send + Sync {
     fn device(&self) -> Device;
     fn alloc(&self, dtype: DType, shape: &[usize]) -> Result<crate::backend::TensorStorage>;
     fn upload(&self, value: crate::tensor::TensorValue) -> Result<crate::backend::TensorStorage>;
@@ -60,19 +61,19 @@ pub(crate) trait DeviceBackend {
     ) -> Result<crate::backend::TensorStorage>;
 }
 
-pub(crate) fn backend_for(device: Device) -> Result<Box<dyn DeviceBackend>> {
+pub(crate) fn backend_for(device: Device) -> Result<Arc<dyn DeviceBackend>> {
     match device {
-        Device::Cpu | Device::CpuAvx | Device::CpuAvx2 => Ok(Box::new(CpuBackend::new(device))),
+        Device::Cpu | Device::CpuAvx | Device::CpuAvx2 => Ok(Arc::new(CpuBackend::new(device))),
         #[cfg(feature = "vulkan")]
-        Device::Vulkan => Ok(Box::new(VulkanBackend::new())),
+        Device::Vulkan => Ok(Arc::new(VulkanBackend::new())),
         #[cfg(not(feature = "vulkan"))]
         Device::Vulkan => Err(anyhow!("vulkan feature not enabled for this build")),
     }
 }
 
 #[derive(Debug)]
-pub struct Simulator<'a> {
-    model: &'a ModelLoader,
+pub struct Simulator {
+    model: Arc<ModelLoader>,
     graph: Graph,
     device: Device,
     trace_enabled: bool,
@@ -80,14 +81,14 @@ pub struct Simulator<'a> {
     inplace_enabled: bool,
 }
 
-impl<'a> Simulator<'a> {
-    pub fn new(model: &'a ModelLoader, graph: &Graph, device: Device) -> Result<Self> {
+impl Simulator {
+    pub fn new(model: &ModelLoader, graph: &Graph, device: Device) -> Result<Self> {
         if !device.is_supported() {
             return Err(anyhow!("device {:?} not supported for this build", device));
         }
         validate_graph(model, graph, device)?;
         Ok(Self {
-            model,
+            model: Arc::new(model.clone()),
             graph: graph.clone(),
             device,
             trace_enabled: false,
@@ -111,9 +112,9 @@ impl<'a> Simulator<'a> {
         self
     }
 
-    pub fn make_executor(&self) -> Result<Executor<'a>> {
+    pub fn make_executor(&self) -> Result<Executor> {
         Executor::new(
-            self.model,
+            self.model.clone(),
             self.device,
             self.graph.clone(),
             self.trace_enabled,

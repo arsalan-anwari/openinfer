@@ -16,6 +16,7 @@ use crate::tensor::{broadcast_shapes, Bitset, DType, F16, TensorValue};
 pub mod runtime;
 pub use runtime::{storage_size_bytes, VulkanBufferInner, VulkanRuntime};
 pub mod broadcast;
+pub mod scheduler;
 
 mod embedded_spirv {
     include!(concat!(env!("OUT_DIR"), "/vulkan_spirv.rs"));
@@ -87,6 +88,7 @@ impl ShaderRegistry for VulkanShaderRegistry {
 pub struct VulkanBackend {
     shaders: VulkanShaderRegistry,
     runtime: Mutex<Option<Arc<VulkanRuntime>>>,
+    dispatch_lock: Mutex<()>,
 }
 
 impl VulkanBackend {
@@ -98,6 +100,7 @@ impl VulkanBackend {
         Self {
             shaders,
             runtime: Mutex::new(None),
+            dispatch_lock: Mutex::new(()),
         }
     }
 
@@ -144,6 +147,10 @@ impl DeviceBackend for VulkanBackend {
     }
 
     fn alloc(&self, dtype: DType, shape: &[usize]) -> Result<TensorStorage> {
+        let _guard = self
+            .dispatch_lock
+            .lock()
+            .map_err(|_| anyhow!("vulkan dispatch lock poisoned"))?;
         let runtime = self.runtime()?;
         self.ensure_supported_dtype(dtype)?;
         let len = crate::tensor::numel(shape);
@@ -161,6 +168,10 @@ impl DeviceBackend for VulkanBackend {
     }
 
     fn upload(&self, value: TensorValue) -> Result<TensorStorage> {
+        let _guard = self
+            .dispatch_lock
+            .lock()
+            .map_err(|_| anyhow!("vulkan dispatch lock poisoned"))?;
         let runtime = self.runtime()?;
         let dtype = value.dtype();
         self.ensure_supported_dtype(dtype)?;
@@ -182,6 +193,10 @@ impl DeviceBackend for VulkanBackend {
     }
 
     fn download(&self, value: TensorStorage) -> Result<TensorValue> {
+        let _guard = self
+            .dispatch_lock
+            .lock()
+            .map_err(|_| anyhow!("vulkan dispatch lock poisoned"))?;
         match value {
             TensorStorage::Host(_) => Err(anyhow!("vulkan backend cannot download host tensor")),
             TensorStorage::Device(DeviceTensor::Vulkan(buf)) => {
@@ -207,6 +222,10 @@ impl DeviceBackend for VulkanBackend {
         if shader.is_none() {
             eprintln!("vulkan shaders: missing entry for op {}", op.as_str());
         }
+        let _guard = self
+            .dispatch_lock
+            .lock()
+            .map_err(|_| anyhow!("vulkan dispatch lock poisoned"))?;
         let mut buffers = to_vulkan_buffers(tensors, shader.clone())?;
         if buffers.len() > 1 {
             if broadcast_enabled(op, self.device()) {
@@ -259,6 +278,10 @@ impl DeviceBackend for VulkanBackend {
                 op.as_str()
             );
         }
+        let _guard = self
+            .dispatch_lock
+            .lock()
+            .map_err(|_| anyhow!("vulkan dispatch lock poisoned"))?;
         let buffers = to_vulkan_buffers(tensors, shader)?;
         if buffers.len() > 1 {
             let first = buffers[0].shape.clone();

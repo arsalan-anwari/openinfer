@@ -16,9 +16,14 @@ use super::dims::validate_dims;
 use super::vars::var_signature;
 use super::ValidationContext;
 
-pub(crate) fn validate_block(ctx: &ValidationContext, block: &Block) -> Result<()> {
+pub(crate) fn validate_block(
+    ctx: &ValidationContext,
+    block: &Block,
+    is_entry: bool,
+) -> Result<()> {
     let mut temps: HashMap<String, (DType, Vec<String>)> = HashMap::new();
-    validate_nodes(ctx, &mut temps, &block.nodes)?;
+    validate_nodes(ctx, &mut temps, &block.nodes, is_entry)?;
+    validate_yield_rules(block, is_entry)?;
     Ok(())
 }
 
@@ -26,6 +31,7 @@ fn validate_nodes(
     ctx: &ValidationContext,
     temps: &mut HashMap<String, (DType, Vec<String>)>,
     nodes: &[crate::graph::Node],
+    is_entry: bool,
 ) -> Result<()> {
     for node in nodes {
         match &node.kind {
@@ -62,6 +68,12 @@ fn validate_nodes(
             NodeKind::CacheReset { target } => {
                 validate_cache_reset(ctx, target)?;
             }
+            NodeKind::Yield { vars } => {
+                validate_yield_await_vars(ctx, temps, vars)?;
+            }
+            NodeKind::Await { vars } => {
+                validate_yield_await_vars(ctx, temps, vars)?;
+            }
             NodeKind::Loop {
                 name,
                 start,
@@ -70,7 +82,7 @@ fn validate_nodes(
                 ..
             } => {
                 validate_loop_bounds(ctx, name, start, end)?;
-                validate_nodes(ctx, temps, body)?;
+                validate_nodes(ctx, temps, body, is_entry)?;
             }
             NodeKind::Return => {}
         }
@@ -125,6 +137,68 @@ fn validate_loop_bounds(
         .resolve_dim_value(end)
         .map(|_| ())
         .map_err(|err| anyhow!("loop {} has invalid end bound {}: {}", name, end, err))?;
+    Ok(())
+}
+
+fn validate_yield_await_vars(
+    ctx: &ValidationContext,
+    temps: &HashMap<String, (DType, Vec<String>)>,
+    vars: &[String],
+) -> Result<()> {
+    for var in vars {
+        let _ = var_signature(ctx, temps, var)?;
+    }
+    Ok(())
+}
+
+fn validate_yield_rules(block: &Block, is_entry: bool) -> Result<()> {
+    let mut await_vars = Vec::new();
+    let mut yield_vars = Vec::new();
+    for (idx, node) in block.nodes.iter().enumerate() {
+        match &node.kind {
+            NodeKind::Await { vars } => {
+                for var in vars {
+                    if !await_vars.contains(var) {
+                        await_vars.push(var.clone());
+                    }
+                }
+            }
+            NodeKind::Yield { vars } => {
+                for var in vars {
+                    if !yield_vars.contains(var) {
+                        yield_vars.push(var.clone());
+                    }
+                }
+                if !is_entry && idx + 1 != block.nodes.len() {
+                    return Err(anyhow!(
+                        "yield in block {} must be the final node",
+                        block.name
+                    ));
+                }
+            }
+            _ => {}
+        }
+    }
+
+    if !is_entry && !await_vars.is_empty() {
+        if yield_vars.is_empty() {
+            return Err(anyhow!(
+                "block {} awaits {:?} but never yields them",
+                block.name,
+                await_vars
+            ));
+        }
+        for var in await_vars {
+            if !yield_vars.contains(&var) {
+                return Err(anyhow!(
+                    "block {} awaits {} but does not yield it",
+                    block.name,
+                    var
+                ));
+            }
+        }
+    }
+
     Ok(())
 }
 

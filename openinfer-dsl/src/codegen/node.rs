@@ -7,7 +7,7 @@ use crate::codegen::memory::match_dtype;
 use crate::types::{Node, RangeValue, VarRef};
 use crate::validation;
 
-use crate::types::{AssignNode, BranchNode, LoopNode, OpNode};
+use crate::types::{AssignNode, AwaitNode, BranchNode, LoopNode, OpNode, YieldNode};
 
 pub(crate) fn node_stmt(node: &Node, block_name: &str) -> syn::Result<proc_macro2::TokenStream> {
     match node {
@@ -92,6 +92,8 @@ pub(crate) fn node_kind_expr(node: &Node) -> syn::Result<proc_macro2::TokenStrea
             })
         }
         Node::Loop(loop_node) => loop_node_expr(loop_node),
+        Node::Yield(node) => yield_node_expr(node),
+        Node::Await(node) => await_node_expr(node),
         Node::Return => Ok(quote! { ::openinfer::NodeKind::Return }),
     }
 }
@@ -140,6 +142,30 @@ fn loop_node_expr(loop_node: &LoopNode) -> syn::Result<proc_macro2::TokenStream>
             start: #start.to_string(),
             end: #end.to_string(),
             body: #body_expr,
+        }
+    })
+}
+
+fn yield_node_expr(node: &YieldNode) -> syn::Result<proc_macro2::TokenStream> {
+    let vars = node.vars.iter().map(|var| {
+        let name = var.to_string();
+        quote! { #name.to_string() }
+    });
+    Ok(quote! {
+        ::openinfer::NodeKind::Yield {
+            vars: vec![#(#vars),*],
+        }
+    })
+}
+
+fn await_node_expr(node: &AwaitNode) -> syn::Result<proc_macro2::TokenStream> {
+    let vars = node.vars.iter().map(|var| {
+        let name = var.to_string();
+        quote! { #name.to_string() }
+    });
+    Ok(quote! {
+        ::openinfer::NodeKind::Await {
+            vars: vec![#(#vars),*],
         }
     })
 }

@@ -18,3 +18,4 @@ This list mirrors the Rust examples wired into `openinfer/Cargo.toml`.
 - `examples/rust/cache_auto_dim.rs`: Persistent auto-dim cache growth driven by indices.
 - `examples/rust/cache_weight_update.rs`: Updates cached weights across steps using ops.
 - `examples/rust/cache_fixed_limit.rs`: Shows `@fixed` bounds triggering a cache error.
+- `examples/rust/yield.rs`: Demonstrates yield/await concurrency across blocks.
