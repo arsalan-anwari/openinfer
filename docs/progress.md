@@ -19,6 +19,7 @@ Checklist of features described in the README and current implementation status.
 - [x] Cache operations beyond basic memory access
 - [x] Prefixed/autodim cache ergonomics
 - [x] Branching and yielding across blocks
+- [x] Support for types universal and special types (see [types.md](types.md)) and upsampling
 
 ## DSL Gaps
 
