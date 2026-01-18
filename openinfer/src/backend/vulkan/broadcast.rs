@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
 
-use crate::backend::vulkan::{embedded_spirv_for_op, storage_size_bytes, VulkanRuntime};
+use crate::backend::vulkan::{embedded_spirv_for_op, storage_size_bytes_for_len, VulkanRuntime};
 use crate::backend::VulkanBuffer;
 use crate::graph::OpKind;
 use crate::tensor::{compute_strides, numel, DType};
@@ -14,7 +14,7 @@ pub fn broadcast_buffer(
 ) -> Result<VulkanBuffer> {
     let runtime = runtime_from_buffers(input, None)?;
     let len = numel(out_shape);
-    let target = spv_target_name_broadcast(input.dtype)?;
+    let target = spv_target_name_broadcast(input.effective_dtype)?;
     let entry = "main";
     let spirv_map = embedded_spirv_for_op("broadcast");
     let spirv = spirv_map
@@ -27,13 +27,13 @@ pub fn broadcast_buffer(
     let meta_inner = runtime.create_buffer(meta_bytes.len())?;
     runtime.write_buffer(&meta_inner, &meta_bytes)?;
 
-    let output_size = storage_size_bytes(input.dtype) * len;
+    let output_size = storage_size_bytes_for_len(input.effective_dtype, len);
     let output_inner = runtime.create_buffer(output_size)?;
     let push = [len as u32, 0, 0, 0];
     let _duration_ns = runtime.dispatch(
         // Reuse a stable op key for pipeline caching; the target string keeps it distinct.
         OpKind::Add,
-        input.dtype,
+        input.effective_dtype,
         &target,
         entry,
         spirv,
@@ -46,6 +46,7 @@ pub fn broadcast_buffer(
 
     Ok(VulkanBuffer {
         dtype: input.dtype,
+        effective_dtype: input.effective_dtype,
         len,
         shape: out_shape.to_vec(),
         strides: compute_strides(out_shape),

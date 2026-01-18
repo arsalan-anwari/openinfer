@@ -9,6 +9,26 @@ pub struct Bitset {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct BF16 {
+    pub bits: u16,
+}
+
+impl BF16 {
+    pub fn from_f32(value: f32) -> Self {
+        let bits = value.to_bits();
+        let rounding = 0x7fff + ((bits >> 16) & 1);
+        let rounded = bits.wrapping_add(rounding);
+        Self {
+            bits: (rounded >> 16) as u16,
+        }
+    }
+
+    pub fn to_f32(self) -> f32 {
+        f32::from_bits((self.bits as u32) << 16)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct F16 {
     pub bits: u16,
 }
@@ -81,6 +101,150 @@ impl F16 {
             sign | (exp32 << 23) | (mant << 13)
         };
         f32::from_bits(bits)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct F8E5M2 {
+    pub bits: u8,
+}
+
+impl F8E5M2 {
+    pub fn from_f32(value: f32) -> Self {
+        if value.is_nan() {
+            return Self { bits: 0x7d };
+        }
+        if value.is_infinite() {
+            return Self {
+                bits: ((value.is_sign_negative() as u8) << 7) | 0x7c,
+            };
+        }
+        if value == 0.0 {
+            return Self {
+                bits: ((value.is_sign_negative() as u8) << 7),
+            };
+        }
+
+        let bits = value.to_bits();
+        let sign = ((bits >> 31) & 1) as u8;
+        let exp = ((bits >> 23) & 0xff) as i32;
+        let mant = bits & 0x7fffff;
+
+        if exp == 0 {
+            return Self { bits: sign << 7 };
+        }
+
+        let exp_unbiased = exp - 127;
+        let mut exp8 = exp_unbiased + 15;
+        let mantissa = mant | 0x800000;
+
+        if exp8 >= 31 {
+            return Self { bits: (sign << 7) | 0x7c };
+        }
+
+        if exp8 <= 0 {
+            let shift = (1 - exp8) as u32;
+            let mant_shift = 21 + shift;
+            if mant_shift >= 32 {
+                return Self { bits: sign << 7 };
+            }
+            let rounding_bit = 1u32 << (mant_shift - 1);
+            let rounded = mantissa.wrapping_add(rounding_bit);
+            let mant2 = (rounded >> mant_shift) as u8 & 0x03;
+            return Self {
+                bits: (sign << 7) | mant2,
+            };
+        }
+
+        let rounding_bit = 1u32 << 20;
+        let rounded = mantissa.wrapping_add(rounding_bit);
+        let mant2 = (rounded >> 21) as u8 & 0x03;
+        if mant2 == 0x04 {
+            exp8 += 1;
+            if exp8 >= 31 {
+                return Self { bits: (sign << 7) | 0x7c };
+            }
+        }
+        Self {
+            bits: (sign << 7) | ((exp8 as u8) << 2) | (mant2 & 0x03),
+        }
+    }
+
+    pub fn to_f32(self) -> f32 {
+        let sign = ((self.bits >> 7) & 1) as u32;
+        let exp = ((self.bits >> 2) & 0x1f) as i32;
+        let mant = (self.bits & 0x03) as u32;
+        let sign_bits = sign << 31;
+
+        if exp == 0 {
+            if mant == 0 {
+                return f32::from_bits(sign_bits);
+            }
+            let frac = (mant as f32) / 4.0;
+            let value = (1.0 / (1u32 << 14) as f32) * frac;
+            return if sign == 1 { -value } else { value };
+        }
+        if exp == 31 {
+            let bits = sign_bits | 0x7f800000 | (mant << 21);
+            return f32::from_bits(bits);
+        }
+        let exp32 = (exp - 15 + 127) as u32;
+        let mant32 = mant << 21;
+        f32::from_bits(sign_bits | (exp32 << 23) | mant32)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct I4 {
+    pub bits: u8,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct I2 {
+    pub bits: u8,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct I1 {
+    pub bits: u8,
+}
+
+fn sign_extend(bits: u8, width: u8) -> i8 {
+    let shift = 8 - width;
+    ((bits << shift) as i8) >> shift
+}
+
+impl I4 {
+    pub fn from_i8(value: i8) -> Self {
+        Self {
+            bits: (value as u8) & 0x0f,
+        }
+    }
+
+    pub fn to_i8(self) -> i8 {
+        sign_extend(self.bits & 0x0f, 4)
+    }
+}
+
+impl I2 {
+    pub fn from_i8(value: i8) -> Self {
+        Self {
+            bits: (value as u8) & 0x03,
+        }
+    }
+
+    pub fn to_i8(self) -> i8 {
+        sign_extend(self.bits & 0x03, 2)
+    }
+}
+
+impl I1 {
+    pub fn from_i8(value: i8) -> Self {
+        Self { bits: (value as u8) & 0x01 }
+    }
+
+    pub fn to_i8(self) -> i8 {
+        sign_extend(self.bits & 0x01, 1)
     }
 }
 
@@ -606,6 +770,71 @@ impl TensorElement for F16 {
     }
 }
 
+impl TensorElement for BF16 {
+    fn from_value(value: &TensorValue) -> Option<Tensor<Self>> {
+        match value {
+            TensorValue::BF16(tensor) => Some(tensor.clone()),
+            _ => None,
+        }
+    }
+
+    fn into_value(tensor: Tensor<Self>) -> TensorValue {
+        TensorValue::BF16(tensor)
+    }
+}
+
+impl TensorElement for F8E5M2 {
+    fn from_value(value: &TensorValue) -> Option<Tensor<Self>> {
+        match value {
+            TensorValue::F8E5M2(tensor) => Some(tensor.clone()),
+            _ => None,
+        }
+    }
+
+    fn into_value(tensor: Tensor<Self>) -> TensorValue {
+        TensorValue::F8E5M2(tensor)
+    }
+}
+
+impl TensorElement for I4 {
+    fn from_value(value: &TensorValue) -> Option<Tensor<Self>> {
+        match value {
+            TensorValue::I4(tensor) => Some(tensor.clone()),
+            _ => None,
+        }
+    }
+
+    fn into_value(tensor: Tensor<Self>) -> TensorValue {
+        TensorValue::I4(tensor)
+    }
+}
+
+impl TensorElement for I2 {
+    fn from_value(value: &TensorValue) -> Option<Tensor<Self>> {
+        match value {
+            TensorValue::I2(tensor) => Some(tensor.clone()),
+            _ => None,
+        }
+    }
+
+    fn into_value(tensor: Tensor<Self>) -> TensorValue {
+        TensorValue::I2(tensor)
+    }
+}
+
+impl TensorElement for I1 {
+    fn from_value(value: &TensorValue) -> Option<Tensor<Self>> {
+        match value {
+            TensorValue::I1(tensor) => Some(tensor.clone()),
+            _ => None,
+        }
+    }
+
+    fn into_value(tensor: Tensor<Self>) -> TensorValue {
+        TensorValue::I1(tensor)
+    }
+}
+
 impl TensorElement for Bitset {
     fn from_value(value: &TensorValue) -> Option<Tensor<Self>> {
         match value {
@@ -634,6 +863,11 @@ pub enum DType {
     Bool,
     Bitset,
     F16,
+    BF16,
+    F8E5M2,
+    I4,
+    I2,
+    I1,
 }
 
 impl DType {
@@ -652,7 +886,47 @@ impl DType {
             "bool" => Ok(DType::Bool),
             "bitset" => Ok(DType::Bitset),
             "f16" => Ok(DType::F16),
+            "bf16" => Ok(DType::BF16),
+            "f8" | "f8e5m2" | "float8e5m2" => Ok(DType::F8E5M2),
+            "i4" => Ok(DType::I4),
+            "i2" => Ok(DType::I2),
+            "i1" => Ok(DType::I1),
             _ => Err(anyhow!("unsupported dtype: {}", ident)),
+        }
+    }
+
+    pub fn is_universal(self) -> bool {
+        matches!(
+            self,
+            DType::F64
+                | DType::F32
+                | DType::I64
+                | DType::I32
+                | DType::I16
+                | DType::I8
+                | DType::U64
+                | DType::U32
+                | DType::U16
+                | DType::U8
+                | DType::Bool
+        )
+    }
+
+    pub fn is_packed(self) -> bool {
+        matches!(self, DType::I1 | DType::I2 | DType::I4)
+    }
+
+    pub fn bit_width(self) -> u8 {
+        match self {
+            DType::I1 => 1,
+            DType::I2 => 2,
+            DType::I4 => 4,
+            DType::I8 | DType::U8 | DType::Bool => 8,
+            DType::I16 | DType::U16 | DType::F16 | DType::BF16 => 16,
+            DType::I32 | DType::U32 | DType::F32 => 32,
+            DType::I64 | DType::U64 | DType::F64 => 64,
+            DType::F8E5M2 => 8,
+            DType::Bitset => 8,
         }
     }
 }
@@ -672,6 +946,11 @@ pub enum TensorValue {
     Bool(Tensor<bool>),
     Bitset(Tensor<Bitset>),
     F16(Tensor<F16>),
+    BF16(Tensor<BF16>),
+    F8E5M2(Tensor<F8E5M2>),
+    I4(Tensor<I4>),
+    I2(Tensor<I2>),
+    I1(Tensor<I1>),
 }
 
 // TensorValue is moved across threads but not shared concurrently.
@@ -693,6 +972,11 @@ impl TensorValue {
             TensorValue::Bool(_) => DType::Bool,
             TensorValue::Bitset(_) => DType::Bitset,
             TensorValue::F16(_) => DType::F16,
+            TensorValue::BF16(_) => DType::BF16,
+            TensorValue::F8E5M2(_) => DType::F8E5M2,
+            TensorValue::I4(_) => DType::I4,
+            TensorValue::I2(_) => DType::I2,
+            TensorValue::I1(_) => DType::I1,
         }
     }
 
@@ -711,6 +995,11 @@ impl TensorValue {
             TensorValue::Bool(tensor) => tensor.len(),
             TensorValue::Bitset(tensor) => tensor.len(),
             TensorValue::F16(tensor) => tensor.len(),
+            TensorValue::BF16(tensor) => tensor.len(),
+            TensorValue::F8E5M2(tensor) => tensor.len(),
+            TensorValue::I4(tensor) => tensor.len(),
+            TensorValue::I2(tensor) => tensor.len(),
+            TensorValue::I1(tensor) => tensor.len(),
         }
     }
 
@@ -729,6 +1018,11 @@ impl TensorValue {
             TensorValue::Bool(tensor) => tensor.shape(),
             TensorValue::Bitset(tensor) => tensor.shape(),
             TensorValue::F16(tensor) => tensor.shape(),
+            TensorValue::BF16(tensor) => tensor.shape(),
+            TensorValue::F8E5M2(tensor) => tensor.shape(),
+            TensorValue::I4(tensor) => tensor.shape(),
+            TensorValue::I2(tensor) => tensor.shape(),
+            TensorValue::I1(tensor) => tensor.shape(),
         }
     }
 
@@ -747,6 +1041,11 @@ impl TensorValue {
             TensorValue::Bool(tensor) => tensor.strides(),
             TensorValue::Bitset(tensor) => tensor.strides(),
             TensorValue::F16(tensor) => tensor.strides(),
+            TensorValue::BF16(tensor) => tensor.strides(),
+            TensorValue::F8E5M2(tensor) => tensor.strides(),
+            TensorValue::I4(tensor) => tensor.strides(),
+            TensorValue::I2(tensor) => tensor.strides(),
+            TensorValue::I1(tensor) => tensor.strides(),
         }
     }
 
@@ -839,6 +1138,41 @@ impl TensorValue {
             ),
             DType::F16 => TensorValue::F16(
                 Tensor::from_vec_with_opts(vec![F16 { bits: 0 }; len], TensorOptions {
+                    shape: Some(shape.to_vec()),
+                    ..TensorOptions::default()
+                })
+                .unwrap_or_else(|err| panic!("tensor zeros failed: {}", err)),
+            ),
+            DType::BF16 => TensorValue::BF16(
+                Tensor::from_vec_with_opts(vec![BF16 { bits: 0 }; len], TensorOptions {
+                    shape: Some(shape.to_vec()),
+                    ..TensorOptions::default()
+                })
+                .unwrap_or_else(|err| panic!("tensor zeros failed: {}", err)),
+            ),
+            DType::F8E5M2 => TensorValue::F8E5M2(
+                Tensor::from_vec_with_opts(vec![F8E5M2 { bits: 0 }; len], TensorOptions {
+                    shape: Some(shape.to_vec()),
+                    ..TensorOptions::default()
+                })
+                .unwrap_or_else(|err| panic!("tensor zeros failed: {}", err)),
+            ),
+            DType::I4 => TensorValue::I4(
+                Tensor::from_vec_with_opts(vec![I4 { bits: 0 }; len], TensorOptions {
+                    shape: Some(shape.to_vec()),
+                    ..TensorOptions::default()
+                })
+                .unwrap_or_else(|err| panic!("tensor zeros failed: {}", err)),
+            ),
+            DType::I2 => TensorValue::I2(
+                Tensor::from_vec_with_opts(vec![I2 { bits: 0 }; len], TensorOptions {
+                    shape: Some(shape.to_vec()),
+                    ..TensorOptions::default()
+                })
+                .unwrap_or_else(|err| panic!("tensor zeros failed: {}", err)),
+            ),
+            DType::I1 => TensorValue::I1(
+                Tensor::from_vec_with_opts(vec![I1 { bits: 0 }; len], TensorOptions {
                     shape: Some(shape.to_vec()),
                     ..TensorOptions::default()
                 })
@@ -937,6 +1271,41 @@ impl TensorValue {
             _ => Err(anyhow!("expected f16 tensor")),
         }
     }
+
+    pub fn as_bf16(&self) -> Result<&Tensor<BF16>> {
+        match self {
+            TensorValue::BF16(tensor) => Ok(tensor),
+            _ => Err(anyhow!("expected bf16 tensor")),
+        }
+    }
+
+    pub fn as_f8(&self) -> Result<&Tensor<F8E5M2>> {
+        match self {
+            TensorValue::F8E5M2(tensor) => Ok(tensor),
+            _ => Err(anyhow!("expected f8 tensor")),
+        }
+    }
+
+    pub fn as_i4(&self) -> Result<&Tensor<I4>> {
+        match self {
+            TensorValue::I4(tensor) => Ok(tensor),
+            _ => Err(anyhow!("expected i4 tensor")),
+        }
+    }
+
+    pub fn as_i2(&self) -> Result<&Tensor<I2>> {
+        match self {
+            TensorValue::I2(tensor) => Ok(tensor),
+            _ => Err(anyhow!("expected i2 tensor")),
+        }
+    }
+
+    pub fn as_i1(&self) -> Result<&Tensor<I1>> {
+        match self {
+            TensorValue::I1(tensor) => Ok(tensor),
+            _ => Err(anyhow!("expected i1 tensor")),
+        }
+    }
 }
 
 impl From<Tensor<i8>> for TensorValue {
@@ -960,6 +1329,36 @@ impl From<Tensor<f32>> for TensorValue {
 impl From<Tensor<f64>> for TensorValue {
     fn from(value: Tensor<f64>) -> Self {
         TensorValue::F64(value)
+    }
+}
+
+impl From<Tensor<BF16>> for TensorValue {
+    fn from(value: Tensor<BF16>) -> Self {
+        TensorValue::BF16(value)
+    }
+}
+
+impl From<Tensor<F8E5M2>> for TensorValue {
+    fn from(value: Tensor<F8E5M2>) -> Self {
+        TensorValue::F8E5M2(value)
+    }
+}
+
+impl From<Tensor<I4>> for TensorValue {
+    fn from(value: Tensor<I4>) -> Self {
+        TensorValue::I4(value)
+    }
+}
+
+impl From<Tensor<I2>> for TensorValue {
+    fn from(value: Tensor<I2>) -> Self {
+        TensorValue::I2(value)
+    }
+}
+
+impl From<Tensor<I1>> for TensorValue {
+    fn from(value: Tensor<I1>) -> Self {
+        TensorValue::I1(value)
     }
 }
 
@@ -1092,5 +1491,35 @@ impl From<Bitset> for TensorValue {
 impl From<F16> for TensorValue {
     fn from(value: F16) -> Self {
         TensorValue::F16(Tensor::from_scalar(value))
+    }
+}
+
+impl From<BF16> for TensorValue {
+    fn from(value: BF16) -> Self {
+        TensorValue::BF16(Tensor::from_scalar(value))
+    }
+}
+
+impl From<F8E5M2> for TensorValue {
+    fn from(value: F8E5M2) -> Self {
+        TensorValue::F8E5M2(Tensor::from_scalar(value))
+    }
+}
+
+impl From<I4> for TensorValue {
+    fn from(value: I4) -> Self {
+        TensorValue::I4(Tensor::from_scalar(value))
+    }
+}
+
+impl From<I2> for TensorValue {
+    fn from(value: I2) -> Self {
+        TensorValue::I2(Tensor::from_scalar(value))
+    }
+}
+
+impl From<I1> for TensorValue {
+    fn from(value: I1) -> Self {
+        TensorValue::I1(Tensor::from_scalar(value))
     }
 }

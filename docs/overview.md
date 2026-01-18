@@ -54,3 +54,5 @@ Model Package (.oinf)
 ```
 
 For more information see [docs/implementation.md](implementation.md)
+
+See [docs/types.md](types.md) for dtype support and device-specific behavior.

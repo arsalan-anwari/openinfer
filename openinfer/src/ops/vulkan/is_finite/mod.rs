@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 
-use crate::backend::vulkan::storage_size_bytes;
+use crate::backend::vulkan::storage_size_bytes_for_len;
 use crate::backend::VulkanBuffer;
 use crate::graph::{OpAttrs, OpKind};
 use crate::tensor::{compute_strides, DType};
@@ -14,19 +14,19 @@ pub fn is_finite_generic(
     thread_id: usize,
 ) -> Result<VulkanBuffer> {
     let runtime = super::runtime_from_buffers(a, None)?;
-    let target = super::spv_target_name(OpKind::IsFinite, a.dtype, attrs)?;
+    let target = super::spv_target_name(OpKind::IsFinite, a.effective_dtype, attrs)?;
     let entry = "main";
     let spirv = a
         .spv_bytes_for_target(&target)
         .ok_or_else(|| anyhow!("missing SPIR-V target {} for is_finite op", target))?;
-    let output_size = storage_size_bytes(DType::Bool);
+    let output_size = storage_size_bytes_for_len(DType::Bool, 1);
     let output_inner = runtime.create_buffer(output_size)?;
     let len = a.len;
     let push = [len as u32, 0, 0, 0];
     let work_len = 1usize;
     let duration_ns = runtime.dispatch(
         OpKind::IsFinite,
-        a.dtype,
+        a.effective_dtype,
         &target,
         entry,
         spirv,
@@ -41,6 +41,7 @@ pub fn is_finite_generic(
     let strides = compute_strides(shape.as_slice());
     Ok(VulkanBuffer {
         dtype: DType::Bool,
+        effective_dtype: DType::Bool,
         len: 1,
         shape,
         strides,

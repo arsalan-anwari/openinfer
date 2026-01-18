@@ -21,6 +21,8 @@ pub struct VulkanRuntime {
     pipeline_layout: vk::PipelineLayout,
     pipelines: Mutex<HashMap<(OpKind, DType, String), vk::Pipeline>>,
     supports_i64: bool,
+    supports_f64: bool,
+    supports_f16: bool,
     supports_timestamps: bool,
     timestamp_period: f32,
     max_descriptor_sets: u32,
@@ -74,6 +76,9 @@ impl VulkanRuntime {
             .queue_family_index(queue_family_index)
             .queue_priorities(&priorities);
         let supported = unsafe { instance.get_physical_device_features(physical_device) };
+        let mut float16_int8 = vk::PhysicalDeviceFloat16Int8FeaturesKHR::default();
+        let mut features2 = vk::PhysicalDeviceFeatures2::builder().push_next(&mut float16_int8);
+        unsafe { instance.get_physical_device_features2(physical_device, &mut features2) };
         let props = unsafe { instance.get_physical_device_properties(physical_device) };
         let mut enabled = vk::PhysicalDeviceFeatures::default();
         enabled.shader_int64 = supported.shader_int64;
@@ -161,14 +166,27 @@ impl VulkanRuntime {
             pipeline_layout,
             pipelines: Mutex::new(HashMap::new()),
             supports_i64: supported.shader_int64 != 0,
+            supports_f64: supported.shader_float64 != 0,
+            supports_f16: float16_int8.shader_float16 != 0,
             supports_timestamps: props.limits.timestamp_compute_and_graphics != 0,
             timestamp_period: props.limits.timestamp_period,
             max_descriptor_sets,
         })
     }
 
+    #[allow(dead_code)]
     pub fn supports_i64(&self) -> bool {
         self.supports_i64
+    }
+
+    #[allow(dead_code)]
+    pub fn supports_f64(&self) -> bool {
+        self.supports_f64
+    }
+
+    #[allow(dead_code)]
+    pub fn supports_f16(&self) -> bool {
+        self.supports_f16
     }
 
 
@@ -569,6 +587,15 @@ pub fn storage_size_bytes(dtype: DType) -> usize {
     match dtype {
         DType::I64 | DType::U64 | DType::F64 => 8,
         _ => 4,
+    }
+}
+
+pub fn storage_size_bytes_for_len(dtype: DType, len: usize) -> usize {
+    if dtype.is_packed() {
+        let bits = len.saturating_mul(dtype.bit_width() as usize);
+        (bits + 7) / 8
+    } else {
+        storage_size_bytes(dtype) * len
     }
 }
 

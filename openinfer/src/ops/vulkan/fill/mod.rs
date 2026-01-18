@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 
-use crate::backend::vulkan::storage_size_bytes;
+use crate::backend::vulkan::storage_size_bytes_for_len;
 use crate::backend::VulkanBuffer;
 use crate::graph::OpAttrs;
 use crate::graph::OpKind;
@@ -15,18 +15,18 @@ pub fn fill_generic(
     thread_id: usize,
 ) -> Result<VulkanBuffer> {
     let runtime = super::runtime_from_buffers(a, None)?;
-    let target = super::spv_target_name(OpKind::Fill, a.dtype, attrs)?;
+    let target = super::spv_target_name(OpKind::Fill, a.effective_dtype, attrs)?;
     let entry = "main";
     let spirv = a
         .spv_bytes_for_target(&target)
         .ok_or_else(|| anyhow!("missing SPIR-V target {} for fill op", target))?;
-    let output_size = storage_size_bytes(a.dtype) * a.len;
+    let output_size = storage_size_bytes_for_len(a.effective_dtype, a.len);
     let output_inner = runtime.create_buffer(output_size)?;
-    let value_bits = fill_value_bits(a.dtype, attrs)?;
+    let value_bits = fill_value_bits(a.effective_dtype, attrs)?;
     let push = [a.len as u32, value_bits, 0, 0];
     let duration_ns = runtime.dispatch(
         OpKind::Fill,
-        a.dtype,
+        a.effective_dtype,
         &target,
         entry,
         spirv,
@@ -39,6 +39,7 @@ pub fn fill_generic(
     Timer::record(thread_id, duration_ns);
     Ok(VulkanBuffer {
         dtype: a.dtype,
+        effective_dtype: a.effective_dtype,
         len: a.len,
         shape: a.shape.clone(),
         strides: compute_strides(a.shape.as_slice()),

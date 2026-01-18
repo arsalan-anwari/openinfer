@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 
-use crate::backend::vulkan::storage_size_bytes;
+use crate::backend::vulkan::storage_size_bytes_for_len;
 use crate::backend::VulkanBuffer;
 use crate::graph::{AttrValue, OpAttrs};
 use crate::graph::OpKind;
@@ -19,9 +19,9 @@ pub fn relu_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: usize) -> Resu
         _ => return Err(anyhow!("relu op expects relu attributes")),
     };
     let runtime = super::runtime_from_buffers(a, None)?;
-    let target = super::spv_target_name(OpKind::Relu, a.dtype, attrs)?;
+    let target = super::spv_target_name(OpKind::Relu, a.effective_dtype, attrs)?;
     let entry = "main";
-    let output_size = storage_size_bytes(a.dtype) * a.len;
+    let output_size = storage_size_bytes_for_len(a.effective_dtype, a.len);
     let output_inner = runtime.create_buffer(output_size)?;
     let spirv = a
         .spv_bytes_for_target(&target)
@@ -29,7 +29,7 @@ pub fn relu_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: usize) -> Resu
     let push = [a.len as u32, negative_slope.to_bits(), clamp_max.to_bits(), 0];
     let duration_ns = runtime.dispatch(
         OpKind::Relu,
-        a.dtype,
+        a.effective_dtype,
         &target,
         entry,
         spirv,
@@ -42,6 +42,7 @@ pub fn relu_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: usize) -> Resu
     Timer::record(thread_id, duration_ns);
     Ok(VulkanBuffer {
         dtype: a.dtype,
+        effective_dtype: a.effective_dtype,
         len: a.len,
         shape: a.shape.clone(),
         strides: compute_strides(a.shape.as_slice()),
@@ -59,19 +60,19 @@ pub fn relu_inplace_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: usize)
         _ => return Err(anyhow!("relu inplace expects relu attributes")),
     };
     let runtime = super::runtime_from_buffers(a, None)?;
-    let target = spv_target_name_relu_inplace(a.dtype, attrs)?;
+    let target = spv_target_name_relu_inplace(a.effective_dtype, attrs)?;
     let entry = "main";
     let spirv = a
         .spv_bytes_for_target(&target)
         .ok_or_else(|| anyhow!("missing SPIR-V target {} for relu inplace", target))?;
-    let output_size = storage_size_bytes(a.dtype) * a.len;
+    let output_size = storage_size_bytes_for_len(a.effective_dtype, a.len);
     if output_size > a.inner.size as usize {
         return Err(anyhow!("relu inplace output buffer too small"));
     }
     let push = [a.len as u32, negative_slope.to_bits(), clamp_max.to_bits(), 0];
     let duration_ns = runtime.dispatch(
         OpKind::Relu,
-        a.dtype,
+        a.effective_dtype,
         &target,
         entry,
         spirv,
@@ -84,6 +85,7 @@ pub fn relu_inplace_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: usize)
     Timer::record(thread_id, duration_ns);
     Ok(VulkanBuffer {
         dtype: a.dtype,
+        effective_dtype: a.effective_dtype,
         len: a.len,
         shape: a.shape.clone(),
         strides: compute_strides(a.shape.as_slice()),

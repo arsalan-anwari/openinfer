@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use crate::graph::OpAttrs;
 use crate::ops::registry::{HostInplaceKernel, InplaceKernelFn};
 use crate::tensor::{DType, TensorValue};
@@ -51,6 +52,7 @@ pub fn lookup_kernel_cpu_relu_inplace(
             TensorValue::U64(out) => relu_inplace_u64(attrs, &mut out.data, thread_id),
             TensorValue::Bool(out) => relu_inplace_bool(attrs, &mut out.data, thread_id),
             TensorValue::Bitset(out) => relu_inplace_bitset(attrs, &mut out.data, thread_id),
+            other => Err(anyhow!("relu inplace does not support dtype {:?}", other.dtype())),
         }
     });
     Some(InplaceKernelFn::Host(kernel))

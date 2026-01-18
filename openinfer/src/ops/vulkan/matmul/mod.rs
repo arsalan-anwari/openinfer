@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 
-use crate::backend::vulkan::storage_size_bytes;
+use crate::backend::vulkan::storage_size_bytes_for_len;
 use crate::backend::VulkanBuffer;
 use crate::graph::{OpAttrs, OpKind};
 use crate::tensor::{compute_strides, DType};
@@ -36,23 +36,23 @@ pub fn matmul_generic(
     b: &VulkanBuffer,
     thread_id: usize,
 ) -> Result<VulkanBuffer> {
-    if a.dtype != b.dtype {
+    if a.effective_dtype != b.effective_dtype {
         return Err(anyhow!("matmul op expects matching dtypes"));
     }
     let (m, k, n) = matmul_dims(a, b)?;
     let runtime = super::runtime_from_buffers(a, Some(b))?;
-    let target = super::spv_target_name(OpKind::Matmul, a.dtype, attrs)?;
+    let target = super::spv_target_name(OpKind::Matmul, a.effective_dtype, attrs)?;
     let entry = "main";
     let spirv = a
         .spv_bytes_for_target(&target)
         .ok_or_else(|| anyhow!("missing SPIR-V target {} for matmul op", target))?;
     let len = m.saturating_mul(n);
-    let output_size = storage_size_bytes(a.dtype) * len;
+    let output_size = storage_size_bytes_for_len(a.effective_dtype, len);
     let output_inner = runtime.create_buffer(output_size)?;
     let push = [len as u32, m as u32, n as u32, k as u32];
     let duration_ns = runtime.dispatch(
         OpKind::Matmul,
-        a.dtype,
+        a.effective_dtype,
         &target,
         entry,
         spirv,
@@ -67,6 +67,7 @@ pub fn matmul_generic(
     let strides = compute_strides(shape.as_slice());
     Ok(VulkanBuffer {
         dtype: a.dtype,
+        effective_dtype: a.effective_dtype,
         len,
         shape,
         strides,

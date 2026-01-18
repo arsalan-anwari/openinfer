@@ -103,3 +103,7 @@ path = "../examples/rust/ops_matrix.rs"
 [[example]]
 name = "yield"
 path = "../examples/rust/yield.rs"
+
+[[example]]
+name = "dtypes"
+path = "../examples/rust/dtypes.rs"

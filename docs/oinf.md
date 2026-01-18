@@ -53,6 +53,7 @@ u64 file_size
 2  I16    6  U16   10  F32     13 BITSET
 3  I32    7  U32   11  F64     14 STRING
 4  I64    8  U64   15  NDARRAY
+16 BF16  17 F8E5M2 18 I4   19 I2   20 I1
 ```
 
 Tensors use only numeric/bool types (1-12). BITSET is for metadata only.
@@ -138,7 +139,8 @@ u64 data_offset
 If HAS_DATA is 0, `data_offset` and `data_nbytes` are 0.
 
 Tensor data blobs are raw little-endian values in row-major order. BOOL tensors
-store one byte per element.
+store one byte per element. Packed integer types (I1/I2/I4) pack values into
+bytes, LSB-first within each byte (e.g., I2 packs 4 elements per byte).
 Scalars are encoded with `ndim = 0` and an empty dims list; they have a single
 element in the data blob.
 

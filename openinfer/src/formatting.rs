@@ -1,4 +1,4 @@
-use crate::tensor::{Bitset, F16};
+use crate::tensor::{BF16, Bitset, F16, F8E5M2, I1, I2, I4};
 pub trait FormatValue {
     fn format_value(&self) -> String;
 }
@@ -36,6 +36,36 @@ impl FormatValue for Bitset {
 impl FormatValue for F16 {
     fn format_value(&self) -> String {
         format!("{:?}", self)
+    }
+}
+
+impl FormatValue for BF16 {
+    fn format_value(&self) -> String {
+        format!("{:.2}", self.to_f32())
+    }
+}
+
+impl FormatValue for F8E5M2 {
+    fn format_value(&self) -> String {
+        format!("{:.2}", self.to_f32())
+    }
+}
+
+impl FormatValue for I4 {
+    fn format_value(&self) -> String {
+        self.to_i8().to_string()
+    }
+}
+
+impl FormatValue for I2 {
+    fn format_value(&self) -> String {
+        self.to_i8().to_string()
+    }
+}
+
+impl FormatValue for I1 {
+    fn format_value(&self) -> String {
+        self.to_i8().to_string()
     }
 }
 

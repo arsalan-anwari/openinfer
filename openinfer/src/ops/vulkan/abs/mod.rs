@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 
-use crate::backend::vulkan::storage_size_bytes;
+use crate::backend::vulkan::storage_size_bytes_for_len;
 use crate::backend::VulkanBuffer;
 use crate::graph::OpAttrs;
 use crate::graph::OpKind;
@@ -14,13 +14,14 @@ pub fn abs_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: usize) -> Resul
     let unsigned_identity = a.shader_setting_bool("abs_unsigned_is_identity").unwrap_or(true);
     if unsigned_identity
         && matches!(
-            a.dtype,
+            a.effective_dtype,
             DType::U8 | DType::U16 | DType::U32 | DType::U64 | DType::Bool
         )
     {
         Timer::record(thread_id, 0);
         return Ok(VulkanBuffer {
             dtype: a.dtype,
+            effective_dtype: a.effective_dtype,
             len: a.len,
             shape: a.shape.clone(),
             strides: a.strides.clone(),
@@ -30,17 +31,17 @@ pub fn abs_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: usize) -> Resul
     }
     let flags = if unsigned_identity { 1 } else { 0 };
     let runtime = super::runtime_from_buffers(a, None)?;
-    let target = super::spv_target_name(OpKind::Abs, a.dtype, attrs)?;
+    let target = super::spv_target_name(OpKind::Abs, a.effective_dtype, attrs)?;
     let entry = "main";
     let spirv = a
         .spv_bytes_for_target(&target)
         .ok_or_else(|| anyhow!("missing SPIR-V target {} for abs op", target))?;
-    let output_size = storage_size_bytes(a.dtype) * a.len;
+    let output_size = storage_size_bytes_for_len(a.effective_dtype, a.len);
     let output_inner = runtime.create_buffer(output_size)?;
     let push = [a.len as u32, flags, 0, 0];
     let duration_ns = runtime.dispatch(
         OpKind::Abs,
-        a.dtype,
+        a.effective_dtype,
         &target,
         entry,
         spirv,
@@ -53,6 +54,7 @@ pub fn abs_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: usize) -> Resul
     Timer::record(thread_id, duration_ns);
     Ok(VulkanBuffer {
         dtype: a.dtype,
+        effective_dtype: a.effective_dtype,
         len: a.len,
         shape: a.shape.clone(),
         strides: compute_strides(a.shape.as_slice()),
@@ -65,13 +67,14 @@ pub fn abs_inplace_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: usize) 
     let unsigned_identity = a.shader_setting_bool("abs_unsigned_is_identity").unwrap_or(true);
     if unsigned_identity
         && matches!(
-            a.dtype,
+            a.effective_dtype,
             DType::U8 | DType::U16 | DType::U32 | DType::U64 | DType::Bool
         )
     {
         Timer::record(thread_id, 0);
         return Ok(VulkanBuffer {
             dtype: a.dtype,
+            effective_dtype: a.effective_dtype,
             len: a.len,
             shape: a.shape.clone(),
             strides: a.strides.clone(),
@@ -81,9 +84,9 @@ pub fn abs_inplace_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: usize) 
     }
     let flags = if unsigned_identity { 1 } else { 0 };
     let runtime = super::runtime_from_buffers(a, None)?;
-    let target = spv_target_name_abs_inplace(a.dtype, attrs)?;
+    let target = spv_target_name_abs_inplace(a.effective_dtype, attrs)?;
     let entry = "main";
-    let output_size = storage_size_bytes(a.dtype) * a.len;
+    let output_size = storage_size_bytes_for_len(a.effective_dtype, a.len);
     if output_size > a.inner.size as usize {
         return Err(anyhow!("abs inplace output buffer too small"));
     }
@@ -93,7 +96,7 @@ pub fn abs_inplace_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: usize) 
     let push = [a.len as u32, flags, 0, 0];
     let duration_ns = runtime.dispatch(
         OpKind::Abs,
-        a.dtype,
+        a.effective_dtype,
         &target,
         entry,
         spirv,
@@ -106,6 +109,7 @@ pub fn abs_inplace_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: usize) 
     Timer::record(thread_id, duration_ns);
     Ok(VulkanBuffer {
         dtype: a.dtype,
+        effective_dtype: a.effective_dtype,
         len: a.len,
         shape: a.shape.clone(),
         strides: compute_strides(a.shape.as_slice()),

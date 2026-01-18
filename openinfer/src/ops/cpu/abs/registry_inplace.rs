@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use crate::graph::OpAttrs;
 use crate::ops::registry::{HostInplaceKernel, InplaceKernelFn};
 use crate::tensor::{DType, TensorValue};
@@ -51,6 +52,7 @@ pub fn lookup_kernel_cpu_abs_inplace(
             TensorValue::U64(out) => abs_inplace_u64(&mut out.data, thread_id),
             TensorValue::Bool(out) => abs_inplace_bool(&mut out.data, thread_id),
             TensorValue::Bitset(out) => abs_inplace_bitset(&mut out.data, thread_id),
+            other => Err(anyhow!("abs inplace does not support dtype {:?}", other.dtype())),
         }
     });
     Some(InplaceKernelFn::Host(kernel))

@@ -30,6 +30,7 @@ pub trait ShaderRegistry {
 #[derive(Debug, Clone)]
 pub struct VulkanBuffer {
     pub dtype: DType,
+    pub effective_dtype: DType,
     pub len: usize,
     pub shape: Vec<usize>,
     pub strides: Vec<usize>,

@@ -70,6 +70,11 @@ class ValueType:
     BITSET = 13
     STRING = 14
     NDARRAY = 15
+    BF16 = 16
+    F8E5M2 = 17
+    I4 = 18
+    I2 = 19
+    I1 = 20
 
 
 _VT_TO_DTYPE = {
@@ -85,6 +90,11 @@ _VT_TO_DTYPE = {
     ValueType.F32: np.float32,
     ValueType.F64: np.float64,
     ValueType.BOOL: np.bool_,
+    ValueType.BF16: np.uint16,
+    ValueType.F8E5M2: np.uint8,
+    ValueType.I4: np.int8,
+    ValueType.I2: np.int8,
+    ValueType.I1: np.int8,
 }
 
 _DTYPE_TO_VT = {
@@ -115,6 +125,11 @@ _VT_SIZE = {
     ValueType.F32: 4,
     ValueType.F64: 8,
     ValueType.BOOL: 1,
+    ValueType.BF16: 2,
+    ValueType.F8E5M2: 1,
+    ValueType.I4: 1,
+    ValueType.I2: 1,
+    ValueType.I1: 1,
 }
 
 
@@ -128,9 +143,16 @@ _DTYPE_ALIAS = {
     "u32": ValueType.U32,
     "u64": ValueType.U64,
     "f16": ValueType.F16,
+    "bf16": ValueType.BF16,
+    "f8": ValueType.F8E5M2,
+    "f8e5m2": ValueType.F8E5M2,
+    "float8e5m2": ValueType.F8E5M2,
     "f32": ValueType.F32,
     "f64": ValueType.F64,
     "bool": ValueType.BOOL,
+    "i4": ValueType.I4,
+    "i2": ValueType.I2,
+    "i1": ValueType.I1,
 }
 
 
@@ -179,6 +201,67 @@ class Bitset:
             if bit:
                 data[i // 8] |= 1 << (i % 8)
         return bytes(data)
+
+
+def _float_to_bf16_bits(value: float) -> int:
+    bits = np.float32(value).view(np.uint32)
+    rounding = np.uint32(0x7FFF + ((bits >> 16) & 1))
+    rounded = bits + rounding
+    return int(rounded >> 16)
+
+
+def _float_to_f8e5m2_bits(value: float) -> int:
+    value = float(value)
+    if np.isnan(value):
+        return 0x7D
+    if np.isinf(value):
+        return 0xFC if value < 0 else 0x7C
+    if value == 0.0:
+        return 0x80 if np.signbit(value) else 0x00
+    bits = np.float32(value).view(np.uint32)
+    sign = (bits >> 31) & 1
+    exp = (bits >> 23) & 0xFF
+    mant = bits & 0x7FFFFF
+    if exp == 0:
+        return int(sign << 7)
+    exp_unbiased = int(exp) - 127
+    exp8 = exp_unbiased + 15
+    mantissa = mant | 0x800000
+    if exp8 >= 31:
+        return int((sign << 7) | 0x7C)
+    if exp8 <= 0:
+        shift = 1 - exp8
+        mant_shift = 21 + shift
+        if mant_shift >= 32:
+            return int(sign << 7)
+        rounded = mantissa + (1 << (mant_shift - 1))
+        mant2 = (rounded >> mant_shift) & 0x03
+        return int((sign << 7) | mant2)
+    rounded = mantissa + (1 << 20)
+    mant2 = (rounded >> 21) & 0x03
+    if mant2 == 0x04:
+        exp8 += 1
+        if exp8 >= 31:
+            return int((sign << 7) | 0x7C)
+        mant2 = 0
+    return int((sign << 7) | ((exp8 & 0x1F) << 2) | (mant2 & 0x03))
+
+
+def _pack_signed_bits(values: np.ndarray, bits_per: int) -> bytes:
+    if bits_per <= 0 or bits_per > 8:
+        raise OinfError(f"Invalid packed bit width {bits_per}")
+    total = int(values.size)
+    out = bytearray((total * bits_per + 7) // 8)
+    mask = (1 << bits_per) - 1
+    for idx, value in enumerate(values.flatten()):
+        raw = int(value) & mask
+        bit_index = idx * bits_per
+        byte_index = bit_index // 8
+        shift = bit_index % 8
+        out[byte_index] |= (raw << shift) & 0xFF
+        if shift + bits_per > 8:
+            out[byte_index + 1] |= (raw >> (8 - shift)) & 0xFF
+    return bytes(out)
 
 
 class TensorSpec:
@@ -252,7 +335,12 @@ def _as_numpy_array(value: Any, dtype_override: Optional[int]) -> np.ndarray:
     if arr.dtype == np.object_:
         raise OinfError("Nested lists must be homogeneous to form an ndarray")
     if dtype_override is not None:
-        arr = arr.astype(_VT_TO_DTYPE[dtype_override], copy=False)
+        if dtype_override in (ValueType.BF16, ValueType.F8E5M2):
+            arr = arr.astype(np.float32, copy=False)
+        elif dtype_override in (ValueType.I4, ValueType.I2, ValueType.I1):
+            arr = arr.astype(np.int8, copy=False)
+        else:
+            arr = arr.astype(_VT_TO_DTYPE[dtype_override], copy=False)
     return arr
 
 
@@ -281,6 +369,19 @@ def _encode_scalar(value: Any, value_type: int) -> bytes:
         return payload + padding
     if value_type == ValueType.NDARRAY:
         raise OinfError("NDARRAY requires separate encoding")
+    if value_type == ValueType.BF16:
+        bits = _float_to_bf16_bits(float(value))
+        return struct.pack("<H", bits)
+    if value_type == ValueType.F8E5M2:
+        bits = _float_to_f8e5m2_bits(float(value))
+        return struct.pack("<B", bits)
+    if value_type in (ValueType.I4, ValueType.I2, ValueType.I1):
+        bits_per = {ValueType.I4: 4, ValueType.I2: 2, ValueType.I1: 1}[value_type]
+        min_val = -(1 << (bits_per - 1))
+        max_val = (1 << (bits_per - 1)) - 1
+        if not (min_val <= int(value) <= max_val):
+            raise OinfError(f"Value out of range for i{bits_per}")
+        return _pack_signed_bits(np.array([int(value)], dtype=np.int8), bits_per)
     dtype = _VT_TO_DTYPE[value_type]
     arr = np.array(value, dtype=dtype)
     return arr.astype(np.dtype(dtype).newbyteorder("<")).tobytes()
@@ -288,6 +389,31 @@ def _encode_scalar(value: Any, value_type: int) -> bytes:
 
 def _encode_ndarray(value: Any, dtype_override: Optional[int]) -> Tuple[bytes, int]:
     arr = _as_numpy_array(value, dtype_override)
+    if dtype_override in (ValueType.BF16, ValueType.F8E5M2):
+        if dtype_override == ValueType.BF16:
+            bits = np.vectorize(_float_to_bf16_bits, otypes=[np.uint16])(arr)
+            data = bits.astype(np.dtype(np.uint16).newbyteorder("<")).tobytes()
+        else:
+            bits = np.vectorize(_float_to_f8e5m2_bits, otypes=[np.uint8])(arr)
+            data = bits.astype(np.uint8).tobytes()
+        header = struct.pack("<II", dtype_override, arr.ndim)
+        dims = struct.pack("<" + "Q" * arr.ndim, *[int(d) for d in arr.shape])
+        payload = header + dims + data
+        padding = b"\x00" * (_align_up(len(payload)) - len(payload))
+        return payload + padding, dtype_override
+    if dtype_override in (ValueType.I4, ValueType.I2, ValueType.I1):
+        bits_per = {ValueType.I4: 4, ValueType.I2: 2, ValueType.I1: 1}[dtype_override]
+        min_val = -(1 << (bits_per - 1))
+        max_val = (1 << (bits_per - 1)) - 1
+        if arr.size:
+            if int(arr.min()) < min_val or int(arr.max()) > max_val:
+                raise OinfError(f"Values out of range for i{bits_per}")
+        data = _pack_signed_bits(arr.astype(np.int8), bits_per)
+        header = struct.pack("<II", dtype_override, arr.ndim)
+        dims = struct.pack("<" + "Q" * arr.ndim, *[int(d) for d in arr.shape])
+        payload = header + dims + data
+        padding = b"\x00" * (_align_up(len(payload)) - len(payload))
+        return payload + padding, dtype_override
     if dtype_override is None:
         if np.issubdtype(arr.dtype, np.floating):
             arr = arr.astype(np.float32)
@@ -433,16 +559,44 @@ def _encode_metadata_payload(value: Any, meta: Dict[str, Any]) -> Tuple[int, byt
     raise OinfError(f"Unsupported metadata type: {type(value)}")
 
 
+def _encode_tensor_payload(
+    value: Any,
+    dtype_override: Optional[int],
+) -> Tuple[int, Tuple[int, ...], bytes]:
+    arr = _as_numpy_array(value, dtype_override)
+    if dtype_override in (ValueType.BF16, ValueType.F8E5M2):
+        if dtype_override == ValueType.BF16:
+            bits = np.vectorize(_float_to_bf16_bits, otypes=[np.uint16])(arr)
+            data = bits.astype(np.dtype(np.uint16).newbyteorder("<")).tobytes()
+        else:
+            bits = np.vectorize(_float_to_f8e5m2_bits, otypes=[np.uint8])(arr)
+            data = bits.astype(np.uint8).tobytes()
+        return dtype_override, tuple(int(d) for d in arr.shape), data
+    if dtype_override in (ValueType.I4, ValueType.I2, ValueType.I1):
+        bits_per = {ValueType.I4: 4, ValueType.I2: 2, ValueType.I1: 1}[dtype_override]
+        min_val = -(1 << (bits_per - 1))
+        max_val = (1 << (bits_per - 1)) - 1
+        if arr.size:
+            if int(arr.min()) < min_val or int(arr.max()) > max_val:
+                raise OinfError(f"Values out of range for i{bits_per}")
+        data = _pack_signed_bits(arr.astype(np.int8), bits_per)
+        return dtype_override, tuple(int(d) for d in arr.shape), data
+    dtype = _value_type_from_numpy_dtype(arr.dtype)
+    if dtype == ValueType.BOOL:
+        data = arr.astype(np.uint8).tobytes()
+    else:
+        data = arr.astype(arr.dtype.newbyteorder("<")).tobytes()
+    return dtype, tuple(int(d) for d in arr.shape), data
+
+
 def _encode_tensor(name: str, value: Any, meta: Dict[str, Any]) -> Tuple[str, int, Tuple[int, ...], int, Optional[bytes]]:
     tensor_name = name
     if isinstance(value, TensorSpec):
         if value.name:
             tensor_name = value.name
         dtype_override = _resolve_dtype(value.data, {"dtype": value.dtype} if value.dtype else {})
-        arr = _as_numpy_array(value.data, dtype_override)
-        dtype = _value_type_from_numpy_dtype(arr.dtype)
-        data = arr.astype(arr.dtype.newbyteorder("<")).tobytes() if dtype != ValueType.BOOL else arr.astype(np.uint8).tobytes()
-        return tensor_name, dtype, tuple(int(d) for d in arr.shape), 1, data
+        dtype, shape, data = _encode_tensor_payload(value.data, dtype_override)
+        return tensor_name, dtype, shape, 1, data
     if isinstance(value, UninitializedTensor):
         if value.name:
             tensor_name = value.name
@@ -451,15 +605,12 @@ def _encode_tensor(name: str, value: Any, meta: Dict[str, Any]) -> Tuple[str, in
             raise OinfError(f"Unsupported tensor dtype for '{tensor_name}'")
         return tensor_name, dtype, tuple(int(d) for d in value.shape), 0, None
     if isinstance(value, np.ndarray):
-        dtype = _value_type_from_numpy_dtype(value.dtype)
-        data = value.astype(value.dtype.newbyteorder("<")).tobytes() if dtype != ValueType.BOOL else value.astype(np.uint8).tobytes()
-        return tensor_name, dtype, tuple(int(d) for d in value.shape), 1, data
+        dtype, shape, data = _encode_tensor_payload(value, None)
+        return tensor_name, dtype, shape, 1, data
     if isinstance(value, (list, tuple)):
         dtype_override = _resolve_dtype(value, meta)
-        arr = _as_numpy_array(value, dtype_override)
-        dtype = _value_type_from_numpy_dtype(arr.dtype)
-        data = arr.astype(arr.dtype.newbyteorder("<")).tobytes() if dtype != ValueType.BOOL else arr.astype(np.uint8).tobytes()
-        return tensor_name, dtype, tuple(int(d) for d in arr.shape), 1, data
+        dtype, shape, data = _encode_tensor_payload(value, dtype_override)
+        return tensor_name, dtype, shape, 1, data
     if value is None:
         dtype_override = _resolve_dtype(value, meta)
         if dtype_override is None:

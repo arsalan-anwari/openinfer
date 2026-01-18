@@ -30,5 +30,10 @@ pub fn broadcast_value_to_shape(value: &TensorValue, out_shape: &[usize]) -> Res
         TensorValue::Bool(tensor) => broadcast_value!(tensor, Bool),
         TensorValue::Bitset(tensor) => broadcast_value!(tensor, Bitset),
         TensorValue::F16(tensor) => broadcast_value!(tensor, F16),
+        TensorValue::BF16(tensor) => broadcast_value!(tensor, BF16),
+        TensorValue::F8E5M2(tensor) => broadcast_value!(tensor, F8E5M2),
+        TensorValue::I4(tensor) => broadcast_value!(tensor, I4),
+        TensorValue::I2(tensor) => broadcast_value!(tensor, I2),
+        TensorValue::I1(tensor) => broadcast_value!(tensor, I1),
     }
 }

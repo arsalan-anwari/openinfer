@@ -1,7 +1,11 @@
 use serde::{Deserialize, Serialize};
 
-use crate::tensor::{Bitset, DType, F16, Tensor, TensorValue};
+use crate::tensor::{BF16, Bitset, DType, F16, F8E5M2, I1, I2, I4, Tensor, TensorValue};
 use anyhow::{anyhow, Result};
+
+pub mod cpu;
+#[cfg(feature = "vulkan")]
+pub mod vulkan;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ScalarValue {
@@ -14,10 +18,15 @@ pub enum ScalarValue {
     U32(u32),
     U64(u64),
     F16(F16),
+    BF16(BF16),
+    F8E5M2(F8E5M2),
     F32(f32),
     F64(f64),
     Bool(bool),
     Bitset(Bitset),
+    I4(I4),
+    I2(I2),
+    I1(I1),
 }
 
 impl ScalarValue {
@@ -32,10 +41,15 @@ impl ScalarValue {
             ScalarValue::U32(_) => DType::U32,
             ScalarValue::U64(_) => DType::U64,
             ScalarValue::F16(_) => DType::F16,
+            ScalarValue::BF16(_) => DType::BF16,
+            ScalarValue::F8E5M2(_) => DType::F8E5M2,
             ScalarValue::F32(_) => DType::F32,
             ScalarValue::F64(_) => DType::F64,
             ScalarValue::Bool(_) => DType::Bool,
             ScalarValue::Bitset(_) => DType::Bitset,
+            ScalarValue::I4(_) => DType::I4,
+            ScalarValue::I2(_) => DType::I2,
+            ScalarValue::I1(_) => DType::I1,
         }
     }
 
@@ -96,6 +110,18 @@ impl ScalarValue {
                     ..crate::tensor::TensorOptions::default()
                 })?,
             )),
+            (ScalarValue::BF16(val), DType::BF16) => Ok(TensorValue::BF16(
+                Tensor::from_vec_with_opts(vec![*val; len], crate::tensor::TensorOptions {
+                    shape: Some(shape.to_vec()),
+                    ..crate::tensor::TensorOptions::default()
+                })?,
+            )),
+            (ScalarValue::F8E5M2(val), DType::F8E5M2) => Ok(TensorValue::F8E5M2(
+                Tensor::from_vec_with_opts(vec![*val; len], crate::tensor::TensorOptions {
+                    shape: Some(shape.to_vec()),
+                    ..crate::tensor::TensorOptions::default()
+                })?,
+            )),
             (ScalarValue::F32(val), DType::F32) => Ok(TensorValue::F32(
                 Tensor::from_vec_with_opts(vec![*val; len], crate::tensor::TensorOptions {
                     shape: Some(shape.to_vec()),
@@ -115,6 +141,24 @@ impl ScalarValue {
                 })?,
             )),
             (ScalarValue::Bitset(val), DType::Bitset) => Ok(TensorValue::Bitset(
+                Tensor::from_vec_with_opts(vec![*val; len], crate::tensor::TensorOptions {
+                    shape: Some(shape.to_vec()),
+                    ..crate::tensor::TensorOptions::default()
+                })?,
+            )),
+            (ScalarValue::I4(val), DType::I4) => Ok(TensorValue::I4(
+                Tensor::from_vec_with_opts(vec![*val; len], crate::tensor::TensorOptions {
+                    shape: Some(shape.to_vec()),
+                    ..crate::tensor::TensorOptions::default()
+                })?,
+            )),
+            (ScalarValue::I2(val), DType::I2) => Ok(TensorValue::I2(
+                Tensor::from_vec_with_opts(vec![*val; len], crate::tensor::TensorOptions {
+                    shape: Some(shape.to_vec()),
+                    ..crate::tensor::TensorOptions::default()
+                })?,
+            )),
+            (ScalarValue::I1(val), DType::I1) => Ok(TensorValue::I1(
                 Tensor::from_vec_with_opts(vec![*val; len], crate::tensor::TensorOptions {
                     shape: Some(shape.to_vec()),
                     ..crate::tensor::TensorOptions::default()

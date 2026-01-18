@@ -8,6 +8,7 @@ use crate::ops::{broadcast_enabled, lookup_kernel, KernelFn};
 use crate::ops::registry::lookup_kernel_inplace;
 use crate::simulator::{Device, DeviceBackend};
 use crate::tensor::{broadcast_shapes, DType, TensorValue};
+use crate::types::cpu::{effective_dtype, from_effective_tensor, to_effective_tensor};
 
 pub mod broadcast;
 pub mod scheduler;
@@ -52,8 +53,15 @@ impl DeviceBackend for CpuBackend {
         tensors: &[TensorStorage],
         thread_id: usize,
     ) -> Result<TensorStorage> {
-        let input_dtypes: Vec<DType> = tensors.iter().map(|t| t.dtype()).collect();
+        let output_effective = effective_dtype(output_dtype)?;
         let mut host = to_host_tensors(tensors)?;
+        host = host
+            .into_iter()
+            .map(|value| {
+                let effective = effective_dtype(value.dtype())?;
+                to_effective_tensor(value, effective)
+            })
+            .collect::<Result<Vec<_>>>()?;
         if host.len() > 1 {
             if broadcast_enabled(op, self.device) {
                 let mut out_shape = host[0].shape().to_vec();
@@ -66,10 +74,15 @@ impl DeviceBackend for CpuBackend {
                     .collect::<Result<Vec<_>>>()?;
             }
         }
-        let kernel = lookup_kernel(self.device, op, output_dtype, &input_dtypes, attrs)
+        let input_dtypes: Vec<DType> = host.iter().map(|t| t.dtype()).collect();
+        let kernel = lookup_kernel(self.device, op, output_effective, &input_dtypes, attrs)
             .ok_or_else(|| anyhow!("unsupported op {}", op.as_str()))?;
         match kernel {
-            KernelFn::Host(func) => Ok(TensorStorage::Host((func)(attrs, &host, thread_id)?)),
+            KernelFn::Host(func) => {
+                let output = (func)(attrs, &host, thread_id)?;
+                let output = from_effective_tensor(output, output_dtype)?;
+                Ok(TensorStorage::Host(output))
+            }
             #[cfg(feature = "vulkan")]
             KernelFn::Vulkan(_) => Err(anyhow!("host backend cannot run device kernel")),
         }
@@ -83,17 +96,29 @@ impl DeviceBackend for CpuBackend {
         tensors: &[TensorStorage],
         thread_id: usize,
     ) -> Result<TensorStorage> {
-        let input_dtypes: Vec<DType> = tensors.iter().map(|t| t.dtype()).collect();
+        let output_effective = effective_dtype(output_dtype)?;
         let mut host = to_host_tensors(tensors)?;
+        host = host
+            .into_iter()
+            .map(|value| {
+                let effective = effective_dtype(value.dtype())?;
+                to_effective_tensor(value, effective)
+            })
+            .collect::<Result<Vec<_>>>()?;
         if host.is_empty() {
             return Err(anyhow!("inplace op {} expects at least 1 input", op.as_str()));
         }
         let mut output = host.remove(0);
-        let kernel = lookup_kernel_inplace(self.device, op, output_dtype, &input_dtypes, attrs)
+        let input_dtypes: Vec<DType> = std::iter::once(&output)
+            .chain(host.iter())
+            .map(|t| t.dtype())
+            .collect();
+        let kernel = lookup_kernel_inplace(self.device, op, output_effective, &input_dtypes, attrs)
             .ok_or_else(|| anyhow!("unsupported inplace op {}", op.as_str()))?;
         match kernel {
             crate::ops::registry::InplaceKernelFn::Host(func) => {
                 (func)(attrs, &mut output, &host, thread_id)?;
+                let output = from_effective_tensor(output, output_dtype)?;
                 Ok(TensorStorage::Host(output))
             }
             #[cfg(feature = "vulkan")]

@@ -4,7 +4,7 @@ use anyhow::{anyhow, Result};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 
-use crate::tensor::{numel, Tensor, TensorOptions};
+use crate::tensor::{numel, BF16, F8E5M2, I1, I2, I4, Tensor, TensorOptions};
 
 pub struct Random<T> {
     rng: StdRng,
@@ -163,5 +163,40 @@ impl RandomValue for crate::tensor::F16 {
     fn sample(rng: &mut StdRng, range: (Self, Self)) -> Result<Self> {
         let value = rng.gen_range(range.0.to_f32()..=range.1.to_f32());
         Ok(crate::tensor::F16::from_f32(value))
+    }
+}
+
+impl RandomValue for BF16 {
+    fn sample(rng: &mut StdRng, range: (Self, Self)) -> Result<Self> {
+        let value = rng.gen_range(range.0.to_f32()..=range.1.to_f32());
+        Ok(BF16::from_f32(value))
+    }
+}
+
+impl RandomValue for F8E5M2 {
+    fn sample(rng: &mut StdRng, range: (Self, Self)) -> Result<Self> {
+        let value = rng.gen_range(range.0.to_f32()..=range.1.to_f32());
+        Ok(F8E5M2::from_f32(value))
+    }
+}
+
+impl RandomValue for I4 {
+    fn sample(rng: &mut StdRng, range: (Self, Self)) -> Result<Self> {
+        let value = rng.gen_range(range.0.to_i8()..=range.1.to_i8());
+        Ok(I4::from_i8(value))
+    }
+}
+
+impl RandomValue for I2 {
+    fn sample(rng: &mut StdRng, range: (Self, Self)) -> Result<Self> {
+        let value = rng.gen_range(range.0.to_i8()..=range.1.to_i8());
+        Ok(I2::from_i8(value))
+    }
+}
+
+impl RandomValue for I1 {
+    fn sample(rng: &mut StdRng, range: (Self, Self)) -> Result<Self> {
+        let value = rng.gen_range(range.0.to_i8()..=range.1.to_i8());
+        Ok(I1::from_i8(value))
     }
 }

@@ -46,6 +46,11 @@ class ValueType:
     BITSET = 13
     STRING = 14
     NDARRAY = 15
+    BF16 = 16
+    F8E5M2 = 17
+    I4 = 18
+    I2 = 19
+    I1 = 20
 
 
 _VT_NAME = {
@@ -64,6 +69,11 @@ _VT_NAME = {
     ValueType.BITSET: "bitset",
     ValueType.STRING: "str",
     ValueType.NDARRAY: "ndarray",
+    ValueType.BF16: "bf16",
+    ValueType.F8E5M2: "f8",
+    ValueType.I4: "i4",
+    ValueType.I2: "i2",
+    ValueType.I1: "i1",
 }
 
 _VT_SIZE = {
@@ -79,6 +89,11 @@ _VT_SIZE = {
     ValueType.F32: 4,
     ValueType.F64: 8,
     ValueType.BOOL: 1,
+    ValueType.BF16: 2,
+    ValueType.F8E5M2: 1,
+    ValueType.I4: 1,
+    ValueType.I2: 1,
+    ValueType.I1: 1,
 }
 
 _VT_TO_DTYPE = {
@@ -94,6 +109,11 @@ _VT_TO_DTYPE = {
     ValueType.F32: np.float32,
     ValueType.F64: np.float64,
     ValueType.BOOL: np.bool_,
+    ValueType.BF16: np.uint16,
+    ValueType.F8E5M2: np.uint8,
+    ValueType.I4: np.int8,
+    ValueType.I2: np.int8,
+    ValueType.I1: np.int8,
 }
 
 
@@ -146,6 +166,60 @@ def _format_values(values: np.ndarray) -> str:
         lines.append("...")
     lines.append("}")
     return "\n".join(lines)
+
+
+def _bf16_to_f32(bits: np.ndarray) -> np.ndarray:
+    bits32 = bits.astype(np.uint32) << 16
+    return bits32.view(np.float32)
+
+
+def _f8e5m2_to_f32_scalar(bits: int) -> float:
+    sign = (bits >> 7) & 1
+    exp = (bits >> 2) & 0x1F
+    mant = bits & 0x03
+    if exp == 0:
+        if mant == 0:
+            return -0.0 if sign else 0.0
+        frac = mant / 4.0
+        value = (2 ** -14) * frac
+        return -value if sign else value
+    if exp == 31:
+        return float("-inf") if sign else float("inf")
+    exp32 = exp - 15
+    value = (1.0 + mant / 4.0) * (2 ** exp32)
+    return -value if sign else value
+
+
+def _f8e5m2_to_f32(bits: np.ndarray) -> np.ndarray:
+    vec = np.vectorize(_f8e5m2_to_f32_scalar, otypes=[np.float32])
+    return vec(bits.astype(np.uint8))
+
+
+def _unpack_signed_bits(raw: bytes, bits_per: int, count: int) -> np.ndarray:
+    out = np.empty(count, dtype=np.int8)
+    mask = (1 << bits_per) - 1
+    for idx in range(count):
+        bit_index = idx * bits_per
+        byte_index = bit_index // 8
+        shift = bit_index % 8
+        val = (raw[byte_index] >> shift) & mask
+        if shift + bits_per > 8:
+            val |= (raw[byte_index + 1] << (8 - shift)) & mask
+        sign_bit = 1 << (bits_per - 1)
+        if val & sign_bit:
+            val = val - (1 << bits_per)
+        out[idx] = val
+    return out
+
+
+def _tensor_nbytes(vtype: int, numel: int) -> int:
+    if vtype == ValueType.I1:
+        return (numel + 7) // 8
+    if vtype == ValueType.I2:
+        return (numel + 3) // 4
+    if vtype == ValueType.I4:
+        return (numel + 1) // 2
+    return numel * _VT_SIZE[vtype]
 
 
 def _tensor_stats(values: np.ndarray) -> Dict[str, Any]:
@@ -212,6 +286,20 @@ def _parse_metadata_value(blob: bytes, entry: Dict[str, Any]) -> Any:
         if nbytes != 1:
             raise OinfError("BOOL payload size mismatch")
         return payload[0] != 0
+    if vtype == ValueType.BF16:
+        if nbytes != 2:
+            raise OinfError("BF16 payload size mismatch")
+        bits = np.frombuffer(payload, dtype=np.dtype(np.uint16).newbyteorder("<"))
+        return _bf16_to_f32(bits)[0].item()
+    if vtype == ValueType.F8E5M2:
+        if nbytes != 1:
+            raise OinfError("F8 payload size mismatch")
+        return _f8e5m2_to_f32_scalar(payload[0])
+    if vtype in (ValueType.I4, ValueType.I2, ValueType.I1):
+        bits_per = {ValueType.I4: 4, ValueType.I2: 2, ValueType.I1: 1}[vtype]
+        if nbytes != 1:
+            raise OinfError("Packed int payload size mismatch")
+        return int(_unpack_signed_bits(payload, bits_per, 1)[0])
     if vtype in _VT_SIZE:
         expected = _VT_SIZE[vtype]
         if nbytes != expected:
@@ -247,14 +335,20 @@ def _parse_metadata_value(blob: bytes, entry: Dict[str, Any]) -> Any:
             dims = ()
         data_offset = dims_offset + dims_size
         numel = int(np.prod(dims)) if dims else 1
-        elem_size = _VT_SIZE[element_type]
-        data_nbytes = numel * elem_size
+        data_nbytes = _tensor_nbytes(element_type, numel)
         total = _align_up(data_offset + data_nbytes)
         if nbytes != total:
             raise OinfError("NDARRAY payload size mismatch")
         raw = payload[data_offset : data_offset + data_nbytes]
         if element_type == ValueType.BOOL:
             arr = np.frombuffer(raw, dtype=np.uint8).astype(np.bool_)
+        elif element_type == ValueType.BF16:
+            arr = _bf16_to_f32(np.frombuffer(raw, dtype=np.dtype(np.uint16).newbyteorder("<")))
+        elif element_type == ValueType.F8E5M2:
+            arr = _f8e5m2_to_f32(np.frombuffer(raw, dtype=np.uint8))
+        elif element_type in (ValueType.I4, ValueType.I2, ValueType.I1):
+            bits_per = {ValueType.I4: 4, ValueType.I2: 2, ValueType.I1: 1}[element_type]
+            arr = _unpack_signed_bits(raw, bits_per, numel)
         else:
             arr = np.frombuffer(raw, dtype=np.dtype(_VT_TO_DTYPE[element_type]).newbyteorder("<"))
         return {"dtype": element_type, "dims": dims, "array": arr.reshape(dims)}
@@ -362,7 +456,7 @@ def _parse_file(path: str) -> None:
             if data_offset < offset_data:
                 raise OinfError("Tensor data offset precedes data section")
             numel = int(np.prod(dims)) if dims else 1
-            expected = numel * _VT_SIZE[dtype]
+            expected = _tensor_nbytes(dtype, numel)
             if data_nbytes != expected:
                 raise OinfError("Tensor data_nbytes mismatch")
             if data_offset + data_nbytes > file_size:
@@ -414,6 +508,13 @@ def _parse_file(path: str) -> None:
             raw = blob[data_offset : data_offset + data_nbytes]
             if tensor["dtype"] == ValueType.BOOL:
                 arr = np.frombuffer(raw, dtype=np.uint8).astype(np.bool_)
+            elif tensor["dtype"] == ValueType.BF16:
+                arr = _bf16_to_f32(np.frombuffer(raw, dtype=np.dtype(np.uint16).newbyteorder("<")))
+            elif tensor["dtype"] == ValueType.F8E5M2:
+                arr = _f8e5m2_to_f32(np.frombuffer(raw, dtype=np.uint8))
+            elif tensor["dtype"] in (ValueType.I4, ValueType.I2, ValueType.I1):
+                bits_per = {ValueType.I4: 4, ValueType.I2: 2, ValueType.I1: 1}[tensor["dtype"]]
+                arr = _unpack_signed_bits(raw, bits_per, int(np.prod(tensor["dims"])) if tensor["dims"] else 1)
             else:
                 arr = np.frombuffer(raw, dtype=np.dtype(_VT_TO_DTYPE[tensor["dtype"]]).newbyteorder("<"))
             arr = arr.reshape(tensor["dims"]) if tensor["dims"] else arr.reshape(())

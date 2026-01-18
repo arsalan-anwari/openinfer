@@ -20,6 +20,11 @@ pub(crate) fn match_dtype(dtype: &Ident) -> syn::Result<TokenStream> {
         "bool" => Ok(quote! { ::openinfer::DType::Bool }),
         "bitset" => Ok(quote! { ::openinfer::DType::Bitset }),
         "f16" => Ok(quote! { ::openinfer::DType::F16 }),
+        "bf16" => Ok(quote! { ::openinfer::DType::BF16 }),
+        "f8" => Ok(quote! { ::openinfer::DType::F8E5M2 }),
+        "i4" => Ok(quote! { ::openinfer::DType::I4 }),
+        "i2" => Ok(quote! { ::openinfer::DType::I2 }),
+        "i1" => Ok(quote! { ::openinfer::DType::I1 }),
         _ => Err(syn::Error::new(dtype.span(), "unsupported dtype")),
     }
 }
@@ -37,12 +42,18 @@ pub(crate) fn init_expr(init: &Option<InitValue>, dtype: &Ident) -> syn::Result<
                 "f16" => quote! {
                     Some(::openinfer::ScalarValue::F16(::openinfer::F16::from_f32(#lit_expr as f32)))
                 },
+                "bf16" => quote! {
+                    Some(::openinfer::ScalarValue::BF16(::openinfer::BF16::from_f32(#lit_expr as f32)))
+                },
+                "f8" => quote! {
+                    Some(::openinfer::ScalarValue::F8E5M2(::openinfer::F8E5M2::from_f32(#lit_expr as f32)))
+                },
                 "f32" => quote! { Some(::openinfer::ScalarValue::F32(#lit_expr as f32)) },
                 "f64" => quote! { Some(::openinfer::ScalarValue::F64(#lit_expr as f64)) },
                 _ => {
                     return Err(syn::Error::new(
                         dtype.span(),
-                        "float init requires f16/f32/f64 dtype",
+                        "float init requires f8/bf16/f16/f32/f64 dtype",
                     ))
                 }
             }
@@ -115,6 +126,24 @@ pub(crate) fn init_expr(init: &Option<InitValue>, dtype: &Ident) -> syn::Result<
                         return Err(syn::Error::new(dtype.span(), "bitset init out of range"));
                     }
                     quote! { Some(::openinfer::ScalarValue::Bitset(::openinfer::Bitset { bits: #lit_expr as u8 })) }
+                }
+                "i4" => {
+                    if value < -8 || value > 7 {
+                        return Err(syn::Error::new(dtype.span(), "i4 init out of range"));
+                    }
+                    quote! { Some(::openinfer::ScalarValue::I4(::openinfer::I4::from_i8(#lit_expr as i8))) }
+                }
+                "i2" => {
+                    if value < -2 || value > 1 {
+                        return Err(syn::Error::new(dtype.span(), "i2 init out of range"));
+                    }
+                    quote! { Some(::openinfer::ScalarValue::I2(::openinfer::I2::from_i8(#lit_expr as i8))) }
+                }
+                "i1" => {
+                    if value < -1 || value > 0 {
+                        return Err(syn::Error::new(dtype.span(), "i1 init out of range"));
+                    }
+                    quote! { Some(::openinfer::ScalarValue::I1(::openinfer::I1::from_i8(#lit_expr as i8))) }
                 }
                 _ => {
                     return Err(syn::Error::new(

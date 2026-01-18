@@ -865,6 +865,30 @@ fn read_table_selection(
                 )?))
             })
         }
+        crate::tensor::DType::BF16 => {
+            let shape = output_shape.clone();
+            read_table_values_bf16(table, selections, entry_shape, entry_len, init).and_then(|data| {
+                Ok(TensorValue::BF16(crate::tensor::Tensor::from_vec_with_opts(
+                    data,
+                    crate::tensor::TensorOptions {
+                        shape: Some(shape),
+                        ..crate::tensor::TensorOptions::default()
+                    },
+                )?))
+            })
+        }
+        crate::tensor::DType::F8E5M2 => {
+            let shape = output_shape.clone();
+            read_table_values_f8(table, selections, entry_shape, entry_len, init).and_then(|data| {
+                Ok(TensorValue::F8E5M2(crate::tensor::Tensor::from_vec_with_opts(
+                    data,
+                    crate::tensor::TensorOptions {
+                        shape: Some(shape),
+                        ..crate::tensor::TensorOptions::default()
+                    },
+                )?))
+            })
+        }
         crate::tensor::DType::F32 => {
             let shape = output_shape.clone();
             read_table_values_f32(table, selections, entry_shape, entry_len, init).and_then(|data| {
@@ -913,6 +937,42 @@ fn read_table_selection(
                         },
                     )?))
                 })
+        }
+        crate::tensor::DType::I4 => {
+            let shape = output_shape.clone();
+            read_table_values_i4(table, selections, entry_shape, entry_len, init).and_then(|data| {
+                Ok(TensorValue::I4(crate::tensor::Tensor::from_vec_with_opts(
+                    data,
+                    crate::tensor::TensorOptions {
+                        shape: Some(shape),
+                        ..crate::tensor::TensorOptions::default()
+                    },
+                )?))
+            })
+        }
+        crate::tensor::DType::I2 => {
+            let shape = output_shape.clone();
+            read_table_values_i2(table, selections, entry_shape, entry_len, init).and_then(|data| {
+                Ok(TensorValue::I2(crate::tensor::Tensor::from_vec_with_opts(
+                    data,
+                    crate::tensor::TensorOptions {
+                        shape: Some(shape),
+                        ..crate::tensor::TensorOptions::default()
+                    },
+                )?))
+            })
+        }
+        crate::tensor::DType::I1 => {
+            let shape = output_shape.clone();
+            read_table_values_i1(table, selections, entry_shape, entry_len, init).and_then(|data| {
+                Ok(TensorValue::I1(crate::tensor::Tensor::from_vec_with_opts(
+                    data,
+                    crate::tensor::TensorOptions {
+                        shape: Some(shape),
+                        ..crate::tensor::TensorOptions::default()
+                    },
+                )?))
+            })
         }
     }
 }
@@ -1024,6 +1084,18 @@ read_table_values!(
     F16,
     crate::tensor::F16
 );
+read_table_values!(
+    read_table_values_bf16,
+    get_table_entry_bf16,
+    BF16,
+    crate::tensor::BF16
+);
+read_table_values!(
+    read_table_values_f8,
+    get_table_entry_f8,
+    F8E5M2,
+    crate::tensor::F8E5M2
+);
 read_table_values!(read_table_values_f32, get_table_entry_f32, F32, f32);
 read_table_values!(read_table_values_f64, get_table_entry_f64, F64, f64);
 read_table_values!(read_table_values_bool, get_table_entry_bool, Bool, bool);
@@ -1033,6 +1105,9 @@ read_table_values!(
     Bitset,
     crate::tensor::Bitset
 );
+read_table_values!(read_table_values_i4, get_table_entry_i4, I4, crate::tensor::I4);
+read_table_values!(read_table_values_i2, get_table_entry_i2, I2, crate::tensor::I2);
+read_table_values!(read_table_values_i1, get_table_entry_i1, I1, crate::tensor::I1);
 
 pub(crate) fn format_cache_access(access: &CacheAccess) -> String {
     if !access.bracketed {

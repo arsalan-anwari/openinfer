@@ -103,7 +103,7 @@ Adding a New Vulkan Op
    - `openinfer/src/ops/vulkan/<op>/mod.rs` should call `runtime.dispatch(...)`.
    - `openinfer/src/ops/vulkan/<op>/registry.rs` should register the Vulkan kernel.
 6) Ensure dtype support is enforced:
-   - `openinfer/src/backend/vulkan/mod.rs` has `ensure_supported_dtype(...)`.
+   - `openinfer/src/backend/vulkan/mod.rs` checks device feature flags and dtype rules.
    - Return a clean error if the dtype is not supported on the current GPU.
 
 Common Kernel Launcher Pattern
@@ -129,8 +129,11 @@ Notes and Limitations
 ---------------------
 - DType support is limited to the set allowed in `openinfer/src/backend/vulkan/mod.rs`.
   Unsupported dtypes return an error before kernel dispatch.
-- f16/f64/bitset are not supported by the Vulkan backend.
 - i64/u64 require `shader_int64` support from the Vulkan device.
+- f64 requires `shader_float64` support from the Vulkan device.
+- f16 may be supported by the device (`shader_float16`) but is currently upsampled to f32.
+- f8/bf16 are always upsampled to f32 on Vulkan (no native support assumed).
+- Packed integer types (i1/i2/i4) are stored as packed bits in buffers; kernels must unpack.
 - `abs` for unsigned/bool can be short-circuited in Rust without launching
   a kernel (see `openinfer/src/ops/vulkan/abs/mod.rs`).
 - The simulator defaults to out-of-place ops, which means every op allocates a
