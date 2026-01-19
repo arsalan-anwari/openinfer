@@ -11,7 +11,7 @@ use crate::graph::{OpAttrs, OpKind};
 use crate::ops::{broadcast_enabled, lookup_kernel, KernelFn};
 use crate::ops::registry::lookup_kernel_inplace;
 use crate::simulator::{Device, DeviceBackend};
-use crate::tensor::{broadcast_shapes, BF16, Bitset, DType, F16, F8E5M2, I1, I2, I4, TensorValue};
+use crate::tensor::{broadcast_shapes, BF16, Bitset, DType, F16, F8E5M2, I1, I2, I4, T1, T2, U1, U2, U4, TensorValue};
 use crate::types::vulkan::{from_effective_tensor, to_effective_tensor};
 
 pub mod runtime;
@@ -417,9 +417,14 @@ fn encode_tensor(value: TensorValue) -> Vec<u8> {
             .iter()
             .flat_map(|v| u32::from(v.bits).to_le_bytes())
             .collect(),
-        TensorValue::I4(tensor) => pack_packed_bits(tensor.data.iter().map(|v| v.bits), 4, tensor.len()),
-        TensorValue::I2(tensor) => pack_packed_bits(tensor.data.iter().map(|v| v.bits), 2, tensor.len()),
-        TensorValue::I1(tensor) => pack_packed_bits(tensor.data.iter().map(|v| v.bits), 1, tensor.len()),
+        TensorValue::I4(tensor) => tensor.data.iter().map(|v| v.bits).collect(),
+        TensorValue::I2(tensor) => tensor.data.iter().map(|v| v.bits).collect(),
+        TensorValue::I1(tensor) => tensor.data.iter().map(|v| v.bits).collect(),
+        TensorValue::U4(tensor) => tensor.data.iter().map(|v| v.bits).collect(),
+        TensorValue::U2(tensor) => tensor.data.iter().map(|v| v.bits).collect(),
+        TensorValue::U1(tensor) => tensor.data.iter().map(|v| v.bits).collect(),
+        TensorValue::T2(tensor) => tensor.data.iter().map(|v| v.bits).collect(),
+        TensorValue::T1(tensor) => tensor.data.iter().map(|v| v.bits).collect(),
     }
 }
 
@@ -600,82 +605,74 @@ fn decode_tensor(dtype: DType, shape: &[usize], bytes: &[u8]) -> Result<TensorVa
             },
         )?)),
         DType::I4 => {
-            let values = unpack_packed_bits(bytes, 4, len)?;
             Ok(TensorValue::I4(crate::tensor::Tensor::from_vec_with_opts(
-                values.into_iter().map(|bits| I4 { bits }).collect(),
+                bytes.iter().map(|bits| I4 { bits: *bits }).collect(),
                 crate::tensor::TensorOptions {
                     shape: Some(shape.to_vec()),
+                    allow_len_mismatch: true,
                     ..crate::tensor::TensorOptions::default()
                 },
             )?))
         }
         DType::I2 => {
-            let values = unpack_packed_bits(bytes, 2, len)?;
             Ok(TensorValue::I2(crate::tensor::Tensor::from_vec_with_opts(
-                values.into_iter().map(|bits| I2 { bits }).collect(),
+                bytes.iter().map(|bits| I2 { bits: *bits }).collect(),
                 crate::tensor::TensorOptions {
                     shape: Some(shape.to_vec()),
+                    allow_len_mismatch: true,
                     ..crate::tensor::TensorOptions::default()
                 },
             )?))
         }
         DType::I1 => {
-            let values = unpack_packed_bits(bytes, 1, len)?;
             Ok(TensorValue::I1(crate::tensor::Tensor::from_vec_with_opts(
-                values.into_iter().map(|bits| I1 { bits }).collect(),
+                bytes.iter().map(|bits| I1 { bits: *bits }).collect(),
                 crate::tensor::TensorOptions {
                     shape: Some(shape.to_vec()),
+                    allow_len_mismatch: true,
                     ..crate::tensor::TensorOptions::default()
                 },
             )?))
         }
+        DType::U4 => Ok(TensorValue::U4(crate::tensor::Tensor::from_vec_with_opts(
+            bytes.iter().map(|bits| U4 { bits: *bits }).collect(),
+            crate::tensor::TensorOptions {
+                shape: Some(shape.to_vec()),
+                allow_len_mismatch: true,
+                ..crate::tensor::TensorOptions::default()
+            },
+        )?)),
+        DType::U2 => Ok(TensorValue::U2(crate::tensor::Tensor::from_vec_with_opts(
+            bytes.iter().map(|bits| U2 { bits: *bits }).collect(),
+            crate::tensor::TensorOptions {
+                shape: Some(shape.to_vec()),
+                allow_len_mismatch: true,
+                ..crate::tensor::TensorOptions::default()
+            },
+        )?)),
+        DType::U1 => Ok(TensorValue::U1(crate::tensor::Tensor::from_vec_with_opts(
+            bytes.iter().map(|bits| U1 { bits: *bits }).collect(),
+            crate::tensor::TensorOptions {
+                shape: Some(shape.to_vec()),
+                allow_len_mismatch: true,
+                ..crate::tensor::TensorOptions::default()
+            },
+        )?)),
+        DType::T2 => Ok(TensorValue::T2(crate::tensor::Tensor::from_vec_with_opts(
+            bytes.iter().map(|bits| T2 { bits: *bits }).collect(),
+            crate::tensor::TensorOptions {
+                shape: Some(shape.to_vec()),
+                allow_len_mismatch: true,
+                ..crate::tensor::TensorOptions::default()
+            },
+        )?)),
+        DType::T1 => Ok(TensorValue::T1(crate::tensor::Tensor::from_vec_with_opts(
+            bytes.iter().map(|bits| T1 { bits: *bits }).collect(),
+            crate::tensor::TensorOptions {
+                shape: Some(shape.to_vec()),
+                allow_len_mismatch: true,
+                ..crate::tensor::TensorOptions::default()
+            },
+        )?)),
     }
-}
-
-fn pack_packed_bits<I: Iterator<Item = u8>>(values: I, bits_per: u8, len: usize) -> Vec<u8> {
-    let total_bits = len.saturating_mul(bits_per as usize);
-    let total_bytes = (total_bits + 7) / 8;
-    let mut out = vec![0u8; total_bytes];
-    let mask = (1u8 << bits_per) - 1;
-    for (idx, value) in values.take(len).enumerate() {
-        let bit_index = idx * bits_per as usize;
-        let byte_index = bit_index / 8;
-        let shift = (bit_index % 8) as u8;
-        let v = value & mask;
-        out[byte_index] |= v << shift;
-        let spill = shift + bits_per;
-        if spill > 8 {
-            let next_index = byte_index + 1;
-            if next_index < out.len() {
-                out[next_index] |= v >> (8 - shift);
-            }
-        }
-    }
-    out
-}
-
-fn unpack_packed_bits(buf: &[u8], bits_per: u8, len: usize) -> Result<Vec<u8>> {
-    if bits_per == 0 || bits_per > 8 {
-        return Err(anyhow!("invalid packed bit width {}", bits_per));
-    }
-    let mut out = Vec::with_capacity(len);
-    for idx in 0..len {
-        let bit_index = idx * bits_per as usize;
-        let byte_index = bit_index / 8;
-        let shift = (bit_index % 8) as u8;
-        if byte_index >= buf.len() {
-            return Err(anyhow!("packed tensor data out of bounds"));
-        }
-        let mut value = (buf[byte_index] >> shift) as u16;
-        let remaining = 8u8.saturating_sub(shift);
-        if remaining < bits_per {
-            if byte_index + 1 >= buf.len() {
-                return Err(anyhow!("packed tensor data out of bounds"));
-            }
-            value |= (buf[byte_index + 1] as u16) << remaining;
-        }
-        let mask = (1u16 << bits_per) - 1;
-        out.push((value & mask) as u8);
-    }
-    Ok(out)
 }

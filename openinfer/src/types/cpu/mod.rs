@@ -23,6 +23,7 @@ pub fn to_effective_tensor(value: TensorValue, effective: DType) -> Result<Tenso
                 TensorOptions {
                     shape: Some(shape),
                     strides: Some(strides),
+                    ..TensorOptions::default()
                 },
             )?))
         }
@@ -35,6 +36,7 @@ pub fn to_effective_tensor(value: TensorValue, effective: DType) -> Result<Tenso
                 TensorOptions {
                     shape: Some(shape),
                     strides: Some(strides),
+                    ..TensorOptions::default()
                 },
             )?))
         }
@@ -47,6 +49,7 @@ pub fn to_effective_tensor(value: TensorValue, effective: DType) -> Result<Tenso
                 TensorOptions {
                     shape: Some(shape),
                     strides: Some(strides),
+                    ..TensorOptions::default()
                 },
             )?))
         }
@@ -72,6 +75,7 @@ pub fn from_effective_tensor(value: TensorValue, original: DType) -> Result<Tens
                 TensorOptions {
                     shape: Some(shape),
                     strides: Some(strides),
+                    ..TensorOptions::default()
                 },
             )?))
         }
@@ -84,6 +88,7 @@ pub fn from_effective_tensor(value: TensorValue, original: DType) -> Result<Tens
                 TensorOptions {
                     shape: Some(shape),
                     strides: Some(strides),
+                    ..TensorOptions::default()
                 },
             )?))
         }
@@ -96,6 +101,7 @@ pub fn from_effective_tensor(value: TensorValue, original: DType) -> Result<Tens
                 TensorOptions {
                     shape: Some(shape),
                     strides: Some(strides),
+                    ..TensorOptions::default()
                 },
             )?))
         }

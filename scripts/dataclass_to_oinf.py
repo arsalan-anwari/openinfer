@@ -75,6 +75,11 @@ class ValueType:
     I4 = 18
     I2 = 19
     I1 = 20
+    U4 = 21
+    U2 = 22
+    U1 = 23
+    T2 = 24
+    T1 = 25
 
 
 _VT_TO_DTYPE = {
@@ -95,6 +100,11 @@ _VT_TO_DTYPE = {
     ValueType.I4: np.int8,
     ValueType.I2: np.int8,
     ValueType.I1: np.int8,
+    ValueType.U4: np.uint8,
+    ValueType.U2: np.uint8,
+    ValueType.U1: np.uint8,
+    ValueType.T2: np.int8,
+    ValueType.T1: np.int8,
 }
 
 _DTYPE_TO_VT = {
@@ -130,6 +140,11 @@ _VT_SIZE = {
     ValueType.I4: 1,
     ValueType.I2: 1,
     ValueType.I1: 1,
+    ValueType.U4: 1,
+    ValueType.U2: 1,
+    ValueType.U1: 1,
+    ValueType.T2: 1,
+    ValueType.T1: 1,
 }
 
 
@@ -153,6 +168,11 @@ _DTYPE_ALIAS = {
     "i4": ValueType.I4,
     "i2": ValueType.I2,
     "i1": ValueType.I1,
+    "u4": ValueType.U4,
+    "u2": ValueType.U2,
+    "u1": ValueType.U1,
+    "t2": ValueType.T2,
+    "t1": ValueType.T1,
 }
 
 
@@ -264,6 +284,38 @@ def _pack_signed_bits(values: np.ndarray, bits_per: int) -> bytes:
     return bytes(out)
 
 
+def _pack_unsigned_bits(values: np.ndarray, bits_per: int) -> bytes:
+    if bits_per <= 0 or bits_per > 8:
+        raise OinfError(f"Invalid packed bit width {bits_per}")
+    total = int(values.size)
+    out = bytearray((total * bits_per + 7) // 8)
+    mask = (1 << bits_per) - 1
+    for idx, value in enumerate(values.flatten()):
+        raw = int(value) & mask
+        bit_index = idx * bits_per
+        byte_index = bit_index // 8
+        shift = bit_index % 8
+        out[byte_index] |= (raw << shift) & 0xFF
+        if shift + bits_per > 8:
+            out[byte_index + 1] |= (raw >> (8 - shift)) & 0xFF
+    return bytes(out)
+
+
+_PACKED_BITS_PER = {
+    ValueType.I4: 4,
+    ValueType.I2: 2,
+    ValueType.I1: 1,
+    ValueType.U4: 4,
+    ValueType.U2: 2,
+    ValueType.U1: 1,
+    ValueType.T2: 2,
+    ValueType.T1: 1,
+}
+
+_PACKED_SIGNED = {ValueType.I4, ValueType.I2, ValueType.I1, ValueType.T2}
+_PACKED_UNSIGNED = {ValueType.U4, ValueType.U2, ValueType.U1}
+
+
 class TensorSpec:
     """Represents a tensor value."""
 
@@ -337,8 +389,10 @@ def _as_numpy_array(value: Any, dtype_override: Optional[int]) -> np.ndarray:
     if dtype_override is not None:
         if dtype_override in (ValueType.BF16, ValueType.F8E5M2):
             arr = arr.astype(np.float32, copy=False)
-        elif dtype_override in (ValueType.I4, ValueType.I2, ValueType.I1):
+        elif dtype_override in _PACKED_SIGNED or dtype_override == ValueType.T1:
             arr = arr.astype(np.int8, copy=False)
+        elif dtype_override in _PACKED_UNSIGNED:
+            arr = arr.astype(np.uint8, copy=False)
         else:
             arr = arr.astype(_VT_TO_DTYPE[dtype_override], copy=False)
     return arr
@@ -375,13 +429,29 @@ def _encode_scalar(value: Any, value_type: int) -> bytes:
     if value_type == ValueType.F8E5M2:
         bits = _float_to_f8e5m2_bits(float(value))
         return struct.pack("<B", bits)
-    if value_type in (ValueType.I4, ValueType.I2, ValueType.I1):
-        bits_per = {ValueType.I4: 4, ValueType.I2: 2, ValueType.I1: 1}[value_type]
-        min_val = -(1 << (bits_per - 1))
-        max_val = (1 << (bits_per - 1)) - 1
-        if not (min_val <= int(value) <= max_val):
-            raise OinfError(f"Value out of range for i{bits_per}")
-        return _pack_signed_bits(np.array([int(value)], dtype=np.int8), bits_per)
+    if value_type in _PACKED_BITS_PER:
+        bits_per = _PACKED_BITS_PER[value_type]
+        raw = int(value)
+        if value_type in _PACKED_SIGNED:
+            min_val = -(1 << (bits_per - 1))
+            max_val = (1 << (bits_per - 1)) - 1
+            if not (min_val <= raw <= max_val):
+                raise OinfError(f"Value out of range for i{bits_per}")
+            return _pack_signed_bits(np.array([raw], dtype=np.int8), bits_per)
+        if value_type in _PACKED_UNSIGNED:
+            max_val = (1 << bits_per) - 1
+            if not (0 <= raw <= max_val):
+                raise OinfError(f"Value out of range for u{bits_per}")
+            return _pack_unsigned_bits(np.array([raw], dtype=np.uint8), bits_per)
+        if value_type == ValueType.T1:
+            if raw not in (-1, 1):
+                raise OinfError("Value out of range for t1")
+            mapped = 0 if raw < 0 else 1
+            return _pack_unsigned_bits(np.array([mapped], dtype=np.uint8), bits_per)
+        if value_type == ValueType.T2:
+            if raw < -1 or raw > 1:
+                raise OinfError("Value out of range for t2")
+            return _pack_signed_bits(np.array([raw], dtype=np.int8), bits_per)
     dtype = _VT_TO_DTYPE[value_type]
     arr = np.array(value, dtype=dtype)
     return arr.astype(np.dtype(dtype).newbyteorder("<")).tobytes()
@@ -401,14 +471,32 @@ def _encode_ndarray(value: Any, dtype_override: Optional[int]) -> Tuple[bytes, i
         payload = header + dims + data
         padding = b"\x00" * (_align_up(len(payload)) - len(payload))
         return payload + padding, dtype_override
-    if dtype_override in (ValueType.I4, ValueType.I2, ValueType.I1):
-        bits_per = {ValueType.I4: 4, ValueType.I2: 2, ValueType.I1: 1}[dtype_override]
-        min_val = -(1 << (bits_per - 1))
-        max_val = (1 << (bits_per - 1)) - 1
-        if arr.size:
-            if int(arr.min()) < min_val or int(arr.max()) > max_val:
-                raise OinfError(f"Values out of range for i{bits_per}")
-        data = _pack_signed_bits(arr.astype(np.int8), bits_per)
+    if dtype_override in _PACKED_BITS_PER:
+        bits_per = _PACKED_BITS_PER[dtype_override]
+        if dtype_override in _PACKED_SIGNED:
+            min_val = -(1 << (bits_per - 1))
+            max_val = (1 << (bits_per - 1)) - 1
+            if arr.size:
+                if int(arr.min()) < min_val or int(arr.max()) > max_val:
+                    raise OinfError(f"Values out of range for i{bits_per}")
+            data = _pack_signed_bits(arr.astype(np.int8), bits_per)
+        elif dtype_override in _PACKED_UNSIGNED:
+            max_val = (1 << bits_per) - 1
+            if arr.size:
+                if int(arr.min()) < 0 or int(arr.max()) > max_val:
+                    raise OinfError(f"Values out of range for u{bits_per}")
+            data = _pack_unsigned_bits(arr.astype(np.uint8), bits_per)
+        elif dtype_override == ValueType.T1:
+            if arr.size and (int(arr.min()) < -1 or int(arr.max()) > 1):
+                raise OinfError("Values out of range for t1")
+            mapped = np.where(arr.astype(np.int8) < 0, 0, 1).astype(np.uint8)
+            if arr.size and not np.all(np.isin(arr, (-1, 1))):
+                raise OinfError("Values out of range for t1")
+            data = _pack_unsigned_bits(mapped, bits_per)
+        else:
+            if arr.size and (int(arr.min()) < -1 or int(arr.max()) > 1):
+                raise OinfError("Values out of range for t2")
+            data = _pack_signed_bits(arr.astype(np.int8), bits_per)
         header = struct.pack("<II", dtype_override, arr.ndim)
         dims = struct.pack("<" + "Q" * arr.ndim, *[int(d) for d in arr.shape])
         payload = header + dims + data
@@ -572,14 +660,30 @@ def _encode_tensor_payload(
             bits = np.vectorize(_float_to_f8e5m2_bits, otypes=[np.uint8])(arr)
             data = bits.astype(np.uint8).tobytes()
         return dtype_override, tuple(int(d) for d in arr.shape), data
-    if dtype_override in (ValueType.I4, ValueType.I2, ValueType.I1):
-        bits_per = {ValueType.I4: 4, ValueType.I2: 2, ValueType.I1: 1}[dtype_override]
-        min_val = -(1 << (bits_per - 1))
-        max_val = (1 << (bits_per - 1)) - 1
-        if arr.size:
-            if int(arr.min()) < min_val or int(arr.max()) > max_val:
-                raise OinfError(f"Values out of range for i{bits_per}")
-        data = _pack_signed_bits(arr.astype(np.int8), bits_per)
+    if dtype_override in _PACKED_BITS_PER:
+        bits_per = _PACKED_BITS_PER[dtype_override]
+        if dtype_override in _PACKED_SIGNED:
+            min_val = -(1 << (bits_per - 1))
+            max_val = (1 << (bits_per - 1)) - 1
+            if arr.size:
+                if int(arr.min()) < min_val or int(arr.max()) > max_val:
+                    raise OinfError(f"Values out of range for i{bits_per}")
+            data = _pack_signed_bits(arr.astype(np.int8), bits_per)
+        elif dtype_override in _PACKED_UNSIGNED:
+            max_val = (1 << bits_per) - 1
+            if arr.size:
+                if int(arr.min()) < 0 or int(arr.max()) > max_val:
+                    raise OinfError(f"Values out of range for u{bits_per}")
+            data = _pack_unsigned_bits(arr.astype(np.uint8), bits_per)
+        elif dtype_override == ValueType.T1:
+            if arr.size and not np.all(np.isin(arr, (-1, 1))):
+                raise OinfError("Values out of range for t1")
+            mapped = np.where(arr.astype(np.int8) < 0, 0, 1).astype(np.uint8)
+            data = _pack_unsigned_bits(mapped, bits_per)
+        else:
+            if arr.size and (int(arr.min()) < -1 or int(arr.max()) > 1):
+                raise OinfError("Values out of range for t2")
+            data = _pack_signed_bits(arr.astype(np.int8), bits_per)
         return dtype_override, tuple(int(d) for d in arr.shape), data
     dtype = _value_type_from_numpy_dtype(arr.dtype)
     if dtype == ValueType.BOOL:

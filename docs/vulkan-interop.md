@@ -133,7 +133,7 @@ Notes and Limitations
 - f64 requires `shader_float64` support from the Vulkan device.
 - f16 may be supported by the device (`shader_float16`) but is currently upsampled to f32.
 - f8/bf16 are always upsampled to f32 on Vulkan (no native support assumed).
-- Packed integer types (i1/i2/i4) are stored as packed bits in buffers; kernels must unpack.
+- Packed integer types (i1/i2/i4/u1/u2/u4/t1/t2) are stored as packed bits in buffers; kernels must unpack.
 - `abs` for unsigned/bool can be short-circuited in Rust without launching
   a kernel (see `openinfer/src/ops/vulkan/abs/mod.rs`).
 - The simulator defaults to out-of-place ops, which means every op allocates a

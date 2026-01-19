@@ -25,6 +25,11 @@ pub(crate) fn match_dtype(dtype: &Ident) -> syn::Result<TokenStream> {
         "i4" => Ok(quote! { ::openinfer::DType::I4 }),
         "i2" => Ok(quote! { ::openinfer::DType::I2 }),
         "i1" => Ok(quote! { ::openinfer::DType::I1 }),
+        "u4" => Ok(quote! { ::openinfer::DType::U4 }),
+        "u2" => Ok(quote! { ::openinfer::DType::U2 }),
+        "u1" => Ok(quote! { ::openinfer::DType::U1 }),
+        "t2" => Ok(quote! { ::openinfer::DType::T2 }),
+        "t1" => Ok(quote! { ::openinfer::DType::T1 }),
         _ => Err(syn::Error::new(dtype.span(), "unsupported dtype")),
     }
 }
@@ -144,6 +149,36 @@ pub(crate) fn init_expr(init: &Option<InitValue>, dtype: &Ident) -> syn::Result<
                         return Err(syn::Error::new(dtype.span(), "i1 init out of range"));
                     }
                     quote! { Some(::openinfer::ScalarValue::I1(::openinfer::I1::from_i8(#lit_expr as i8))) }
+                }
+                "u4" => {
+                    if value < 0 || value > 15 {
+                        return Err(syn::Error::new(dtype.span(), "u4 init out of range"));
+                    }
+                    quote! { Some(::openinfer::ScalarValue::U4(::openinfer::U4::from_u8(#lit_expr as u8))) }
+                }
+                "u2" => {
+                    if value < 0 || value > 3 {
+                        return Err(syn::Error::new(dtype.span(), "u2 init out of range"));
+                    }
+                    quote! { Some(::openinfer::ScalarValue::U2(::openinfer::U2::from_u8(#lit_expr as u8))) }
+                }
+                "u1" => {
+                    if value < 0 || value > 1 {
+                        return Err(syn::Error::new(dtype.span(), "u1 init out of range"));
+                    }
+                    quote! { Some(::openinfer::ScalarValue::U1(::openinfer::U1::from_u8(#lit_expr as u8))) }
+                }
+                "t2" => {
+                    if value < -1 || value > 1 {
+                        return Err(syn::Error::new(dtype.span(), "t2 init out of range"));
+                    }
+                    quote! { Some(::openinfer::ScalarValue::T2(::openinfer::T2::from_i8(#lit_expr as i8))) }
+                }
+                "t1" => {
+                    if value != -1 && value != 1 {
+                        return Err(syn::Error::new(dtype.span(), "t1 init must be -1 or 1"));
+                    }
+                    quote! { Some(::openinfer::ScalarValue::T1(::openinfer::T1::from_i8(#lit_expr as i8))) }
                 }
                 _ => {
                     return Err(syn::Error::new(

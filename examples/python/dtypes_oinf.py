@@ -30,6 +30,11 @@ class DtypesModel:
     o_i4: TensorSpec
     p_i2: TensorSpec
     q_i1: TensorSpec
+    r_u4: TensorSpec
+    s_u2: TensorSpec
+    t_u1: TensorSpec
+    u_t2: TensorSpec
+    v_t1: TensorSpec
 
 
 def build_model() -> DtypesModel:
@@ -54,6 +59,11 @@ def build_model() -> DtypesModel:
         o_i4=TensorSpec(np.array([-8, -1, 0, 1, 7, -3, 4, 2], dtype=np.int8), dtype="i4"),
         p_i2=TensorSpec(np.array([-2, -1, 0, 1, -2, 1, 0, -1], dtype=np.int8), dtype="i2"),
         q_i1=TensorSpec(np.array([-1, 0, -1, 0, -1, 0, -1, 0], dtype=np.int8), dtype="i1"),
+        r_u4=TensorSpec(np.array([0, 1, 2, 3, 4, 5, 14, 15], dtype=np.uint8), dtype="u4"),
+        s_u2=TensorSpec(np.array([0, 1, 2, 3, 0, 1, 2, 3], dtype=np.uint8), dtype="u2"),
+        t_u1=TensorSpec(np.array([0, 1, 0, 1, 1, 0, 1, 0], dtype=np.uint8), dtype="u1"),
+        u_t2=TensorSpec(np.array([-1, 0, 1, -1, 0, 1, -1, 0], dtype=np.int8), dtype="t2"),
+        v_t1=TensorSpec(np.array([-1, 1, -1, 1, 1, -1, 1, -1], dtype=np.int8), dtype="t1"),
     )
 
 

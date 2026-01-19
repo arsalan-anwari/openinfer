@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Context, Result};
 
-use crate::tensor::{BF16, Bitset, DType, F16, F8E5M2, I1, I2, I4, Tensor, TensorValue};
+use crate::tensor::{BF16, Bitset, DType, F16, F8E5M2, I1, I2, I4, T1, T2, U1, U2, U4, Tensor, TensorValue};
 use crate::types::VarInfo;
 
 const MAGIC: &[u8; 5] = b"OINF\0";
@@ -342,16 +342,44 @@ impl ModelLoader {
                 shape: Some(shape.clone()),
                 ..crate::tensor::TensorOptions::default()
             })?)),
-            DType::I4 => Ok(TensorValue::I4(Tensor::from_vec_with_opts(parse_i4(&buf, expected_len)?, crate::tensor::TensorOptions {
+            DType::I4 => Ok(TensorValue::I4(Tensor::from_vec_with_opts(parse_i4(&buf)?, crate::tensor::TensorOptions {
                 shape: Some(shape.clone()),
+                allow_len_mismatch: true,
                 ..crate::tensor::TensorOptions::default()
             })?)),
-            DType::I2 => Ok(TensorValue::I2(Tensor::from_vec_with_opts(parse_i2(&buf, expected_len)?, crate::tensor::TensorOptions {
+            DType::I2 => Ok(TensorValue::I2(Tensor::from_vec_with_opts(parse_i2(&buf)?, crate::tensor::TensorOptions {
                 shape: Some(shape.clone()),
+                allow_len_mismatch: true,
                 ..crate::tensor::TensorOptions::default()
             })?)),
-            DType::I1 => Ok(TensorValue::I1(Tensor::from_vec_with_opts(parse_i1(&buf, expected_len)?, crate::tensor::TensorOptions {
+            DType::I1 => Ok(TensorValue::I1(Tensor::from_vec_with_opts(parse_i1(&buf)?, crate::tensor::TensorOptions {
                 shape: Some(shape.clone()),
+                allow_len_mismatch: true,
+                ..crate::tensor::TensorOptions::default()
+            })?)),
+            DType::U4 => Ok(TensorValue::U4(Tensor::from_vec_with_opts(parse_u4(&buf)?, crate::tensor::TensorOptions {
+                shape: Some(shape.clone()),
+                allow_len_mismatch: true,
+                ..crate::tensor::TensorOptions::default()
+            })?)),
+            DType::U2 => Ok(TensorValue::U2(Tensor::from_vec_with_opts(parse_u2(&buf)?, crate::tensor::TensorOptions {
+                shape: Some(shape.clone()),
+                allow_len_mismatch: true,
+                ..crate::tensor::TensorOptions::default()
+            })?)),
+            DType::U1 => Ok(TensorValue::U1(Tensor::from_vec_with_opts(parse_u1(&buf)?, crate::tensor::TensorOptions {
+                shape: Some(shape.clone()),
+                allow_len_mismatch: true,
+                ..crate::tensor::TensorOptions::default()
+            })?)),
+            DType::T2 => Ok(TensorValue::T2(Tensor::from_vec_with_opts(parse_t2(&buf)?, crate::tensor::TensorOptions {
+                shape: Some(shape.clone()),
+                allow_len_mismatch: true,
+                ..crate::tensor::TensorOptions::default()
+            })?)),
+            DType::T1 => Ok(TensorValue::T1(Tensor::from_vec_with_opts(parse_t1(&buf)?, crate::tensor::TensorOptions {
+                shape: Some(shape.clone()),
+                allow_len_mismatch: true,
                 ..crate::tensor::TensorOptions::default()
             })?)),
         }
@@ -383,6 +411,11 @@ impl ValueType {
     const I4: u32 = 18;
     const I2: u32 = 19;
     const I1: u32 = 20;
+    const U4: u32 = 21;
+    const U2: u32 = 22;
+    const U1: u32 = 23;
+    const T2: u32 = 24;
+    const T1: u32 = 25;
 
     fn is_scalar(value_type: u32) -> bool {
         matches!(
@@ -405,6 +438,11 @@ impl ValueType {
                 | Self::I4
                 | Self::I2
                 | Self::I1
+                | Self::U4
+                | Self::U2
+                | Self::U1
+                | Self::T2
+                | Self::T1
         )
     }
 
@@ -428,16 +466,22 @@ impl ValueType {
             Self::I4 => Ok(DType::I4),
             Self::I2 => Ok(DType::I2),
             Self::I1 => Ok(DType::I1),
+            Self::U4 => Ok(DType::U4),
+            Self::U2 => Ok(DType::U2),
+            Self::U1 => Ok(DType::U1),
+            Self::T2 => Ok(DType::T2),
+            Self::T1 => Ok(DType::T1),
             other => Err(anyhow!("unsupported tensor dtype {}", other)),
         }
     }
 }
 
 fn expected_nbytes(dtype: DType, len: usize) -> usize {
+    if dtype.is_packed() {
+        let bits = len.saturating_mul(dtype.bit_width() as usize);
+        return (bits + 7) / 8;
+    }
     match dtype {
-        DType::I1 => (len + 7) / 8,
-        DType::I2 => (len + 3) / 4,
-        DType::I4 => (len + 1) / 2,
         DType::F8E5M2 => len,
         DType::BF16 => len * 2,
         DType::F16 => len * 2,
@@ -445,6 +489,9 @@ fn expected_nbytes(dtype: DType, len: usize) -> usize {
         DType::I16 | DType::U16 => len * 2,
         DType::I32 | DType::U32 | DType::F32 => len * 4,
         DType::I64 | DType::U64 | DType::F64 => len * 8,
+        DType::I4 | DType::I2 | DType::I1 | DType::U4 | DType::U2 | DType::U1 | DType::T2 | DType::T1 => {
+            unreachable!("packed types handled above")
+        }
     }
 }
 
@@ -572,45 +619,36 @@ fn parse_f8(buf: &[u8]) -> Result<Vec<F8E5M2>> {
     Ok(buf.iter().map(|b| F8E5M2 { bits: *b }).collect())
 }
 
-fn unpack_packed_bits(buf: &[u8], bits_per: u8, len: usize) -> Result<Vec<u8>> {
-    if bits_per == 0 || bits_per > 8 {
-        return Err(anyhow!("invalid packed bit width {}", bits_per));
-    }
-    let mut out = Vec::with_capacity(len);
-    for idx in 0..len {
-        let bit_index = idx * bits_per as usize;
-        let byte_index = bit_index / 8;
-        let shift = (bit_index % 8) as u8;
-        if byte_index >= buf.len() {
-            return Err(anyhow!("packed tensor data out of bounds"));
-        }
-        let mut value = (buf[byte_index] >> shift) as u16;
-        let remaining = 8u8.saturating_sub(shift);
-        if remaining < bits_per {
-            if byte_index + 1 >= buf.len() {
-                return Err(anyhow!("packed tensor data out of bounds"));
-            }
-            value |= (buf[byte_index + 1] as u16) << remaining;
-        }
-        let mask = (1u16 << bits_per) - 1;
-        out.push((value & mask) as u8);
-    }
-    Ok(out)
+fn parse_i4(buf: &[u8]) -> Result<Vec<I4>> {
+    Ok(buf.iter().map(|bits| I4 { bits: *bits }).collect())
 }
 
-fn parse_i4(buf: &[u8], len: usize) -> Result<Vec<I4>> {
-    let values = unpack_packed_bits(buf, 4, len)?;
-    Ok(values.into_iter().map(|bits| I4 { bits }).collect())
+fn parse_i2(buf: &[u8]) -> Result<Vec<I2>> {
+    Ok(buf.iter().map(|bits| I2 { bits: *bits }).collect())
 }
 
-fn parse_i2(buf: &[u8], len: usize) -> Result<Vec<I2>> {
-    let values = unpack_packed_bits(buf, 2, len)?;
-    Ok(values.into_iter().map(|bits| I2 { bits }).collect())
+fn parse_i1(buf: &[u8]) -> Result<Vec<I1>> {
+    Ok(buf.iter().map(|bits| I1 { bits: *bits }).collect())
 }
 
-fn parse_i1(buf: &[u8], len: usize) -> Result<Vec<I1>> {
-    let values = unpack_packed_bits(buf, 1, len)?;
-    Ok(values.into_iter().map(|bits| I1 { bits }).collect())
+fn parse_u4(buf: &[u8]) -> Result<Vec<U4>> {
+    Ok(buf.iter().map(|bits| U4 { bits: *bits }).collect())
+}
+
+fn parse_u2(buf: &[u8]) -> Result<Vec<U2>> {
+    Ok(buf.iter().map(|bits| U2 { bits: *bits }).collect())
+}
+
+fn parse_u1(buf: &[u8]) -> Result<Vec<U1>> {
+    Ok(buf.iter().map(|bits| U1 { bits: *bits }).collect())
+}
+
+fn parse_t2(buf: &[u8]) -> Result<Vec<T2>> {
+    Ok(buf.iter().map(|bits| T2 { bits: *bits }).collect())
+}
+
+fn parse_t1(buf: &[u8]) -> Result<Vec<T1>> {
+    Ok(buf.iter().map(|bits| T1 { bits: *bits }).collect())
 }
 
 fn read_u32(data: &[u8], cursor: &mut usize) -> Result<u32> {

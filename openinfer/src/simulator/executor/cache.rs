@@ -748,7 +748,8 @@ fn read_table_selection(
     entry_shape: &[usize],
     init: Option<&crate::types::ScalarValue>,
 ) -> Result<TensorValue> {
-    let entry_len = crate::tensor::numel(entry_shape);
+    let logical_len = crate::tensor::numel(entry_shape);
+    let entry_len = table.decl.dtype.storage_len(logical_len);
     let mut output_shape = Vec::new();
     for selection in selections {
         if !selection.is_scalar {
@@ -945,6 +946,7 @@ fn read_table_selection(
                     data,
                     crate::tensor::TensorOptions {
                         shape: Some(shape),
+                        allow_len_mismatch: true,
                         ..crate::tensor::TensorOptions::default()
                     },
                 )?))
@@ -957,6 +959,7 @@ fn read_table_selection(
                     data,
                     crate::tensor::TensorOptions {
                         shape: Some(shape),
+                        allow_len_mismatch: true,
                         ..crate::tensor::TensorOptions::default()
                     },
                 )?))
@@ -969,6 +972,72 @@ fn read_table_selection(
                     data,
                     crate::tensor::TensorOptions {
                         shape: Some(shape),
+                        allow_len_mismatch: true,
+                        ..crate::tensor::TensorOptions::default()
+                    },
+                )?))
+            })
+        }
+        crate::tensor::DType::U4 => {
+            let shape = output_shape.clone();
+            read_table_values_u4(table, selections, entry_shape, entry_len, init).and_then(|data| {
+                Ok(TensorValue::U4(crate::tensor::Tensor::from_vec_with_opts(
+                    data,
+                    crate::tensor::TensorOptions {
+                        shape: Some(shape),
+                        allow_len_mismatch: true,
+                        ..crate::tensor::TensorOptions::default()
+                    },
+                )?))
+            })
+        }
+        crate::tensor::DType::U2 => {
+            let shape = output_shape.clone();
+            read_table_values_u2(table, selections, entry_shape, entry_len, init).and_then(|data| {
+                Ok(TensorValue::U2(crate::tensor::Tensor::from_vec_with_opts(
+                    data,
+                    crate::tensor::TensorOptions {
+                        shape: Some(shape),
+                        allow_len_mismatch: true,
+                        ..crate::tensor::TensorOptions::default()
+                    },
+                )?))
+            })
+        }
+        crate::tensor::DType::U1 => {
+            let shape = output_shape.clone();
+            read_table_values_u1(table, selections, entry_shape, entry_len, init).and_then(|data| {
+                Ok(TensorValue::U1(crate::tensor::Tensor::from_vec_with_opts(
+                    data,
+                    crate::tensor::TensorOptions {
+                        shape: Some(shape),
+                        allow_len_mismatch: true,
+                        ..crate::tensor::TensorOptions::default()
+                    },
+                )?))
+            })
+        }
+        crate::tensor::DType::T2 => {
+            let shape = output_shape.clone();
+            read_table_values_t2(table, selections, entry_shape, entry_len, init).and_then(|data| {
+                Ok(TensorValue::T2(crate::tensor::Tensor::from_vec_with_opts(
+                    data,
+                    crate::tensor::TensorOptions {
+                        shape: Some(shape),
+                        allow_len_mismatch: true,
+                        ..crate::tensor::TensorOptions::default()
+                    },
+                )?))
+            })
+        }
+        crate::tensor::DType::T1 => {
+            let shape = output_shape.clone();
+            read_table_values_t1(table, selections, entry_shape, entry_len, init).and_then(|data| {
+                Ok(TensorValue::T1(crate::tensor::Tensor::from_vec_with_opts(
+                    data,
+                    crate::tensor::TensorOptions {
+                        shape: Some(shape),
+                        allow_len_mismatch: true,
                         ..crate::tensor::TensorOptions::default()
                     },
                 )?))
@@ -1108,6 +1177,11 @@ read_table_values!(
 read_table_values!(read_table_values_i4, get_table_entry_i4, I4, crate::tensor::I4);
 read_table_values!(read_table_values_i2, get_table_entry_i2, I2, crate::tensor::I2);
 read_table_values!(read_table_values_i1, get_table_entry_i1, I1, crate::tensor::I1);
+read_table_values!(read_table_values_u4, get_table_entry_u4, U4, crate::tensor::U4);
+read_table_values!(read_table_values_u2, get_table_entry_u2, U2, crate::tensor::U2);
+read_table_values!(read_table_values_u1, get_table_entry_u1, U1, crate::tensor::U1);
+read_table_values!(read_table_values_t2, get_table_entry_t2, T2, crate::tensor::T2);
+read_table_values!(read_table_values_t1, get_table_entry_t1, T1, crate::tensor::T1);
 
 pub(crate) fn format_cache_access(access: &CacheAccess) -> String {
     if !access.bracketed {

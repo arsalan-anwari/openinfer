@@ -36,9 +36,14 @@ pub(super) fn tensor_scalar_to_f32_lossy(value: &TensorValue, name: &str) -> Res
         TensorValue::BF16(tensor) => Ok(tensor.data[0].to_f32()),
         TensorValue::F8E5M2(tensor) => Ok(tensor.data[0].to_f32()),
         TensorValue::Bitset(tensor) => Ok(tensor.data[0].bits as f32),
-        TensorValue::I4(tensor) => Ok(tensor.data[0].to_i8() as f32),
-        TensorValue::I2(tensor) => Ok(tensor.data[0].to_i8() as f32),
-        TensorValue::I1(tensor) => Ok(tensor.data[0].to_i8() as f32),
+        TensorValue::I4(_)
+        | TensorValue::I2(_)
+        | TensorValue::I1(_)
+        | TensorValue::U4(_)
+        | TensorValue::U2(_)
+        | TensorValue::U1(_)
+        | TensorValue::T2(_)
+        | TensorValue::T1(_) => Err(anyhow!("packed scalars are not supported for {}", name)),
     }
 }
 
@@ -54,9 +59,14 @@ pub(super) fn tensor_scalar_to_attr_value(value: &TensorValue, name: &str) -> Re
         TensorValue::I16(tensor) => Ok(AttrValue::Int(tensor.data[0] as i64)),
         TensorValue::I32(tensor) => Ok(AttrValue::Int(tensor.data[0] as i64)),
         TensorValue::I64(tensor) => Ok(AttrValue::Int(tensor.data[0])),
-        TensorValue::I4(tensor) => Ok(AttrValue::Int(tensor.data[0].to_i8() as i64)),
-        TensorValue::I2(tensor) => Ok(AttrValue::Int(tensor.data[0].to_i8() as i64)),
-        TensorValue::I1(tensor) => Ok(AttrValue::Int(tensor.data[0].to_i8() as i64)),
+        TensorValue::I4(_)
+        | TensorValue::I2(_)
+        | TensorValue::I1(_)
+        | TensorValue::U4(_)
+        | TensorValue::U2(_)
+        | TensorValue::U1(_)
+        | TensorValue::T2(_)
+        | TensorValue::T1(_) => Err(anyhow!("packed scalars are not supported for {}", name)),
         TensorValue::U8(tensor) => Ok(AttrValue::UInt(tensor.data[0] as u64)),
         TensorValue::U16(tensor) => Ok(AttrValue::UInt(tensor.data[0] as u64)),
         TensorValue::U32(tensor) => Ok(AttrValue::UInt(tensor.data[0] as u64)),
@@ -177,6 +187,9 @@ pub(super) fn slice_tensor_value(
         if !selection.is_scalar {
             out_shape.push(selection.indices.len());
         }
+    }
+    if value.dtype().is_packed() {
+        return Err(anyhow!("slice not supported for packed tensors"));
     }
     match value {
         TensorValue::I8(t) => {
@@ -359,42 +372,7 @@ pub(super) fn slice_tensor_value(
                 )?))
             })
         }
-        TensorValue::I4(t) => {
-            let shape = out_shape.clone();
-            slice_tensor_data(&t.data, t.strides(), selections).and_then(|data| {
-                Ok(TensorValue::I4(crate::tensor::Tensor::from_vec_with_opts(
-                    data,
-                    crate::tensor::TensorOptions {
-                        shape: Some(shape),
-                        ..crate::tensor::TensorOptions::default()
-                    },
-                )?))
-            })
-        }
-        TensorValue::I2(t) => {
-            let shape = out_shape.clone();
-            slice_tensor_data(&t.data, t.strides(), selections).and_then(|data| {
-                Ok(TensorValue::I2(crate::tensor::Tensor::from_vec_with_opts(
-                    data,
-                    crate::tensor::TensorOptions {
-                        shape: Some(shape),
-                        ..crate::tensor::TensorOptions::default()
-                    },
-                )?))
-            })
-        }
-        TensorValue::I1(t) => {
-            let shape = out_shape.clone();
-            slice_tensor_data(&t.data, t.strides(), selections).and_then(|data| {
-                Ok(TensorValue::I1(crate::tensor::Tensor::from_vec_with_opts(
-                    data,
-                    crate::tensor::TensorOptions {
-                        shape: Some(shape),
-                        ..crate::tensor::TensorOptions::default()
-                    },
-                )?))
-            })
-        }
+        _ => Err(anyhow!("slice not supported for packed tensors")),
     }
 }
 
@@ -441,9 +419,16 @@ pub(super) fn scalar_to_i64(value: &TensorValue) -> Result<i64> {
         TensorValue::I16(t) => Ok(t.data[0] as i64),
         TensorValue::I32(t) => Ok(t.data[0] as i64),
         TensorValue::I64(t) => Ok(t.data[0]),
-        TensorValue::I4(t) => Ok(t.data[0].to_i8() as i64),
-        TensorValue::I2(t) => Ok(t.data[0].to_i8() as i64),
-        TensorValue::I1(t) => Ok(t.data[0].to_i8() as i64),
+        TensorValue::I4(_)
+        | TensorValue::I2(_)
+        | TensorValue::I1(_)
+        | TensorValue::U4(_)
+        | TensorValue::U2(_)
+        | TensorValue::U1(_)
+        | TensorValue::T2(_)
+        | TensorValue::T1(_) => {
+            return Err(anyhow!("cache index packed dtypes are not supported"));
+        }
         TensorValue::U8(t) => Ok(t.data[0] as i64),
         TensorValue::U16(t) => Ok(t.data[0] as i64),
         TensorValue::U32(t) => Ok(t.data[0] as i64),
@@ -522,21 +507,14 @@ pub(super) fn increment_scalar(
             t.data[0] += signed_amount as f64;
             Ok(TensorValue::F64(t))
         }
-        TensorValue::I4(mut t) => {
-            let base = t.data[0].to_i8().wrapping_add(signed_amount as i8);
-            t.data[0] = crate::tensor::I4::from_i8(base);
-            Ok(TensorValue::I4(t))
-        }
-        TensorValue::I2(mut t) => {
-            let base = t.data[0].to_i8().wrapping_add(signed_amount as i8);
-            t.data[0] = crate::tensor::I2::from_i8(base);
-            Ok(TensorValue::I2(t))
-        }
-        TensorValue::I1(mut t) => {
-            let base = t.data[0].to_i8().wrapping_add(signed_amount as i8);
-            t.data[0] = crate::tensor::I1::from_i8(base);
-            Ok(TensorValue::I1(t))
-        }
+        TensorValue::I4(_)
+        | TensorValue::I2(_)
+        | TensorValue::I1(_)
+        | TensorValue::U4(_)
+        | TensorValue::U2(_)
+        | TensorValue::U1(_)
+        | TensorValue::T2(_)
+        | TensorValue::T1(_) => Err(anyhow!("cache increment unsupported for packed dtype")),
         _ => Err(anyhow!("cache increment unsupported for dtype")),
     }
 }
@@ -552,6 +530,9 @@ pub(super) fn expand_tensor_value(value: &TensorValue, shape: &[usize]) -> Resul
         if new < old {
             return Err(anyhow!("cannot shrink tensor"));
         }
+    }
+    if value.dtype().is_packed() {
+        return Err(anyhow!("cannot expand packed tensors"));
     }
     let mut expanded = TensorValue::zeros(value.dtype(), shape);
     match (value, &mut expanded) {

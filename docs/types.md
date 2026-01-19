@@ -7,37 +7,39 @@ different devices.
 
 Universal types (allowed everywhere, including scalars):
 
-- f64
-- f32
-- i64
-- i32
-- i16
-- i8
-- u64
-- u32
-- u16
-- u8
+- f32 / f64
+- i8 / i16 / i32 / i64
+- u8 / u16 / u32 / u64
 - bool
 
 Special tensor-only types:
 
-- f16
-- bf16
-- f8 (float8e5m2)
-- i4
-- i2
-- i1
+- f8 (float8e5m2) / f16 / bf16
+- i1 / i2 / i4
+- u1 / u2 / u4
+- t1 / t2
 
-Packed integer types (i1/i2/i4) store multiple elements per byte in OINF blobs.
-Packing is LSB-first within each byte.
+Packed integer types (i1/i2/i4/u1/u2/u4/t1/t2) store multiple elements per byte
+in OINF blobs. Packing is LSB-first within each byte.
+
+Packed dtype ranges:
+
+- i1: {-1, 0}
+- i2: {-2, -1, 0, 1}
+- i4: {-8 ... 7}
+- u1: {0, 1}
+- u2: {0, 1, 2, 3}
+- u4: {0 ... 15}
+- t1: {-1, 1}
+- t2: {-1, 0, 1}
 
 ## CPU Backend
 
 - Supports all universal and special tensor types.
 - f16/bf16/f8 are upsampled to f32 for kernel execution and converted back to
   the original dtype after execution.
-- Packed types (i1/i2/i4) remain packed; kernels are responsible for unpacking
-  and applying the math logic.
+- Packed types (i1/i2/i4/u1/u2/u4/t1/t2) remain packed; kernels are responsible
+  for unpacking and applying the math logic.
 
 ## Vulkan Backend
 
@@ -55,7 +57,7 @@ Upsampling behavior:
 
 Packed types:
 
-- i1/i2/i4 are stored as packed bytes in GPU buffers.
+- i1/i2/i4/u1/u2/u4/t1/t2 are stored as packed bytes in GPU buffers.
 - Kernels must unpack these values and implement the arithmetic in packed form.
 - Packed types are never upsampled to i8.
 

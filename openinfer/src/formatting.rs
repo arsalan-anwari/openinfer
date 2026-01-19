@@ -1,4 +1,4 @@
-use crate::tensor::{BF16, Bitset, F16, F8E5M2, I1, I2, I4};
+use crate::tensor::{BF16, Bitset, F16, F8E5M2, I1, I2, I4, T1, T2, U1, U2, U4};
 pub trait FormatValue {
     fn format_value(&self) -> String;
 }
@@ -53,19 +53,49 @@ impl FormatValue for F8E5M2 {
 
 impl FormatValue for I4 {
     fn format_value(&self) -> String {
-        self.to_i8().to_string()
+        format!("0x{:02x}", self.bits)
     }
 }
 
 impl FormatValue for I2 {
     fn format_value(&self) -> String {
-        self.to_i8().to_string()
+        format!("0x{:02x}", self.bits)
     }
 }
 
 impl FormatValue for I1 {
     fn format_value(&self) -> String {
-        self.to_i8().to_string()
+        format!("0x{:02x}", self.bits)
+    }
+}
+
+impl FormatValue for U4 {
+    fn format_value(&self) -> String {
+        format!("0x{:02x}", self.bits)
+    }
+}
+
+impl FormatValue for U2 {
+    fn format_value(&self) -> String {
+        format!("0x{:02x}", self.bits)
+    }
+}
+
+impl FormatValue for U1 {
+    fn format_value(&self) -> String {
+        format!("0x{:02x}", self.bits)
+    }
+}
+
+impl FormatValue for T2 {
+    fn format_value(&self) -> String {
+        format!("0x{:02x}", self.bits)
+    }
+}
+
+impl FormatValue for T1 {
+    fn format_value(&self) -> String {
+        format!("0x{:02x}", self.bits)
     }
 }
 

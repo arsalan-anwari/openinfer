@@ -209,6 +209,31 @@ pub struct I1 {
     pub bits: u8,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct U4 {
+    pub bits: u8,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct U2 {
+    pub bits: u8,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct U1 {
+    pub bits: u8,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct T2 {
+    pub bits: u8,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct T1 {
+    pub bits: u8,
+}
+
 fn sign_extend(bits: u8, width: u8) -> i8 {
     let shift = 8 - width;
     ((bits << shift) as i8) >> shift
@@ -248,10 +273,67 @@ impl I1 {
     }
 }
 
+impl U4 {
+    pub fn from_u8(value: u8) -> Self {
+        Self { bits: value & 0x0f }
+    }
+
+    pub fn to_u8(self) -> u8 {
+        self.bits & 0x0f
+    }
+}
+
+impl U2 {
+    pub fn from_u8(value: u8) -> Self {
+        Self { bits: value & 0x03 }
+    }
+
+    pub fn to_u8(self) -> u8 {
+        self.bits & 0x03
+    }
+}
+
+impl U1 {
+    pub fn from_u8(value: u8) -> Self {
+        Self { bits: value & 0x01 }
+    }
+
+    pub fn to_u8(self) -> u8 {
+        self.bits & 0x01
+    }
+}
+
+impl T2 {
+    pub fn from_i8(value: i8) -> Self {
+        Self {
+            bits: (value as u8) & 0x03,
+        }
+    }
+
+    pub fn to_i8(self) -> i8 {
+        sign_extend(self.bits & 0x03, 2)
+    }
+}
+
+impl T1 {
+    pub fn from_i8(value: i8) -> Self {
+        let bits = if value < 0 { 0 } else { 1 };
+        Self { bits }
+    }
+
+    pub fn to_i8(self) -> i8 {
+        if (self.bits & 0x01) == 0 {
+            -1
+        } else {
+            1
+        }
+    }
+}
 #[derive(Debug, Clone, Default)]
 pub struct TensorOptions {
     pub shape: Option<Vec<usize>>,
     pub strides: Option<Vec<usize>>,
+    pub allow_len_mismatch: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -354,7 +436,7 @@ impl<T> Tensor<T> {
             None => vec![data.len()],
         };
         let expected = numel(&shape);
-        if expected != data.len() {
+        if !opts.allow_len_mismatch && expected != data.len() {
             return Err(anyhow!(
                 "tensor shape {:?} expects {} values, got {}",
                 shape,
@@ -835,6 +917,71 @@ impl TensorElement for I1 {
     }
 }
 
+impl TensorElement for U4 {
+    fn from_value(value: &TensorValue) -> Option<Tensor<Self>> {
+        match value {
+            TensorValue::U4(tensor) => Some(tensor.clone()),
+            _ => None,
+        }
+    }
+
+    fn into_value(tensor: Tensor<Self>) -> TensorValue {
+        TensorValue::U4(tensor)
+    }
+}
+
+impl TensorElement for U2 {
+    fn from_value(value: &TensorValue) -> Option<Tensor<Self>> {
+        match value {
+            TensorValue::U2(tensor) => Some(tensor.clone()),
+            _ => None,
+        }
+    }
+
+    fn into_value(tensor: Tensor<Self>) -> TensorValue {
+        TensorValue::U2(tensor)
+    }
+}
+
+impl TensorElement for U1 {
+    fn from_value(value: &TensorValue) -> Option<Tensor<Self>> {
+        match value {
+            TensorValue::U1(tensor) => Some(tensor.clone()),
+            _ => None,
+        }
+    }
+
+    fn into_value(tensor: Tensor<Self>) -> TensorValue {
+        TensorValue::U1(tensor)
+    }
+}
+
+impl TensorElement for T2 {
+    fn from_value(value: &TensorValue) -> Option<Tensor<Self>> {
+        match value {
+            TensorValue::T2(tensor) => Some(tensor.clone()),
+            _ => None,
+        }
+    }
+
+    fn into_value(tensor: Tensor<Self>) -> TensorValue {
+        TensorValue::T2(tensor)
+    }
+}
+
+impl TensorElement for T1 {
+    fn from_value(value: &TensorValue) -> Option<Tensor<Self>> {
+        match value {
+            TensorValue::T1(tensor) => Some(tensor.clone()),
+            _ => None,
+        }
+    }
+
+    fn into_value(tensor: Tensor<Self>) -> TensorValue {
+        TensorValue::T1(tensor)
+    }
+}
+
 impl TensorElement for Bitset {
     fn from_value(value: &TensorValue) -> Option<Tensor<Self>> {
         match value {
@@ -868,6 +1015,11 @@ pub enum DType {
     I4,
     I2,
     I1,
+    U4,
+    U2,
+    U1,
+    T2,
+    T1,
 }
 
 impl DType {
@@ -891,6 +1043,11 @@ impl DType {
             "i4" => Ok(DType::I4),
             "i2" => Ok(DType::I2),
             "i1" => Ok(DType::I1),
+            "u4" => Ok(DType::U4),
+            "u2" => Ok(DType::U2),
+            "u1" => Ok(DType::U1),
+            "t2" => Ok(DType::T2),
+            "t1" => Ok(DType::T1),
             _ => Err(anyhow!("unsupported dtype: {}", ident)),
         }
     }
@@ -913,7 +1070,10 @@ impl DType {
     }
 
     pub fn is_packed(self) -> bool {
-        matches!(self, DType::I1 | DType::I2 | DType::I4)
+        matches!(
+            self,
+            DType::I1 | DType::I2 | DType::I4 | DType::U1 | DType::U2 | DType::U4 | DType::T1 | DType::T2
+        )
     }
 
     pub fn bit_width(self) -> u8 {
@@ -921,12 +1081,26 @@ impl DType {
             DType::I1 => 1,
             DType::I2 => 2,
             DType::I4 => 4,
+            DType::U1 => 1,
+            DType::U2 => 2,
+            DType::U4 => 4,
+            DType::T1 => 1,
+            DType::T2 => 2,
             DType::I8 | DType::U8 | DType::Bool => 8,
             DType::I16 | DType::U16 | DType::F16 | DType::BF16 => 16,
             DType::I32 | DType::U32 | DType::F32 => 32,
             DType::I64 | DType::U64 | DType::F64 => 64,
             DType::F8E5M2 => 8,
             DType::Bitset => 8,
+        }
+    }
+
+    pub fn storage_len(self, logical_len: usize) -> usize {
+        if self.is_packed() {
+            let bits = logical_len.saturating_mul(self.bit_width() as usize);
+            (bits + 7) / 8
+        } else {
+            logical_len
         }
     }
 }
@@ -951,6 +1125,11 @@ pub enum TensorValue {
     I4(Tensor<I4>),
     I2(Tensor<I2>),
     I1(Tensor<I1>),
+    U4(Tensor<U4>),
+    U2(Tensor<U2>),
+    U1(Tensor<U1>),
+    T2(Tensor<T2>),
+    T1(Tensor<T1>),
 }
 
 // TensorValue is moved across threads but not shared concurrently.
@@ -977,30 +1156,16 @@ impl TensorValue {
             TensorValue::I4(_) => DType::I4,
             TensorValue::I2(_) => DType::I2,
             TensorValue::I1(_) => DType::I1,
+            TensorValue::U4(_) => DType::U4,
+            TensorValue::U2(_) => DType::U2,
+            TensorValue::U1(_) => DType::U1,
+            TensorValue::T2(_) => DType::T2,
+            TensorValue::T1(_) => DType::T1,
         }
     }
 
     pub fn len(&self) -> usize {
-        match self {
-            TensorValue::I8(tensor) => tensor.len(),
-            TensorValue::I16(tensor) => tensor.len(),
-            TensorValue::F32(tensor) => tensor.len(),
-            TensorValue::F64(tensor) => tensor.len(),
-            TensorValue::U8(tensor) => tensor.len(),
-            TensorValue::U16(tensor) => tensor.len(),
-            TensorValue::I32(tensor) => tensor.len(),
-            TensorValue::I64(tensor) => tensor.len(),
-            TensorValue::U32(tensor) => tensor.len(),
-            TensorValue::U64(tensor) => tensor.len(),
-            TensorValue::Bool(tensor) => tensor.len(),
-            TensorValue::Bitset(tensor) => tensor.len(),
-            TensorValue::F16(tensor) => tensor.len(),
-            TensorValue::BF16(tensor) => tensor.len(),
-            TensorValue::F8E5M2(tensor) => tensor.len(),
-            TensorValue::I4(tensor) => tensor.len(),
-            TensorValue::I2(tensor) => tensor.len(),
-            TensorValue::I1(tensor) => tensor.len(),
-        }
+        numel(self.shape())
     }
 
     pub fn shape(&self) -> &[usize] {
@@ -1023,6 +1188,11 @@ impl TensorValue {
             TensorValue::I4(tensor) => tensor.shape(),
             TensorValue::I2(tensor) => tensor.shape(),
             TensorValue::I1(tensor) => tensor.shape(),
+            TensorValue::U4(tensor) => tensor.shape(),
+            TensorValue::U2(tensor) => tensor.shape(),
+            TensorValue::U1(tensor) => tensor.shape(),
+            TensorValue::T2(tensor) => tensor.shape(),
+            TensorValue::T1(tensor) => tensor.shape(),
         }
     }
 
@@ -1046,11 +1216,17 @@ impl TensorValue {
             TensorValue::I4(tensor) => tensor.strides(),
             TensorValue::I2(tensor) => tensor.strides(),
             TensorValue::I1(tensor) => tensor.strides(),
+            TensorValue::U4(tensor) => tensor.strides(),
+            TensorValue::U2(tensor) => tensor.strides(),
+            TensorValue::U1(tensor) => tensor.strides(),
+            TensorValue::T2(tensor) => tensor.strides(),
+            TensorValue::T1(tensor) => tensor.strides(),
         }
     }
 
     pub fn zeros(dtype: DType, shape: &[usize]) -> Self {
         let len = numel(shape);
+        let packed_len = dtype.storage_len(len);
         match dtype {
             DType::I8 => TensorValue::I8(
                 Tensor::from_vec_with_opts(vec![0; len], TensorOptions {
@@ -1158,22 +1334,65 @@ impl TensorValue {
                 .unwrap_or_else(|err| panic!("tensor zeros failed: {}", err)),
             ),
             DType::I4 => TensorValue::I4(
-                Tensor::from_vec_with_opts(vec![I4 { bits: 0 }; len], TensorOptions {
+                Tensor::from_vec_with_opts(vec![I4 { bits: 0 }; packed_len], TensorOptions {
                     shape: Some(shape.to_vec()),
+                    allow_len_mismatch: true,
                     ..TensorOptions::default()
                 })
                 .unwrap_or_else(|err| panic!("tensor zeros failed: {}", err)),
             ),
             DType::I2 => TensorValue::I2(
-                Tensor::from_vec_with_opts(vec![I2 { bits: 0 }; len], TensorOptions {
+                Tensor::from_vec_with_opts(vec![I2 { bits: 0 }; packed_len], TensorOptions {
                     shape: Some(shape.to_vec()),
+                    allow_len_mismatch: true,
                     ..TensorOptions::default()
                 })
                 .unwrap_or_else(|err| panic!("tensor zeros failed: {}", err)),
             ),
             DType::I1 => TensorValue::I1(
-                Tensor::from_vec_with_opts(vec![I1 { bits: 0 }; len], TensorOptions {
+                Tensor::from_vec_with_opts(vec![I1 { bits: 0 }; packed_len], TensorOptions {
                     shape: Some(shape.to_vec()),
+                    allow_len_mismatch: true,
+                    ..TensorOptions::default()
+                })
+                .unwrap_or_else(|err| panic!("tensor zeros failed: {}", err)),
+            ),
+            DType::U4 => TensorValue::U4(
+                Tensor::from_vec_with_opts(vec![U4 { bits: 0 }; packed_len], TensorOptions {
+                    shape: Some(shape.to_vec()),
+                    allow_len_mismatch: true,
+                    ..TensorOptions::default()
+                })
+                .unwrap_or_else(|err| panic!("tensor zeros failed: {}", err)),
+            ),
+            DType::U2 => TensorValue::U2(
+                Tensor::from_vec_with_opts(vec![U2 { bits: 0 }; packed_len], TensorOptions {
+                    shape: Some(shape.to_vec()),
+                    allow_len_mismatch: true,
+                    ..TensorOptions::default()
+                })
+                .unwrap_or_else(|err| panic!("tensor zeros failed: {}", err)),
+            ),
+            DType::U1 => TensorValue::U1(
+                Tensor::from_vec_with_opts(vec![U1 { bits: 0 }; packed_len], TensorOptions {
+                    shape: Some(shape.to_vec()),
+                    allow_len_mismatch: true,
+                    ..TensorOptions::default()
+                })
+                .unwrap_or_else(|err| panic!("tensor zeros failed: {}", err)),
+            ),
+            DType::T2 => TensorValue::T2(
+                Tensor::from_vec_with_opts(vec![T2 { bits: 0 }; packed_len], TensorOptions {
+                    shape: Some(shape.to_vec()),
+                    allow_len_mismatch: true,
+                    ..TensorOptions::default()
+                })
+                .unwrap_or_else(|err| panic!("tensor zeros failed: {}", err)),
+            ),
+            DType::T1 => TensorValue::T1(
+                Tensor::from_vec_with_opts(vec![T1 { bits: 0 }; packed_len], TensorOptions {
+                    shape: Some(shape.to_vec()),
+                    allow_len_mismatch: true,
                     ..TensorOptions::default()
                 })
                 .unwrap_or_else(|err| panic!("tensor zeros failed: {}", err)),
@@ -1306,6 +1525,41 @@ impl TensorValue {
             _ => Err(anyhow!("expected i1 tensor")),
         }
     }
+
+    pub fn as_u4(&self) -> Result<&Tensor<U4>> {
+        match self {
+            TensorValue::U4(tensor) => Ok(tensor),
+            _ => Err(anyhow!("expected u4 tensor")),
+        }
+    }
+
+    pub fn as_u2(&self) -> Result<&Tensor<U2>> {
+        match self {
+            TensorValue::U2(tensor) => Ok(tensor),
+            _ => Err(anyhow!("expected u2 tensor")),
+        }
+    }
+
+    pub fn as_u1(&self) -> Result<&Tensor<U1>> {
+        match self {
+            TensorValue::U1(tensor) => Ok(tensor),
+            _ => Err(anyhow!("expected u1 tensor")),
+        }
+    }
+
+    pub fn as_t2(&self) -> Result<&Tensor<T2>> {
+        match self {
+            TensorValue::T2(tensor) => Ok(tensor),
+            _ => Err(anyhow!("expected t2 tensor")),
+        }
+    }
+
+    pub fn as_t1(&self) -> Result<&Tensor<T1>> {
+        match self {
+            TensorValue::T1(tensor) => Ok(tensor),
+            _ => Err(anyhow!("expected t1 tensor")),
+        }
+    }
 }
 
 impl From<Tensor<i8>> for TensorValue {
@@ -1359,6 +1613,36 @@ impl From<Tensor<I2>> for TensorValue {
 impl From<Tensor<I1>> for TensorValue {
     fn from(value: Tensor<I1>) -> Self {
         TensorValue::I1(value)
+    }
+}
+
+impl From<Tensor<U4>> for TensorValue {
+    fn from(value: Tensor<U4>) -> Self {
+        TensorValue::U4(value)
+    }
+}
+
+impl From<Tensor<U2>> for TensorValue {
+    fn from(value: Tensor<U2>) -> Self {
+        TensorValue::U2(value)
+    }
+}
+
+impl From<Tensor<U1>> for TensorValue {
+    fn from(value: Tensor<U1>) -> Self {
+        TensorValue::U1(value)
+    }
+}
+
+impl From<Tensor<T2>> for TensorValue {
+    fn from(value: Tensor<T2>) -> Self {
+        TensorValue::T2(value)
+    }
+}
+
+impl From<Tensor<T1>> for TensorValue {
+    fn from(value: Tensor<T1>) -> Self {
+        TensorValue::T1(value)
     }
 }
 
@@ -1521,5 +1805,35 @@ impl From<I2> for TensorValue {
 impl From<I1> for TensorValue {
     fn from(value: I1) -> Self {
         TensorValue::I1(Tensor::from_scalar(value))
+    }
+}
+
+impl From<U4> for TensorValue {
+    fn from(value: U4) -> Self {
+        TensorValue::U4(Tensor::from_scalar(value))
+    }
+}
+
+impl From<U2> for TensorValue {
+    fn from(value: U2) -> Self {
+        TensorValue::U2(Tensor::from_scalar(value))
+    }
+}
+
+impl From<U1> for TensorValue {
+    fn from(value: U1) -> Self {
+        TensorValue::U1(Tensor::from_scalar(value))
+    }
+}
+
+impl From<T2> for TensorValue {
+    fn from(value: T2) -> Self {
+        TensorValue::T2(Tensor::from_scalar(value))
+    }
+}
+
+impl From<T1> for TensorValue {
+    fn from(value: T1) -> Self {
+        TensorValue::T1(Tensor::from_scalar(value))
     }
 }

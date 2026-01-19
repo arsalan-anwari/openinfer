@@ -1,8 +1,17 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 
 use crate::tensor::{broadcast_to_vec, Tensor, TensorOptions, TensorValue};
 
 pub fn broadcast_value_to_shape(value: &TensorValue, out_shape: &[usize]) -> Result<TensorValue> {
+    if value.dtype().is_packed() {
+        if value.shape() == out_shape {
+            return Ok(value.clone());
+        }
+        return Err(anyhow!(
+            "broadcast not supported for packed dtype {:?}",
+            value.dtype()
+        ));
+    }
     macro_rules! broadcast_value {
         ($tensor:expr, $variant:ident) => {{
             let data = broadcast_to_vec($tensor, out_shape)?;
@@ -35,5 +44,10 @@ pub fn broadcast_value_to_shape(value: &TensorValue, out_shape: &[usize]) -> Res
         TensorValue::I4(tensor) => broadcast_value!(tensor, I4),
         TensorValue::I2(tensor) => broadcast_value!(tensor, I2),
         TensorValue::I1(tensor) => broadcast_value!(tensor, I1),
+        TensorValue::U4(tensor) => broadcast_value!(tensor, U4),
+        TensorValue::U2(tensor) => broadcast_value!(tensor, U2),
+        TensorValue::U1(tensor) => broadcast_value!(tensor, U1),
+        TensorValue::T2(tensor) => broadcast_value!(tensor, T2),
+        TensorValue::T1(tensor) => broadcast_value!(tensor, T1),
     }
 }

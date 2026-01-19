@@ -51,6 +51,11 @@ class ValueType:
     I4 = 18
     I2 = 19
     I1 = 20
+    U4 = 21
+    U2 = 22
+    U1 = 23
+    T2 = 24
+    T1 = 25
 
 
 _VT_NAME = {
@@ -74,6 +79,11 @@ _VT_NAME = {
     ValueType.I4: "i4",
     ValueType.I2: "i2",
     ValueType.I1: "i1",
+    ValueType.U4: "u4",
+    ValueType.U2: "u2",
+    ValueType.U1: "u1",
+    ValueType.T2: "t2",
+    ValueType.T1: "t1",
 }
 
 _VT_SIZE = {
@@ -94,6 +104,11 @@ _VT_SIZE = {
     ValueType.I4: 1,
     ValueType.I2: 1,
     ValueType.I1: 1,
+    ValueType.U4: 1,
+    ValueType.U2: 1,
+    ValueType.U1: 1,
+    ValueType.T2: 1,
+    ValueType.T1: 1,
 }
 
 _VT_TO_DTYPE = {
@@ -114,6 +129,11 @@ _VT_TO_DTYPE = {
     ValueType.I4: np.int8,
     ValueType.I2: np.int8,
     ValueType.I1: np.int8,
+    ValueType.U4: np.uint8,
+    ValueType.U2: np.uint8,
+    ValueType.U1: np.uint8,
+    ValueType.T2: np.int8,
+    ValueType.T1: np.int8,
 }
 
 
@@ -212,13 +232,46 @@ def _unpack_signed_bits(raw: bytes, bits_per: int, count: int) -> np.ndarray:
     return out
 
 
+def _unpack_unsigned_bits(raw: bytes, bits_per: int, count: int) -> np.ndarray:
+    out = np.empty(count, dtype=np.uint8)
+    mask = (1 << bits_per) - 1
+    for idx in range(count):
+        bit_index = idx * bits_per
+        byte_index = bit_index // 8
+        shift = bit_index % 8
+        val = (raw[byte_index] >> shift) & mask
+        if shift + bits_per > 8:
+            val |= (raw[byte_index + 1] << (8 - shift)) & mask
+        out[idx] = val
+    return out
+
+
+def _unpack_t1_bits(raw: bytes, count: int) -> np.ndarray:
+    bits = _unpack_unsigned_bits(raw, 1, count)
+    return np.where(bits == 0, -1, 1).astype(np.int8)
+
 def _tensor_nbytes(vtype: int, numel: int) -> int:
-    if vtype == ValueType.I1:
-        return (numel + 7) // 8
-    if vtype == ValueType.I2:
-        return (numel + 3) // 4
-    if vtype == ValueType.I4:
-        return (numel + 1) // 2
+    if vtype in (
+        ValueType.I1,
+        ValueType.I2,
+        ValueType.I4,
+        ValueType.U1,
+        ValueType.U2,
+        ValueType.U4,
+        ValueType.T1,
+        ValueType.T2,
+    ):
+        bits_per = {
+            ValueType.I4: 4,
+            ValueType.I2: 2,
+            ValueType.I1: 1,
+            ValueType.U4: 4,
+            ValueType.U2: 2,
+            ValueType.U1: 1,
+            ValueType.T2: 2,
+            ValueType.T1: 1,
+        }[vtype]
+        return (numel * bits_per + 7) // 8
     return numel * _VT_SIZE[vtype]
 
 
@@ -295,10 +348,34 @@ def _parse_metadata_value(blob: bytes, entry: Dict[str, Any]) -> Any:
         if nbytes != 1:
             raise OinfError("F8 payload size mismatch")
         return _f8e5m2_to_f32_scalar(payload[0])
-    if vtype in (ValueType.I4, ValueType.I2, ValueType.I1):
-        bits_per = {ValueType.I4: 4, ValueType.I2: 2, ValueType.I1: 1}[vtype]
+    if vtype in (
+        ValueType.I4,
+        ValueType.I2,
+        ValueType.I1,
+        ValueType.U4,
+        ValueType.U2,
+        ValueType.U1,
+        ValueType.T2,
+        ValueType.T1,
+    ):
+        bits_per = {
+            ValueType.I4: 4,
+            ValueType.I2: 2,
+            ValueType.I1: 1,
+            ValueType.U4: 4,
+            ValueType.U2: 2,
+            ValueType.U1: 1,
+            ValueType.T2: 2,
+            ValueType.T1: 1,
+        }[vtype]
         if nbytes != 1:
             raise OinfError("Packed int payload size mismatch")
+        if vtype in (ValueType.U4, ValueType.U2, ValueType.U1):
+            return int(_unpack_unsigned_bits(payload, bits_per, 1)[0])
+        if vtype == ValueType.T1:
+            return int(_unpack_t1_bits(payload, 1)[0])
+        if vtype == ValueType.T2:
+            return int(_unpack_signed_bits(payload, bits_per, 1)[0])
         return int(_unpack_signed_bits(payload, bits_per, 1)[0])
     if vtype in _VT_SIZE:
         expected = _VT_SIZE[vtype]
@@ -346,9 +423,32 @@ def _parse_metadata_value(blob: bytes, entry: Dict[str, Any]) -> Any:
             arr = _bf16_to_f32(np.frombuffer(raw, dtype=np.dtype(np.uint16).newbyteorder("<")))
         elif element_type == ValueType.F8E5M2:
             arr = _f8e5m2_to_f32(np.frombuffer(raw, dtype=np.uint8))
-        elif element_type in (ValueType.I4, ValueType.I2, ValueType.I1):
-            bits_per = {ValueType.I4: 4, ValueType.I2: 2, ValueType.I1: 1}[element_type]
-            arr = _unpack_signed_bits(raw, bits_per, numel)
+        elif element_type in (
+            ValueType.I4,
+            ValueType.I2,
+            ValueType.I1,
+            ValueType.U4,
+            ValueType.U2,
+            ValueType.U1,
+            ValueType.T2,
+            ValueType.T1,
+        ):
+            bits_per = {
+                ValueType.I4: 4,
+                ValueType.I2: 2,
+                ValueType.I1: 1,
+                ValueType.U4: 4,
+                ValueType.U2: 2,
+                ValueType.U1: 1,
+                ValueType.T2: 2,
+                ValueType.T1: 1,
+            }[element_type]
+            if element_type in (ValueType.U4, ValueType.U2, ValueType.U1):
+                arr = _unpack_unsigned_bits(raw, bits_per, numel)
+            elif element_type == ValueType.T1:
+                arr = _unpack_t1_bits(raw, numel)
+            else:
+                arr = _unpack_signed_bits(raw, bits_per, numel)
         else:
             arr = np.frombuffer(raw, dtype=np.dtype(_VT_TO_DTYPE[element_type]).newbyteorder("<"))
         return {"dtype": element_type, "dims": dims, "array": arr.reshape(dims)}

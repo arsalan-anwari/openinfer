@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::tensor::{BF16, Bitset, DType, F16, F8E5M2, I1, I2, I4, Tensor, TensorValue};
+use crate::tensor::{BF16, Bitset, DType, F16, F8E5M2, I1, I2, I4, T1, T2, U1, U2, U4, Tensor, TensorValue};
 use anyhow::{anyhow, Result};
 
 pub mod cpu;
@@ -27,6 +27,11 @@ pub enum ScalarValue {
     I4(I4),
     I2(I2),
     I1(I1),
+    U4(U4),
+    U2(U2),
+    U1(U1),
+    T2(T2),
+    T1(T1),
 }
 
 impl ScalarValue {
@@ -50,11 +55,21 @@ impl ScalarValue {
             ScalarValue::I4(_) => DType::I4,
             ScalarValue::I2(_) => DType::I2,
             ScalarValue::I1(_) => DType::I1,
+            ScalarValue::U4(_) => DType::U4,
+            ScalarValue::U2(_) => DType::U2,
+            ScalarValue::U1(_) => DType::U1,
+            ScalarValue::T2(_) => DType::T2,
+            ScalarValue::T1(_) => DType::T1,
         }
     }
 
     pub fn to_tensor_value(&self, dtype: DType, shape: &[usize]) -> Result<TensorValue> {
         let len = crate::tensor::numel(shape);
+        let packed_opts = crate::tensor::TensorOptions {
+            shape: Some(shape.to_vec()),
+            allow_len_mismatch: true,
+            ..crate::tensor::TensorOptions::default()
+        };
         match (self, dtype) {
             (ScalarValue::I8(val), DType::I8) => Ok(TensorValue::I8(
                 Tensor::from_vec_with_opts(vec![*val; len], crate::tensor::TensorOptions {
@@ -147,26 +162,108 @@ impl ScalarValue {
                 })?,
             )),
             (ScalarValue::I4(val), DType::I4) => Ok(TensorValue::I4(
-                Tensor::from_vec_with_opts(vec![*val; len], crate::tensor::TensorOptions {
-                    shape: Some(shape.to_vec()),
-                    ..crate::tensor::TensorOptions::default()
-                })?,
+                Tensor::from_vec_with_opts(
+                    pack_repeated_bits(val.bits, 4, len)
+                        .into_iter()
+                        .map(|bits| I4 { bits })
+                        .collect(),
+                    packed_opts,
+                )?,
             )),
             (ScalarValue::I2(val), DType::I2) => Ok(TensorValue::I2(
-                Tensor::from_vec_with_opts(vec![*val; len], crate::tensor::TensorOptions {
-                    shape: Some(shape.to_vec()),
-                    ..crate::tensor::TensorOptions::default()
-                })?,
+                Tensor::from_vec_with_opts(
+                    pack_repeated_bits(val.bits, 2, len)
+                        .into_iter()
+                        .map(|bits| I2 { bits })
+                        .collect(),
+                    packed_opts,
+                )?,
             )),
             (ScalarValue::I1(val), DType::I1) => Ok(TensorValue::I1(
-                Tensor::from_vec_with_opts(vec![*val; len], crate::tensor::TensorOptions {
-                    shape: Some(shape.to_vec()),
-                    ..crate::tensor::TensorOptions::default()
-                })?,
+                Tensor::from_vec_with_opts(
+                    pack_repeated_bits(val.bits, 1, len)
+                        .into_iter()
+                        .map(|bits| I1 { bits })
+                        .collect(),
+                    packed_opts,
+                )?,
+            )),
+            (ScalarValue::U4(val), DType::U4) => Ok(TensorValue::U4(
+                Tensor::from_vec_with_opts(
+                    pack_repeated_bits(val.bits, 4, len)
+                        .into_iter()
+                        .map(|bits| U4 { bits })
+                        .collect(),
+                    packed_opts,
+                )?,
+            )),
+            (ScalarValue::U2(val), DType::U2) => Ok(TensorValue::U2(
+                Tensor::from_vec_with_opts(
+                    pack_repeated_bits(val.bits, 2, len)
+                        .into_iter()
+                        .map(|bits| U2 { bits })
+                        .collect(),
+                    packed_opts,
+                )?,
+            )),
+            (ScalarValue::U1(val), DType::U1) => Ok(TensorValue::U1(
+                Tensor::from_vec_with_opts(
+                    pack_repeated_bits(val.bits, 1, len)
+                        .into_iter()
+                        .map(|bits| U1 { bits })
+                        .collect(),
+                    packed_opts,
+                )?,
+            )),
+            (ScalarValue::T2(val), DType::T2) => Ok(TensorValue::T2(
+                Tensor::from_vec_with_opts(
+                    pack_repeated_bits(val.bits, 2, len)
+                        .into_iter()
+                        .map(|bits| T2 { bits })
+                        .collect(),
+                    packed_opts,
+                )?,
+            )),
+            (ScalarValue::T1(val), DType::T1) => Ok(TensorValue::T1(
+                Tensor::from_vec_with_opts(
+                    pack_repeated_bits(val.bits, 1, len)
+                        .into_iter()
+                        .map(|bits| T1 { bits })
+                        .collect(),
+                    packed_opts,
+                )?,
             )),
             _ => Err(anyhow!("scalar {:?} does not match dtype {:?}", self, dtype)),
         }
     }
+}
+
+fn pack_repeated_bits(
+    value_bits: u8,
+    bits_per: u8,
+    logical_len: usize,
+) -> Vec<u8> {
+    if logical_len == 0 {
+        return Vec::new();
+    }
+    let total_bits = logical_len.saturating_mul(bits_per as usize);
+    let total_bytes = (total_bits + 7) / 8;
+    let mut out = vec![0u8; total_bytes];
+    let mask = (1u8 << bits_per) - 1;
+    let value = value_bits & mask;
+    for idx in 0..logical_len {
+        let bit_index = idx * bits_per as usize;
+        let byte_index = bit_index / 8;
+        let shift = (bit_index % 8) as u8;
+        out[byte_index] |= value << shift;
+        if shift + bits_per > 8 {
+            let next_index = byte_index + 1;
+            if next_index < out.len() {
+                out[next_index] |= value >> (8 - shift);
+            }
+        }
+    }
+    out
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
