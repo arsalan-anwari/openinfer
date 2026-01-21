@@ -34,6 +34,22 @@ pub fn is_finite_kernel(inputs: &[TensorValue], thread_id: usize) -> Result<Tens
                 }
             }
         }
+        TensorValue::BF16(tensor) => {
+            for value in &tensor.data {
+                if !value.to_f32().is_finite() {
+                    finite = false;
+                    break;
+                }
+            }
+        }
+        TensorValue::F8E5M2(tensor) => {
+            for value in &tensor.data {
+                if !value.to_f32().is_finite() {
+                    finite = false;
+                    break;
+                }
+            }
+        }
         _ => {}
     }
     Timer::stop(thread_id);

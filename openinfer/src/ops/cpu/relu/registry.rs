@@ -1,12 +1,12 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 
 use crate::graph::OpAttrs;
 use crate::ops::{cpu_kernel, KernelFn};
-use crate::tensor::DType;
+use crate::tensor::{DType, I4, Tensor, TensorElement, TensorOptions};
 
 use super::{
-    relu_bitset, relu_bool, relu_f16, relu_f32, relu_f64, relu_i16, relu_i32, relu_i64, relu_i8,
-    relu_u16, relu_u32, relu_u64, relu_u8,
+    relu_bf16, relu_f16, relu_f32, relu_f64, relu_f8, relu_i16, relu_i32, relu_i64, relu_i8,
+    relu_i4,
 };
 
 pub fn lookup_kernel_cpu_relu(
@@ -26,6 +26,12 @@ pub fn lookup_kernel_cpu_relu(
         (DType::F16, [DType::F16], &OpAttrs::Relu { .. }) => Some(KernelFn::Host(cpu_kernel(
             relu_f16 as fn(&OpAttrs, &[crate::tensor::F16], usize) -> Result<Vec<crate::tensor::F16>>,
         ))),
+        (DType::BF16, [DType::BF16], &OpAttrs::Relu { .. }) => Some(KernelFn::Host(cpu_kernel(
+            relu_bf16 as fn(&OpAttrs, &[crate::tensor::BF16], usize) -> Result<Vec<crate::tensor::BF16>>,
+        ))),
+        (DType::F8E5M2, [DType::F8E5M2], &OpAttrs::Relu { .. }) => Some(KernelFn::Host(cpu_kernel(
+            relu_f8 as fn(&OpAttrs, &[crate::tensor::F8E5M2], usize) -> Result<Vec<crate::tensor::F8E5M2>>,
+        ))),
         (DType::I8, [DType::I8], &OpAttrs::Relu { .. }) => Some(KernelFn::Host(cpu_kernel(
             relu_i8 as fn(&OpAttrs, &[i8], usize) -> Result<Vec<i8>>,
         ))),
@@ -38,24 +44,16 @@ pub fn lookup_kernel_cpu_relu(
         (DType::I64, [DType::I64], &OpAttrs::Relu { .. }) => Some(KernelFn::Host(cpu_kernel(
             relu_i64 as fn(&OpAttrs, &[i64], usize) -> Result<Vec<i64>>,
         ))),
-        (DType::U8, [DType::U8], &OpAttrs::Relu { .. }) => Some(KernelFn::Host(cpu_kernel(
-            relu_u8 as fn(&OpAttrs, &[u8], usize) -> Result<Vec<u8>>,
-        ))),
-        (DType::U16, [DType::U16], &OpAttrs::Relu { .. }) => Some(KernelFn::Host(cpu_kernel(
-            relu_u16 as fn(&OpAttrs, &[u16], usize) -> Result<Vec<u16>>,
-        ))),
-        (DType::U32, [DType::U32], &OpAttrs::Relu { .. }) => Some(KernelFn::Host(cpu_kernel(
-            relu_u32 as fn(&OpAttrs, &[u32], usize) -> Result<Vec<u32>>,
-        ))),
-        (DType::U64, [DType::U64], &OpAttrs::Relu { .. }) => Some(KernelFn::Host(cpu_kernel(
-            relu_u64 as fn(&OpAttrs, &[u64], usize) -> Result<Vec<u64>>,
-        ))),
-        (DType::Bool, [DType::Bool], &OpAttrs::Relu { .. }) => Some(KernelFn::Host(cpu_kernel(
-            relu_bool as fn(&OpAttrs, &[bool], usize) -> Result<Vec<bool>>,
-        ))),
-        (DType::Bitset, [DType::Bitset], &OpAttrs::Relu { .. }) => Some(KernelFn::Host(cpu_kernel(
-            relu_bitset as fn(&OpAttrs, &[crate::tensor::Bitset], usize) -> Result<Vec<crate::tensor::Bitset>>,
-        ))),
+        (DType::I4, [DType::I4], &OpAttrs::Relu { .. }) => Some(KernelFn::Host(Box::new(|attrs, inputs, thread_id| {
+            let a = <I4 as TensorElement>::from_value(&inputs[0]).ok_or_else(|| anyhow!("relu input 0 dtype mismatch"))?;
+            let out = relu_i4(attrs, &a.data, a.numel(), thread_id)?;
+            let tensor = Tensor::from_vec_with_opts(out, TensorOptions {
+                shape: Some(a.shape().to_vec()),
+                allow_len_mismatch: true,
+                ..TensorOptions::default()
+            })?;
+            Ok(<I4 as TensorElement>::into_value(tensor))
+        }))),
         _ => None,
     }
 }

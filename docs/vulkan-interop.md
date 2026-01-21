@@ -9,11 +9,12 @@ All Vulkan code, dependencies, and shader compilation are gated behind the
 
 High-Level Flow
 ---------------
-1) `build.rs` reads `openinfer/src/ops/vulkan/shaders.json`, scans each Slang
-   file for compute entry points, compiles each target via `slangc` into a `.spv`
-   file, then generates a small Rust module in `OUT_DIR` that embeds those blobs.
-   Broadcast is a special-case shader with a fixed path and SPV output directory
-   (hardcoded in `build.rs`), so it is not listed in `shaders.json`.
+1) `build.rs` reads `openinfer/src/ops/vulkan/shaders.json`, scans all `.slang`
+   files under each op’s `shader_dir`, compiles each compute entry point via
+   `slangc` into a `.spv` file, then generates a small Rust module in `OUT_DIR`
+   that embeds those blobs. Broadcast is a special-case shader with a fixed path
+   and SPV output directory (hardcoded in `build.rs`), so it is not listed in
+   `shaders.json`.
 2) The Vulkan shader registry loads `shaders.json` and uses the generated
    module to fill `OpShaderInfo` with embedded SPIR-V bytes for each op.
 3) Vulkan ops use `VulkanRuntime` to create buffers, pipelines, and dispatch
@@ -40,23 +41,18 @@ Shader Manifest Format
 `openinfer/src/ops/vulkan/shaders.json` describes each op (broadcast is omitted
 because its shader path/output are hardcoded in `build.rs`):
 
-- `paths`: list of Slang shader sources (`.slang`) for the op. Use this to split
-  float/signed/unsigned kernels into separate files.
-- `path`: optional single Slang shader source (legacy). Prefer `paths`.
+- `shader_dir`: directory containing per-dtype shaders for the op.
+  `build.rs` scans recursively for `.slang` files.
 - `spv_dir`: directory where SPIR-V outputs live for this op.
 - `push_constants_size`: byte size of push constants (currently 16).
 - `settings`: arbitrary key/value settings passed to kernels.
 
-Example entry (multi-file):
+Example entry:
 ```json
 {
   "ops": {
     "add": {
-      "paths": [
-        "src/ops/vulkan/add/add_float.slang",
-        "src/ops/vulkan/add/add_signed.slang",
-        "src/ops/vulkan/add/add_unsigned.slang"
-      ],
+      "shader_dir": "src/ops/vulkan/add/shaders",
       "spv_dir": "src/ops/vulkan/add/bin",
       "push_constants_size": 16
     }
@@ -66,14 +62,18 @@ Example entry (multi-file):
 
 Slang Shader Conventions
 ------------------------
-- Each op has one or more `.slang` files under `openinfer/src/ops/vulkan/<op>/`.
-  Split float/signed/unsigned kernels to keep shader resource set indices small.
+- Each op has per-dtype shaders under:
+  - `openinfer/src/ops/vulkan/<op>/shaders/base/`
+  - `openinfer/src/ops/vulkan/<op>/shaders/inplace/`
+  - `openinfer/src/ops/vulkan/<op>/shaders/accumulate/`
 - SPIR-V output lives under `openinfer/src/ops/vulkan/<op>/bin/`.
 - Broadcast is stored under `openinfer/src/backend/vulkan/broadcast/` with SPIR-V
   emitted to `backend/vulkan/broadcast/bin/`.
 - Entry points are compiled per target name (e.g., `add_f32`), but the Vulkan
   runtime uses `main` for pipeline creation while selecting the SPIR-V blob by
   target.
+- Packed dtypes use `ByteAddressBuffer` with shared helpers in
+  `openinfer/src/ops/vulkan/packed/packed_utils.slang`.
 - Push constants:
   - Layout: `uint len`, `uint flags`, `uint pad0`, `uint pad1`
   - Size: 16 bytes
@@ -87,15 +87,13 @@ Adding a New Vulkan Op
 1) Create the op folder and Slang shader(s):
    - `openinfer/src/ops/vulkan/<op>/mod.rs`
    - `openinfer/src/ops/vulkan/<op>/registry.rs`
-   - `openinfer/src/ops/vulkan/<op>/<op>_float.slang`
-   - `openinfer/src/ops/vulkan/<op>/<op>_signed.slang`
-   - `openinfer/src/ops/vulkan/<op>/<op>_unsigned.slang`
-2) Ensure the Slang shader defines the compute entry points (e.g. `add_f32`).
-   `build.rs` will compile each `[shader("compute")]` entry into:
+   - Per-dtype shaders in `shaders/{base,inplace,accumulate}/`
+2) Ensure each `.slang` file defines a compute entry point that matches the
+   filename (e.g. `add_i8` in `add_i8.slang`).
+   `build.rs` compiles each `[shader("compute")]` entry into:
    - `src/ops/vulkan/<op>/bin/<entry>.spv`
 3) Add the op to `openinfer/src/ops/vulkan/shaders.json` so it is compiled and
-   embedded (broadcast is the only built-in exception). Prefer `paths` for
-   multi-file ops.
+   embedded (broadcast is the only built-in exception).
 4) Add target selection patterns:
    - `openinfer/src/ops/vulkan/mod.rs` for per-op dispatch.
    - `openinfer/src/ops/vulkan/<op>/mod.rs` for the op-specific matcher.
@@ -133,9 +131,9 @@ Notes and Limitations
 - f64 requires `shader_float64` support from the Vulkan device.
 - f16 may be supported by the device (`shader_float16`) but is currently upsampled to f32.
 - f8/bf16 are always upsampled to f32 on Vulkan (no native support assumed).
-- Packed integer types (i1/i2/i4/u1/u2/u4/t1/t2) are stored as packed bits in buffers; kernels must unpack.
-- `abs` for unsigned/bool can be short-circuited in Rust without launching
-  a kernel (see `openinfer/src/ops/vulkan/abs/mod.rs`).
+- Packed integer types (i1/i2/i4/u1/u2/u4) are stored as packed bits in buffers;
+  Vulkan shaders decode/operate/encode in-place using byte-addressed buffers.
+- `t1`/`t2` are not supported in Vulkan.
 - The simulator defaults to out-of-place ops, which means every op allocates a
   fresh output buffer. On Vulkan this can be noticeably slower because each
   dispatch pays allocation and synchronization costs. Use

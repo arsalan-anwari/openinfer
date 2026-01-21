@@ -3,7 +3,7 @@ use anyhow::{anyhow, Result};
 use crate::tensor::{Bitset, F16, Tensor, TensorOptions};
 use crate::timer::Timer;
 
-fn matmul_dims(a_shape: &[usize], b_shape: &[usize]) -> Result<(usize, usize, usize)> {
+pub(crate) fn matmul_dims(a_shape: &[usize], b_shape: &[usize]) -> Result<(usize, usize, usize)> {
     if a_shape.len() != 2 || b_shape.len() != 2 {
         return Err(anyhow!(
             "matmul expects 2D inputs, got {:?} and {:?}",

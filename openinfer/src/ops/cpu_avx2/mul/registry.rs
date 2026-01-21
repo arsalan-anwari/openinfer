@@ -4,8 +4,7 @@ use crate::graph::OpAttrs;
 use crate::ops::{cpu_kernel, KernelFn};
 use crate::tensor::DType;
 
-use super::{mul_bool, mul_f32, mul_f64, mul_i16, mul_i32, mul_i64, mul_i8, mul_u16, mul_u32, mul_u64, mul_u8};
-use crate::ops::cpu::mul as cpu_mul;
+use super::{mul_f32, mul_f64, mul_i16, mul_i32, mul_i8, mul_u16, mul_u32, mul_u8};
 
 pub fn lookup_kernel_cpu_avx2_mul(
     output_dtype: DType,
@@ -25,10 +24,6 @@ pub fn lookup_kernel_cpu_avx2_mul(
         (DType::F64, [DType::F64, DType::F64], &OpAttrs::None) => Some(KernelFn::Host(cpu_kernel(
             mul_f64 as fn(&[f64], &[f64] , usize) -> Result<Vec<f64>>,
         ))),
-        (DType::F16, [DType::F16, DType::F16], &OpAttrs::None) => Some(KernelFn::Host(cpu_kernel(
-            cpu_mul::mul_f16
-                as fn(&[crate::tensor::F16], &[crate::tensor::F16], usize) -> Result<Vec<crate::tensor::F16>>,
-        ))),
         (DType::U8, [DType::U8, DType::U8], &OpAttrs::None) => Some(KernelFn::Host(cpu_kernel(
             mul_u8 as fn(&[u8], &[u8] , usize) -> Result<Vec<u8>>,
         ))),
@@ -38,24 +33,9 @@ pub fn lookup_kernel_cpu_avx2_mul(
         (DType::I32, [DType::I32, DType::I32], &OpAttrs::None) => Some(KernelFn::Host(cpu_kernel(
             mul_i32 as fn(&[i32], &[i32] , usize) -> Result<Vec<i32>>,
         ))),
-        (DType::I64, [DType::I64, DType::I64], &OpAttrs::None) => Some(KernelFn::Host(cpu_kernel(
-            mul_i64 as fn(&[i64], &[i64] , usize) -> Result<Vec<i64>>,
-        ))),
         (DType::U32, [DType::U32, DType::U32], &OpAttrs::None) => Some(KernelFn::Host(cpu_kernel(
             mul_u32 as fn(&[u32], &[u32] , usize) -> Result<Vec<u32>>,
         ))),
-        (DType::U64, [DType::U64, DType::U64], &OpAttrs::None) => Some(KernelFn::Host(cpu_kernel(
-            mul_u64 as fn(&[u64], &[u64] , usize) -> Result<Vec<u64>>,
-        ))),
-        (DType::Bool, [DType::Bool, DType::Bool], &OpAttrs::None) => Some(KernelFn::Host(cpu_kernel(
-            mul_bool as fn(&[bool], &[bool] , usize) -> Result<Vec<bool>>,
-        ))),
-        (DType::Bitset, [DType::Bitset, DType::Bitset], &OpAttrs::None) => {
-            Some(KernelFn::Host(cpu_kernel(
-                cpu_mul::mul_bitset
-                    as fn(&[crate::tensor::Bitset], &[crate::tensor::Bitset], usize) -> Result<Vec<crate::tensor::Bitset>>,
-            )))
-        }
         _ => None,
     }
 }

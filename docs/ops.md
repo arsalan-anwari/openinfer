@@ -29,9 +29,11 @@ This is the minimal checklist to add a new op end-to-end.
 ### Vulkan
 
 1. Add the op under `openinfer/src/ops/vulkan/<op>/`:
-   - `mod.rs`, `registry.rs`, and `<op>.slang`.
-2. Add an entry to `openinfer/src/ops/vulkan/shaders.json` so `build.rs`
-   compiles and embeds the SPIR-V. (Broadcast is a backend-only exception.)
+   - `mod.rs`, `registry.rs`, `registry_inplace.rs` (if supported).
+   - Per-dtype shaders under `shaders/{base,inplace,accumulate}/`.
+2. Add an entry to `openinfer/src/ops/vulkan/shaders.json` with `shader_dir`
+   and `spv_dir` so `build.rs` compiles and embeds SPIR-V.
+   (Broadcast is a backend-only exception.)
 3. Implement target selection in `openinfer/src/ops/vulkan/<op>/mod.rs`
    and add it to `openinfer/src/ops/vulkan/mod.rs` dispatch.
 4. Register the Vulkan kernel in `openinfer/src/ops/vulkan/<op>/registry.rs`.
@@ -42,348 +44,84 @@ This is the minimal checklist to add a new op end-to-end.
 
 ## Op coverage
 
-The tables below list support by device. Each row includes dtype coverage,
-attributes, and behavior notes (broadcasting, output shape, or special cases).
+The tables below list support by device. Each row includes input/output shapes,
+attributes, dtype coverage (grouped by float/signed/unsigned/packed), and
+device-specific notes.
 
 ---
 
 ## CPU
 
-<table>
-  <thead>
-    <tr>
-      <th>Op name</th>
-      <th>Dtype support</th>
-      <th>Op attributes</th>
-      <th>Explanation</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><code>add</code></td>
-      <td>
-        i8, i16, i32, i64<br>
-        u8, u16, u32, u64<br>
-        f16, f32, f64<br>
-        bool, bitset
-      </td>
-      <td>None</td>
-      <td>Elementwise add. Supports broadcasting on CPU.</td>
-    </tr>
-    <tr>
-      <td><code>mul</code></td>
-      <td>
-        i8, i16, i32, i64<br>
-        u8, u16, u32, u64<br>
-        f16, f32, f64<br>
-        bool, bitset
-      </td>
-      <td>None</td>
-      <td>Elementwise multiply. Supports broadcasting on CPU.</td>
-    </tr>
-    <tr>
-      <td><code>abs</code></td>
-      <td>
-        i8, i16, i32, i64<br>
-        u8, u16, u32, u64<br>
-        f16, f32, f64<br>
-        bool, bitset
-      </td>
-      <td>None</td>
-      <td>Absolute value. Unsigned, bool, and bitset act as identity.</td>
-    </tr>
-    <tr>
-      <td><code>relu</code></td>
-      <td>
-        i8, i16, i32, i64<br>
-        u8, u16, u32, u64<br>
-        f16, f32, f64<br>
-        bool, bitset
-      </td>
-      <td>
-        <code>negative_slope</code> (float)<br>
-        <code>clamp_max</code> (float)
-      </td>
-      <td>
-        Leaky ReLU: <code>x &gt;= 0 ? x : x * negative_slope</code>,
-        then clamped to <code>clamp_max</code>.
-      </td>
-    </tr>
-    <tr>
-      <td><code>matmul</code></td>
-      <td>
-        i8, i16, i32, i64<br>
-        u8, u16, u32, u64<br>
-        f16, f32, f64<br>
-        bool, bitset
-      </td>
-      <td>None</td>
-      <td>2D matrix multiply. Inner dimensions must match.</td>
-    </tr>
-    <tr>
-      <td><code>is_finite</code></td>
-      <td>
-        all signed<br>
-        all unsigned<br>
-        f16, f32, f64<br>
-        bool, bitset<br>
-        Output: bool scalar
-      </td>
-      <td>None</td>
-      <td>
-        Returns <code>true</code> if all elements are finite (float types).
-        Non-float dtypes always return <code>true</code>.
-      </td>
-    </tr>
-    <tr>
-      <td><code>fill</code></td>
-      <td>
-        i8, i16, i32, i64<br>
-        u8, u16, u32, u64<br>
-        f16, f32, f64<br>
-        bool, bitset
-      </td>
-      <td><code>value</code> (typed literal)</td>
-      <td>
-        Fills output with <code>value</code> (no NaN check).
-        <code>value</code> must match input dtype.
-      </td>
-    </tr>
-  </tbody>
-</table>
+| Op name | Dtypes | Input | Output | Attributes | Inplace | Accumulation | Description |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| add | [f8, bf16, f16, f32, f64]<br>[i1, i2, i4, i8, i16, i32, i64]<br>[u1, u2, u4, u8, u16, u32, u64]<br>[i1, i2, i4, u1, u2, u4]<br>[bool, bitset] | a: Tensor[T], b: Tensor[T] | y: Tensor[T] |  | Yes | Yes | Elementwise add with broadcasting. Accumulate is integer-only. |
+| mul | [f8, bf16, f16, f32, f64]<br>[i1, i2, i4, i8, i16, i32, i64]<br>[u1, u2, u4, u8, u16, u32, u64]<br>[i1, i2, i4, u1, u2, u4]<br>[bool, bitset] | a: Tensor[T], b: Tensor[T] | y: Tensor[T] |  | Yes | Yes | Elementwise multiply with broadcasting. Accumulate is integer-only. |
+| abs | [f8, bf16, f16, f32, f64]<br>[i1, i2, i4, i8, i16, i32, i64]<br>[i1, i2, i4] | a: Tensor[T] | y: Tensor[T] |  | Yes | Yes | Elementwise absolute value. Accumulate is integer-only. |
+| relu | [f8, bf16, f16, f32, f64]<br>[i4, i8, i16, i32, i64] | a: Tensor[T] | y: Tensor[T] | negative_slope, clamp_max | No | No | Leaky ReLU with clamp. |
+| is_finite | [f8, bf16, f16, f32, f64] | a: Tensor[T] | y: bool (scalar) | None | No | No | True if all elements are finite. |
+| fill | [f8, bf16, f16, f32, f64]<br>[i1, i2, i4, i8, i16, i32, i64]<br>[u1, u2, u4, u8, u16, u32, u64]<br>[i1, i2, i4, u1, u2, u4]<br>[bool, bitset] | a: Tensor[T] | y: Tensor[T] | value | Yes | No | Fill output with a scalar literal. |
+
+CPU notes:
+
+- Scalar kernels cover all listed dtypes, including packed types via bit-level ops.
 
 ---
 
 ## CPU (AVX)
 
-<table>
-  <thead>
-    <tr>
-      <th>Op name</th>
-      <th>Dtype support</th>
-      <th>Op attributes</th>
-      <th>Explanation</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><code>add</code></td>
-      <td>Same as CPU (f16 and bitset fall back to scalar)</td>
-      <td>None</td>
-      <td>Elementwise add. Supports broadcasting on CPU.</td>
-    </tr>
-    <tr>
-      <td><code>mul</code></td>
-      <td>Same as CPU (f16 and bitset fall back to scalar)</td>
-      <td>None</td>
-      <td>Elementwise multiply. Supports broadcasting on CPU.</td>
-    </tr>
-    <tr>
-      <td><code>abs</code></td>
-      <td>Same as CPU (f16 and bitset fall back to scalar)</td>
-      <td>None</td>
-      <td>Absolute value. Unsigned/bool/bitset act as identity.</td>
-    </tr>
-    <tr>
-      <td><code>relu</code></td>
-      <td>Same as CPU (f16 and bitset fall back to scalar)</td>
-      <td>
-        <code>negative_slope</code> (float)<br>
-        <code>clamp_max</code> (float)
-      </td>
-      <td>Leaky ReLU with clamp.</td>
-    </tr>
-    <tr>
-      <td><code>matmul</code></td>
-      <td>Same as CPU</td>
-      <td>None</td>
-      <td>2D matrix multiply. Inner dimensions must match.</td>
-    </tr>
-    <tr>
-      <td><code>is_finite</code></td>
-      <td>Same as CPU</td>
-      <td>None</td>
-      <td>Returns <code>true</code> if all elements are finite.</td>
-    </tr>
-    <tr>
-      <td><code>fill</code></td>
-      <td>Same as CPU</td>
-      <td><code>value</code> (typed literal)</td>
-      <td>Fills output with <code>value</code> (no NaN check).</td>
-    </tr>
-  </tbody>
-</table>
+| Op name | Dtypes | Input | Output | Attributes | Inplace | Accumulation | Description |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| add | [f32, f64]<br>[i8, i16]<br>[u8, u16] | a: Tensor[T], b: Tensor[T] | y: Tensor[T] |  | Yes | Yes | SIMD-only add. Accumulate limited to i8→i16, i16→i32, i32→i64, u8→u16, u16→u32, u32→u64. |
+| mul | [f32, f64]<br>[i8, i16, i32]<br>[u8, u16, u32] | a: Tensor[T], b: Tensor[T] | y: Tensor[T] |  | Yes | Yes | SIMD-only multiply. Accumulate limited to i8→i16 and u8→u16. |
+| abs | [f32, f64]<br>[i8, i16, i32, i64] | a: Tensor[T] | y: Tensor[T] |  | Yes | Yes | SIMD-only abs. Accumulate limited to i8→i16 and i16→i32. |
+| relu | [f32] | a: Tensor[T] | y: Tensor[T] | negative_slope, clamp_max | No | No | SIMD-only relu (f32 only). |
+| fill | - | a: Tensor[T] | y: Tensor[T] | value | No | No | Unsupported on AVX. |
+| is_finite | - | a: Tensor[T] | y: bool (scalar) | None | No | No | Unsupported on AVX. |
+| matmul | - | a: Tensor[T], b: Tensor[T] | y: Tensor[T] | None | No | No | Unsupported on AVX. |
+
+AVX notes:
+
+- SIMD-only: packed, bool/bitset, and f8/bf16/f16 are unsupported.
+- Any dtype not covered above returns “unsupported op on this device”.
 
 ---
 
 ## CPU (AVX2)
 
-<table>
-  <thead>
-    <tr>
-      <th>Op name</th>
-      <th>Dtype support</th>
-      <th>Op attributes</th>
-      <th>Explanation</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><code>add</code></td>
-      <td>Same as CPU (f16 and bitset fall back to scalar)</td>
-      <td>None</td>
-      <td>Elementwise add. Supports broadcasting on CPU.</td>
-    </tr>
-    <tr>
-      <td><code>mul</code></td>
-      <td>Same as CPU (f16 and bitset fall back to scalar)</td>
-      <td>None</td>
-      <td>Elementwise multiply. Supports broadcasting on CPU.</td>
-    </tr>
-    <tr>
-      <td><code>abs</code></td>
-      <td>Same as CPU (f16 and bitset fall back to scalar)</td>
-      <td>None</td>
-      <td>Absolute value. Unsigned/bool/bitset act as identity.</td>
-    </tr>
-    <tr>
-      <td><code>relu</code></td>
-      <td>Same as CPU (f16 and bitset fall back to scalar)</td>
-      <td>
-        <code>negative_slope</code> (float)<br>
-        <code>clamp_max</code> (float)
-      </td>
-      <td>Leaky ReLU with clamp.</td>
-    </tr>
-    <tr>
-      <td><code>matmul</code></td>
-      <td>Same as CPU</td>
-      <td>None</td>
-      <td>2D matrix multiply. Inner dimensions must match.</td>
-    </tr>
-    <tr>
-      <td><code>is_finite</code></td>
-      <td>Same as CPU</td>
-      <td>None</td>
-      <td>Returns <code>true</code> if all elements are finite.</td>
-    </tr>
-    <tr>
-      <td><code>fill</code></td>
-      <td>Same as CPU</td>
-      <td><code>value</code> (typed literal)</td>
-      <td>Fills output with <code>value</code> (no NaN check).</td>
-    </tr>
-  </tbody>
-</table>
+| Op name | Dtypes | Input | Output | Attributes | Inplace | Accumulation | Description |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| add | [f32, f64]<br>[i8, i16]<br>[u8, u16] | a: Tensor[T], b: Tensor[T] | y: Tensor[T] |  | Yes | Yes | SIMD-only add. Accumulate limited to i8→i16, i16→i32, i32→i64, u8→u16, u16→u32, u32→u64. |
+| mul | [f32, f64]<br>[i8, i16, i32]<br>[u8, u16, u32] | a: Tensor[T], b: Tensor[T] | y: Tensor[T] |  | Yes | Yes | SIMD-only multiply. Accumulate limited to i8→i16 and u8→u16. |
+| abs | [f32, f64]<br>[i8, i16, i32, i64] | a: Tensor[T] | y: Tensor[T] |  | Yes | Yes | SIMD-only abs. Accumulate limited to i8→i16 and i16→i32. |
+| relu | [f32] | a: Tensor[T] | y: Tensor[T] | negative_slope, clamp_max | No | No | SIMD-only relu (f32 only). |
+| fill | - | a: Tensor[T] | y: Tensor[T] | value | No | No | Unsupported on AVX2. |
+| is_finite | - | a: Tensor[T] | y: bool (scalar) | None | No | No | Unsupported on AVX2. |
+| matmul | - | a: Tensor[T], b: Tensor[T] | y: Tensor[T] | None | No | No | Unsupported on AVX2. |
+
+AVX2 notes:
+
+- SIMD-only: packed, bool/bitset, and f8/bf16/f16 are unsupported.
+- Any dtype not covered above returns “unsupported op on this device”.
 
 ---
 
 ## Vulkan
 
-<table>
-  <thead>
-    <tr>
-      <th>Op name</th>
-      <th>Dtype support</th>
-      <th>Op attributes</th>
-      <th>Explanation</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><code>add</code></td>
-      <td>
-        i8, i16, i32, i64<br>
-        u8, u16, u32, u64<br>
-        f32<br>
-        bool
-      </td>
-      <td>None</td>
-      <td>Elementwise add. Supports broadcasting.</td>
-    </tr>
-    <tr>
-      <td><code>mul</code></td>
-      <td>
-        i8, i16, i32, i64<br>
-        u8, u16, u32, u64<br>
-        f32<br>
-        bool
-      </td>
-      <td>None</td>
-      <td>Elementwise multiply. Supports broadcasting.</td>
-    </tr>
-    <tr>
-      <td><code>abs</code></td>
-      <td>
-        i8, i16, i32, i64<br>
-        u8, u16, u32, u64<br>
-        f32<br>
-        bool
-      </td>
-      <td>None</td>
-      <td>Absolute value. Unsigned/bool are identity when enabled.</td>
-    </tr>
-    <tr>
-      <td><code>relu</code></td>
-      <td>
-        i8, i16, i32, i64<br>
-        u8, u16, u32, u64<br>
-        f32<br>
-        bool
-      </td>
-      <td>
-        <code>negative_slope</code> (float)<br>
-        <code>clamp_max</code> (float)
-      </td>
-      <td>Leaky ReLU with clamp.</td>
-    </tr>
-    <tr>
-      <td><code>matmul</code></td>
-      <td>
-        i8, i16, i32, i64<br>
-        u8, u16, u32, u64<br>
-        f32<br>
-        bool
-      </td>
-      <td>None</td>
-      <td>2D matrix multiply. Inner dimensions must match.</td>
-    </tr>
-    <tr>
-      <td><code>is_finite</code></td>
-      <td>
-        all signed<br>
-        all unsigned<br>
-        f32<br>
-        bool<br>
-        Output: bool scalar
-      </td>
-      <td>None</td>
-      <td>
-        Returns <code>true</code> if all elements are finite (float).
-        Non-float dtypes return <code>true</code>.
-      </td>
-    </tr>
-    <tr>
-      <td><code>fill</code></td>
-      <td>
-        i8, i16, i32, i64<br>
-        u8, u16, u32, u64<br>
-        f32<br>
-        bool
-      </td>
-      <td><code>value</code> (typed literal)</td>
-      <td>
-        Fills output with <code>value</code> (no NaN check).
-        <code>value</code> must match input dtype.
-      </td>
-    </tr>
-  </tbody>
-</table>
+| Op name | Dtypes | Input | Output | Attributes | Inplace | Accumulation | Description |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| add | [f8, bf16, f16, f32, f64]<br>[i1, i2, i4, i8, i16, i32, i64]<br>[u1, u2, u4, u8, u16, u32, u64]<br>[i1, i2, i4, u1, u2, u4]<br>[bool, bitset] | a: Tensor[T], b: Tensor[T] | y: Tensor[T] |  | Yes | Yes | Elementwise add with broadcasting. Packed dtypes decode/encode in shader. |
+| mul | [f8, bf16, f16, f32, f64]<br>[i1, i2, i4, i8, i16, i32, i64]<br>[u1, u2, u4, u8, u16, u32, u64]<br>[i1, i2, i4, u1, u2, u4]<br>[bool, bitset] | a: Tensor[T], b: Tensor[T] | y: Tensor[T] |  | Yes | Yes | Elementwise multiply with broadcasting. Packed dtypes decode/encode in shader. |
+| abs | [f8, bf16, f16, f32, f64]<br>[i1, i2, i4, i8, i16, i32, i64]<br>[i1, i2, i4] | a: Tensor[T] | y: Tensor[T] |  | Yes | Yes | Elementwise abs. Packed dtypes decode/encode in shader. |
+| relu | [f8, bf16, f16, f32, f64]<br>[i4, i8, i16, i32, i64] | a: Tensor[T] | y: Tensor[T] | negative_slope, clamp_max | No | No | Leaky ReLU with clamp. |
+| matmul | [f8, bf16, f16, f32, f64]<br>[i1, i2, i4, i8, i16, i32, i64]<br>[u1, u2, u4, u8, u16, u32, u64]<br>[i1, i2, i4, u1, u2, u4]<br>[bool, bitset] | a: Tensor[T] (M×K), b: Tensor[T] (K×N) | y: Tensor[T] (M×N) |  | Yes | Yes | Matmul. Packed dtypes decode/encode in shader. |
+| is_finite | [f8, bf16, f16, f32, f64] | a: Tensor[T] | y: bool (scalar) | None | No | No | True if all elements are finite. |
+| fill | [f8, bf16, f16, f32, f64]<br>[i1, i2, i4, i8, i16, i32, i64]<br>[u1, u2, u4, u8, u16, u32, u64]<br>[i1, i2, i4, u1, u2, u4]<br>[bool, bitset] | a: Tensor[T] | y: Tensor[T] | value | Yes | No | Fill output with a scalar literal. Packed dtypes decode/encode in shader. |
 
 ---
 
-## Notes
+Vulkan notes:
 
-- Vulkan dtype support is also constrained by `openinfer/src/backend/vulkan/mod.rs`.
-- If an op lists a dtype but the GPU lacks the required feature, Vulkan will
-  return an error at runtime.
+- Packed types are processed in-shader using byte-addressed buffers; no scalar expansion.
+- f16/bf16/f8 are upcast to f32 buffers on upload and converted back on download.
+- i64/u64 require `shader_int64` and f64 requires `shader_float64`; unsupported GPUs error.
+- `bitset` is treated as an 8-bit scalar in Vulkan shaders.

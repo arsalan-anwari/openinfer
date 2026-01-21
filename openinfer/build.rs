@@ -14,8 +14,7 @@ struct VulkanShaderManifest {
 
 #[derive(Debug, Deserialize)]
 struct VulkanShaderEntry {
-    path: Option<String>,
-    paths: Option<Vec<String>>,
+    shader_dir: Option<String>,
     spv_dir: String,
 }
 
@@ -43,8 +42,7 @@ fn main() -> Result<()> {
     let include_broadcast = !manifest.ops.contains_key(BROADCAST_OP);
     if include_broadcast {
         let broadcast_entry = VulkanShaderEntry {
-            path: Some(BROADCAST_PATH.to_string()),
-            paths: None,
+            shader_dir: None,
             spv_dir: BROADCAST_SPV_DIR.to_string(),
         };
         compile_op(&manifest_dir, BROADCAST_OP, &broadcast_entry)?;
@@ -55,7 +53,7 @@ fn main() -> Result<()> {
 }
 
 fn compile_op(manifest_dir: &Path, op_name: &str, entry: &VulkanShaderEntry) -> Result<()> {
-    let paths = shader_paths(manifest_dir, entry)?;
+    let paths = shader_paths(manifest_dir, entry, op_name)?;
     let spv_dir = manifest_dir.join(&entry.spv_dir);
     for src_path in paths {
         println!("cargo:rerun-if-changed={}", src_path.display());
@@ -137,7 +135,7 @@ fn write_embedded_module(
         contents.push_str(&format!("        \"{}\" => {{\n", op_name));
         let spv_dir = manifest_dir.join(&entry.spv_dir);
         let mut targets = Vec::new();
-        for src_path in shader_paths(manifest_dir, entry)? {
+        for src_path in shader_paths(manifest_dir, entry, op_name)? {
             let mut src_targets = slang_entry_points(&src_path).with_context(|| {
                 format!("failed to parse entry points for {}", src_path.display())
             })?;
@@ -217,14 +215,41 @@ fn slang_entry_points(src: &Path) -> Result<Vec<String>> {
     Ok(targets)
 }
 
-fn shader_paths(manifest_dir: &Path, entry: &VulkanShaderEntry) -> Result<Vec<PathBuf>> {
-    if let Some(paths) = &entry.paths {
-        if !paths.is_empty() {
-            return Ok(paths.iter().map(|path| manifest_dir.join(path)).collect());
+fn shader_paths(
+    manifest_dir: &Path,
+    entry: &VulkanShaderEntry,
+    op_name: &str,
+) -> Result<Vec<PathBuf>> {
+    if op_name == BROADCAST_OP {
+        return Ok(vec![manifest_dir.join(BROADCAST_PATH)]);
+    }
+    let shader_dir = entry.shader_dir.as_ref().ok_or_else(|| {
+        anyhow!("missing shader_dir for op {}", op_name)
+    })?;
+    let shader_dir = manifest_dir.join(shader_dir);
+    if !shader_dir.exists() {
+        return Err(anyhow!(
+            "shader_dir does not exist for op {}: {}",
+            op_name,
+            shader_dir.display()
+        ));
+    }
+    let mut paths = Vec::new();
+    collect_slang_files(&shader_dir, &mut paths)?;
+    paths.sort();
+    Ok(paths)
+}
+
+fn collect_slang_files(dir: &Path, out: &mut Vec<PathBuf>) -> Result<()> {
+    for entry in fs::read_dir(dir).with_context(|| format!("failed to read {}", dir.display()))? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir() {
+            collect_slang_files(&path, out)?;
+        } else if path.extension().map(|ext| ext == "slang").unwrap_or(false) {
+            out.push(path);
         }
     }
-    if let Some(path) = &entry.path {
-        return Ok(vec![manifest_dir.join(path)]);
-    }
-    Err(anyhow!("vulkan shader entry missing path(s)"))
+    Ok(())
 }
+

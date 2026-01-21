@@ -5,6 +5,7 @@ use crate::graph::OpAttrs;
 use crate::ops::{device_kernel, KernelFn};
 use crate::tensor::DType;
 
+use super::mul_accumulate_generic;
 use super::mul_generic;
 
 pub fn lookup_kernel_vulkan_mul(
@@ -19,6 +20,7 @@ pub fn lookup_kernel_vulkan_mul(
                 && matches!(
                     out,
                     DType::F32
+                        | DType::F64
                         | DType::I8
                         | DType::I16
                         | DType::I32
@@ -28,11 +30,25 @@ pub fn lookup_kernel_vulkan_mul(
                         | DType::U32
                         | DType::U64
                         | DType::Bool
-        ) =>
+                        | DType::Bitset
+                        | DType::I4
+                        | DType::I2
+                        | DType::I1
+                        | DType::U4
+                        | DType::U2
+                        | DType::U1
+                ) =>
         {
             Some(KernelFn::Vulkan(device_kernel(
-                mul_generic as fn(&OpAttrs, &VulkanBuffer, &VulkanBuffer , usize) -> Result<VulkanBuffer>,
+                mul_generic as fn(&OpAttrs, &VulkanBuffer, &VulkanBuffer, usize) -> Result<VulkanBuffer>,
             )))
+        }
+        (out, [a, b], &OpAttrs::Accumulate { dtype })
+            if *a == *b && out == dtype =>
+        {
+            Some(KernelFn::Vulkan(Box::new(move |attrs, buffers, thread_id| {
+                mul_accumulate_generic(attrs, buffers[0], buffers[1], out, thread_id)
+            })))
         }
         _ => None,
     }

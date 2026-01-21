@@ -18,15 +18,12 @@ pub fn lookup_kernel_vulkan_relu(
                 && matches!(
                     out,
                     DType::F32
+                        | DType::F64
                         | DType::I8
                         | DType::I16
                         | DType::I32
                         | DType::I64
-                        | DType::U8
-                        | DType::U16
-                        | DType::U32
-                        | DType::U64
-                        | DType::Bool
+                        | DType::I4
                 ) =>
         {
             Some(KernelFn::Vulkan(device_kernel(

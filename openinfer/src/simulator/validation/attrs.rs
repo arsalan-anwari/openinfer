@@ -9,6 +9,7 @@ use super::ValidationContext;
 pub(crate) fn validate_op_attrs(ctx: &ValidationContext, attrs: &OpAttrs) -> Result<()> {
     match attrs {
         OpAttrs::None => Ok(()),
+        OpAttrs::Accumulate { .. } => Ok(()),
         OpAttrs::Relu {
             negative_slope,
             clamp_max,

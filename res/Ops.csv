@@ -1,0 +1,46 @@
+﻿Op name,Dtypes,Input,Output,Attributes,Inplace,Accumulation,Description
+add,"[f8, f16, bf16, f32, f64, i8, i16, i32, i64, u8, u16, u32, u64, i1, i2, i4, u1, u2, u4]","a: Tensor[T], b: Tensor[T]",y: Tensor[T],,Yes,Yes,Elementwise addition: y = a + b. 
+sub,"[f8, f16, bf16, f32, f64, i8, i16, i32, i64, u8, u16, u32, u64, i1, i2, i4, u1, u2, u4]","a: Tensor[T], b: Tensor[T]",y: Tensor[T],,Yes,Yes,Elementwise subtraction: y = a - b. 
+mul,"[f8, f16, bf16, f32, f64, i8, i16, i32, i64, u8, u16, u32, u64, i1, i2, i4, u1, u2, u4]","a: Tensor[T], b: Tensor[T]",y: Tensor[T],,Yes,Yes,Elementwise multiplication: y = a * b. 
+div,"[f8, f16, bf16, f32, f64, i8, i16, i32, i64, u8, u16, u32, u64, i4, u4]","a: Tensor[T], b: Tensor[T]",y: Tensor[T],div_by_zero_mask: T | NaN,Yes,No,Elementwise division: y = a / b
+floor_div,"[i8, i16, i32, i64, u8, u16, u32, u64, i4, u4]","a: Tensor[T], b: Tensor[T]",y: Tensor[T],div_by_zero_mask: T | NaN ,Yes,No,Elementwise floor division for integers: y = floor(a / b). 
+rem,"[i8, i16, i32, i64, u8, u16, u32, u64, i4, u4]","a: Tensor[T], b: Tensor[T]",y: Tensor[T],,Yes,No,Elementwise remainder (modulo) 
+fma,"[f8, f16, bf16, f32, f64]","a: Tensor[T], b: Tensor[T], c: Tensor[T]",y: Tensor[T],,Yes,No,Fused multiply-add: y = a*b + c. 
+neg,"[f8, f16, bf16, f32, f64, i8, i16, i32, i64, i1, i2, i4]",x: Tensor[T],y: Tensor[T],,Yes,No,Elementwise negation: y = -x.
+abs,"[f8, f16, bf16, f32, f64, i8, i16, i32, i64, i1, i2, i4]",x: Tensor[T],y: Tensor[T],,Yes,No,Elementwise absolute value: y = |x|.
+sign,"[f8, f16, bf16, f32, f64, i8, i16, i32, i64, i1, i2, i4]",x: Tensor[T],y: Tensor[i8],,Yes,No,"Elementwise sign: y ∈ {-1,1}"
+recip,"[f8, f16, bf16, f32, f64]",x: Tensor[T],y: Tensor[T],div_by_zero_mask: T = NaN,Yes,No,Elementwise reciprocal: y = 1/x.
+min,"[f8, f16, bf16, f32, f64, i8, i16, i32, i64, u8, u16, u32, u64, i1, i2, i4, u1, u2, u4]","a: Tensor[T], b: Tensor[T]",y: Tensor[T],,Yes,No,Elementwise minimum. 
+max,"[f8, f16, bf16, f32, f64, i8, i16, i32, i64, u8, u16, u32, u64, i1, i2, i4, u1, u2, u4]","a: Tensor[T], b: Tensor[T]",y: Tensor[T],,Yes,No,Elementwise maximum. 
+clamp,"[f8, f16, bf16, f32, f64, i8, i16, i32, i64, u8, u16, u32, u64, i1, i2, i4, u1, u2, u4]","x: Tensor[T], min: T max: T",y: Tensor[T],,Yes,No,"Elementwise clamp: y = min(max(x, min), max)."
+floor,"[f8, f16, bf16, f32, f64]",x: Tensor[T],y: Tensor[T],,Yes,No,Elementwise floor.
+ceil,"[f8, f16, bf16, f32, f64]",x: Tensor[T],y: Tensor[T],,Yes,No,Elementwise ceil.
+round,"[f8, f16, bf16, f32, f64]",x: Tensor[T],y: Tensor[T],"mode: str = ""down"" | ""up"" = ""down""",Yes,No,"Elementwise rounding to integer-valued float, with selectable rounding mode."
+trunc,"[f8, f16, bf16, f32, f64]",x: Tensor[T],y: Tensor[T],,Yes,No,Elementwise truncation toward zero.
+and,"[i8, i16, i32, i64, u8, u16, u32, u64, i1, i2, i4, u1, u2, u4, bool]","a: Tensor[T], b: Tensor[T]",y: Tensor[T],,Yes,No,Elementwise bitwise AND.
+or,"[i8, i16, i32, i64, u8, u16, u32, u64, i1, i2, i4, u1, u2, u4, bool]","a: Tensor[T], b: Tensor[T]",y: Tensor[T],,Yes,No,Elementwise bitwise OR.
+xor,"[i8, i16, i32, i64, u8, u16, u32, u64, i1, i2, i4, u1, u2, u4, bool]","a: Tensor[T], b: Tensor[T]",y: Tensor[T],,Yes,No,Elementwise bitwise XOR.
+not,"[i8, i16, i32, i64, u8, u16, u32, u64, i1, i2, i4, u1, u2, u4, bool]",x: Tensor[T],y: Tensor[T],,Yes,No,Elementwise bitwise NOT.
+shl,"[i8, i16, i32, i64, u8, u16, u32, u64, i2, i4, u2, u4]","x: Tensor[T], bits: u8",y: Tensor[T],,Yes,No,Elementwise shift-left by 'bits'. When bits >= word set value to 0.
+shr,"[i8, i16, i32, i64, u8, u16, u32, u64, i2, i4, u2, u4]","x: Tensor[T], bits: u8",y: Tensor[T],,Yes,No,Elementwise shift-right by 'bits'. When bits >= word set value to 0.
+popcount,"[i8, i16, i32, i64, u8, u16, u32, u64, i2, i4, u2, u4]",x: Tensor[T],y: Tensor[u8],,No,No,Counts set bits per element.
+eq,"[f8, f16, bf16, f32, f64, i8, i16, i32, i64, u8, u16, u32, u64, i1, i2, i4, u1, u2, u4, bool]","a: Tensor[T], b: Tensor[T]",y: Tensor[bool],,No,No,Elementwise equality comparison. Outputs bool tensor.
+ne,"[f8, f16, bf16, f32, f64, i8, i16, i32, i64, u8, u16, u32, u64, i1, i2, i4, u1, u2, u4, bool]","a: Tensor[T], b: Tensor[T]",y: Tensor[bool],,No,No,Elementwise inequality comparison. Outputs bool tensor.
+lt,"[f8, f16, bf16, f32, f64, i8, i16, i32, i64, u8, u16, u32, u64, i1, i2, i4, u1, u2, u4]","a: Tensor[T], b: Tensor[T]",y: Tensor[bool],,No,No,Elementwise less-than comparison.
+le,"[f8, f16, bf16, f32, f64, i8, i16, i32, i64, u8, u16, u32, u64, i1, i2, i4, u1, u2, u4]","a: Tensor[T], b: Tensor[T]",y: Tensor[bool],,No,No,Elementwise less-or-equal comparison.
+gt,"[f8, f16, bf16, f32, f64, i8, i16, i32, i64, u8, u16, u32, u64, i1, i2, i4, u1, u2, u4]","a: Tensor[T], b: Tensor[T]",y: Tensor[bool],,No,No,Elementwise greater-than comparison.
+ge,"[f8, f16, bf16, f32, f64, i8, i16, i32, i64, u8, u16, u32, u64, i1, i2, i4, u1, u2, u4]","a: Tensor[T], b: Tensor[T]",y: Tensor[bool],,No,No,Elementwise greater-or-equal comparison.
+filter,"[f8, f16, bf16, f32, f64, i8, i16, i32, i64, u8, u16, u32, u64, i1, i2, i4, u1, u2, u4, bool]","a: Tensor[T], b: Tensor[T], cond: Tensor[bool]",y: Tensor[T],,No,No,Select elements from a or b based on condition: y[i] = cond[i] ? a[i] : b[i].
+is_nan,"[f8, f16, bf16, f32, f64]",x: Tensor[T],y: Tensor[bool],,No,No,Elementwise NaN check: true where x is NaN.
+is_inf,"[f8, f16, bf16, f32, f64]",x: Tensor[T],y: Tensor[bool],,No,No,Elementwise infinity check: true where x is +inf or -inf.
+is_finite,"[f8, f16, bf16, f32, f64]",x: Tensor[T],y: Tensor[bool],,No,No,Elementwise finite check: true where x is neither NaN nor ±inf.
+is_neg,"[f8, f16, bf16, f32, f64, i8, i16, i32, i64, u8, u16, u32, u64, i1, i2, i4]",x: Tensor[T],y: Tensor[bool],,No,No,Elementwise negation check: true where x is negative <0 value. 
+sum,"[f8, f16, bf16, f32, f64, i8, i16, i32, i64, u8, u16, u32, u64, i1, i2, i4, u1, u2, u4]",x: Tensor[T],y: Tensor[T],"axes: int[] | None = None,                 keepdims: bool = false,",No,Yes,Sum-reduction over axes. 
+mean,"[f8, f16, bf16, f32, f64, i8, i16, i32, i64, u8, u16, u32, u64, i1, i2, i4, u1, u2, u4]",x: Tensor[T],y: Tensor[T],"axes: int[] | None = None,        keepdims: bool = false",No,Yes,Mean-reduction over axes. Often implemented as sum / count.
+prod,"[f8, f16, bf16, f32, f64, i8, i16, i32, i64, u8, u16, u32, u64, i1, i2, i4, u1, u2, u4]",x: Tensor[T],y: Tensor[T],"axes: int[] | None = None,                keepdims: bool = false",No,Yes,Product-reduction over axes.
+max,"[f8, f16, bf16, f32, f64, i8, i16, i32, i64, u8, u16, u32, u64, i1, i2, i4, u1, u2, u4]",x: Tensor[T],y: Tensor[T],"axes: int[] | None = None,              keepdims: bool = false",No,No,Max-reduction over axes.
+min,"[f8, f16, bf16, f32, f64, i8, i16, i32, i64, u8, u16, u32, u64, i1, i2, i4, u1, u2, u4]",x: Tensor[T],y: Tensor[T],"axes: int[] | None = None,         keepdims: bool = false",No,No,Min-reduction over axes.
+argmax,"[f8, f16, bf16, f32, f64, i8, i16, i32, i64, u8, u16, u32, u64, i1, i2, i4, u1, u2, u4]",x: Tensor[T],y: Tensor[i64],"axis: int,                                         keepdims: bool = false,                 select_first: bool = true",No,No,Index of maximum along axis. Define tie-break (select_first). Returns indices tensor.
+argmin,"[f8, f16, bf16, f32, f64, i8, i16, i32, i64, u8, u16, u32, u64, i1, i2, i4, u1, u2, u4]",x: Tensor[T],y: Tensor[i64],"axis: int,                                         keepdims: bool = false,                 select_first: bool = true",No,No,Index of minimum along axis. Define tie-break (select_first). Returns indices tensor.
+matmul,"[f8, f16, bf16, f32, f64, i8, i16, i32, i64, u8, u16, u32, u64, i1, i2, i4, u1, u2, u4]","a: Tensor[T], b: Tensor[T]",y: Tensor[T],"transpose_a: bool = false,  transpose_b: bool = false,",No,Yes,Matrix multiplication
+cast,"[f32, f64, i8, i16, i32, i64, u8, u16, u32, u64, f8, f16, bf16, i1, i2, i4, u1, u2, u4, bool]",x: Tensor[From],y: Tensor[To],"to: dtype,                                      rounding_mode: str | None = None, saturate: bool = false",No,No,Casts tensor elements to another dtype. For float->int define rounding; for narrowing int define saturate vs wrap.

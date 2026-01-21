@@ -4,12 +4,7 @@ use crate::graph::OpAttrs;
 use crate::ops::registry::{HostInplaceKernel, InplaceKernelFn};
 use crate::tensor::{DType, TensorValue};
 
-use super::{
-    mul_inplace_bool, mul_inplace_f32, mul_inplace_f64, mul_inplace_i16, mul_inplace_i32,
-    mul_inplace_i64, mul_inplace_i8, mul_inplace_u16, mul_inplace_u32, mul_inplace_u64,
-    mul_inplace_u8,
-};
-use crate::ops::cpu::mul as cpu_mul;
+use super::{mul_inplace_f32, mul_inplace_f64, mul_inplace_i16, mul_inplace_i32, mul_inplace_i8, mul_inplace_u16, mul_inplace_u32, mul_inplace_u8};
 
 pub fn supports_mul_inplace(output_dtype: DType, input_dtypes: &[DType], attrs: &OpAttrs) -> bool {
     matches!(
@@ -18,15 +13,10 @@ pub fn supports_mul_inplace(output_dtype: DType, input_dtypes: &[DType], attrs: 
             | (DType::I16, [DType::I16, DType::I16], OpAttrs::None)
             | (DType::F32, [DType::F32, DType::F32], OpAttrs::None)
             | (DType::F64, [DType::F64, DType::F64], OpAttrs::None)
-            | (DType::F16, [DType::F16, DType::F16], OpAttrs::None)
             | (DType::U8, [DType::U8, DType::U8], OpAttrs::None)
             | (DType::U16, [DType::U16, DType::U16], OpAttrs::None)
             | (DType::I32, [DType::I32, DType::I32], OpAttrs::None)
-            | (DType::I64, [DType::I64, DType::I64], OpAttrs::None)
             | (DType::U32, [DType::U32, DType::U32], OpAttrs::None)
-            | (DType::U64, [DType::U64, DType::U64], OpAttrs::None)
-            | (DType::Bool, [DType::Bool, DType::Bool], OpAttrs::None)
-            | (DType::Bitset, [DType::Bitset, DType::Bitset], OpAttrs::None)
     )
 }
 
@@ -47,21 +37,10 @@ pub fn lookup_kernel_cpu_avx2_mul_inplace(
             (TensorValue::I16(out), TensorValue::I16(b)) => mul_inplace_i16(&mut out.data, &b.data, thread_id),
             (TensorValue::F32(out), TensorValue::F32(b)) => mul_inplace_f32(&mut out.data, &b.data, thread_id),
             (TensorValue::F64(out), TensorValue::F64(b)) => mul_inplace_f64(&mut out.data, &b.data, thread_id),
-            (TensorValue::F16(out), TensorValue::F16(b)) => {
-                cpu_mul::mul_inplace_f16(&mut out.data, &b.data, thread_id)
-            }
             (TensorValue::U8(out), TensorValue::U8(b)) => mul_inplace_u8(&mut out.data, &b.data, thread_id),
             (TensorValue::U16(out), TensorValue::U16(b)) => mul_inplace_u16(&mut out.data, &b.data, thread_id),
             (TensorValue::I32(out), TensorValue::I32(b)) => mul_inplace_i32(&mut out.data, &b.data, thread_id),
-            (TensorValue::I64(out), TensorValue::I64(b)) => mul_inplace_i64(&mut out.data, &b.data, thread_id),
             (TensorValue::U32(out), TensorValue::U32(b)) => mul_inplace_u32(&mut out.data, &b.data, thread_id),
-            (TensorValue::U64(out), TensorValue::U64(b)) => mul_inplace_u64(&mut out.data, &b.data, thread_id),
-            (TensorValue::Bool(out), TensorValue::Bool(b)) => {
-                mul_inplace_bool(&mut out.data, &b.data, thread_id)
-            }
-            (TensorValue::Bitset(out), TensorValue::Bitset(b)) => {
-                cpu_mul::mul_inplace_bitset(&mut out.data, &b.data, thread_id)
-            }
             _ => Err(anyhow!("inplace mul dtype mismatch")),
         }
     });

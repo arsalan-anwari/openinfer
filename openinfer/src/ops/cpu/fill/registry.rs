@@ -1,12 +1,13 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 
 use crate::graph::OpAttrs;
 use crate::ops::{cpu_kernel, KernelFn};
-use crate::tensor::DType;
+use crate::tensor::{DType, I1, I2, I4, U1, U2, U4, Tensor, TensorElement, TensorOptions};
 
 use super::{
-    fill_bitset, fill_bool, fill_f16, fill_f32, fill_f64, fill_i16, fill_i32, fill_i64, fill_i8,
-    fill_u16, fill_u32, fill_u64, fill_u8,
+    fill_bf16, fill_bitset, fill_bool, fill_f16, fill_f32, fill_f64, fill_f8, fill_i16, fill_i32,
+    fill_i64, fill_i8, fill_u16, fill_u32, fill_u64, fill_u8, fill_i4, fill_i2, fill_i1,
+    fill_u4, fill_u2, fill_u1,
 };
 
 pub fn lookup_kernel_cpu_fill(
@@ -42,6 +43,12 @@ pub fn lookup_kernel_cpu_fill(
         (DType::F16, [DType::F16], &OpAttrs::Fill { .. }) => Some(KernelFn::Host(
             cpu_kernel(fill_f16 as fn(&OpAttrs, &[crate::tensor::F16], usize) -> Result<Vec<crate::tensor::F16>>),
         )),
+        (DType::BF16, [DType::BF16], &OpAttrs::Fill { .. }) => Some(KernelFn::Host(
+            cpu_kernel(fill_bf16 as fn(&OpAttrs, &[crate::tensor::BF16], usize) -> Result<Vec<crate::tensor::BF16>>),
+        )),
+        (DType::F8E5M2, [DType::F8E5M2], &OpAttrs::Fill { .. }) => Some(KernelFn::Host(
+            cpu_kernel(fill_f8 as fn(&OpAttrs, &[crate::tensor::F8E5M2], usize) -> Result<Vec<crate::tensor::F8E5M2>>),
+        )),
         (DType::F32, [DType::F32], &OpAttrs::Fill { .. }) => Some(KernelFn::Host(
             cpu_kernel(fill_f32 as fn(&OpAttrs, &[f32], usize) -> Result<Vec<f32>>),
         )),
@@ -61,6 +68,66 @@ pub fn lookup_kernel_cpu_fill(
                     ) -> Result<Vec<crate::tensor::Bitset>>,
             ),
         )),
+        (DType::I4, [DType::I4], &OpAttrs::Fill { .. }) => Some(KernelFn::Host(Box::new(|attrs, inputs, thread_id| {
+            let a = <I4 as TensorElement>::from_value(&inputs[0]).ok_or_else(|| anyhow!("fill input 0 dtype mismatch"))?;
+            let out = fill_i4(attrs, a.numel(), thread_id)?;
+            let tensor = Tensor::from_vec_with_opts(out, TensorOptions {
+                shape: Some(a.shape().to_vec()),
+                allow_len_mismatch: true,
+                ..TensorOptions::default()
+            })?;
+            Ok(<I4 as TensorElement>::into_value(tensor))
+        }))),
+        (DType::I2, [DType::I2], &OpAttrs::Fill { .. }) => Some(KernelFn::Host(Box::new(|attrs, inputs, thread_id| {
+            let a = <I2 as TensorElement>::from_value(&inputs[0]).ok_or_else(|| anyhow!("fill input 0 dtype mismatch"))?;
+            let out = fill_i2(attrs, a.numel(), thread_id)?;
+            let tensor = Tensor::from_vec_with_opts(out, TensorOptions {
+                shape: Some(a.shape().to_vec()),
+                allow_len_mismatch: true,
+                ..TensorOptions::default()
+            })?;
+            Ok(<I2 as TensorElement>::into_value(tensor))
+        }))),
+        (DType::I1, [DType::I1], &OpAttrs::Fill { .. }) => Some(KernelFn::Host(Box::new(|attrs, inputs, thread_id| {
+            let a = <I1 as TensorElement>::from_value(&inputs[0]).ok_or_else(|| anyhow!("fill input 0 dtype mismatch"))?;
+            let out = fill_i1(attrs, a.numel(), thread_id)?;
+            let tensor = Tensor::from_vec_with_opts(out, TensorOptions {
+                shape: Some(a.shape().to_vec()),
+                allow_len_mismatch: true,
+                ..TensorOptions::default()
+            })?;
+            Ok(<I1 as TensorElement>::into_value(tensor))
+        }))),
+        (DType::U4, [DType::U4], &OpAttrs::Fill { .. }) => Some(KernelFn::Host(Box::new(|attrs, inputs, thread_id| {
+            let a = <U4 as TensorElement>::from_value(&inputs[0]).ok_or_else(|| anyhow!("fill input 0 dtype mismatch"))?;
+            let out = fill_u4(attrs, a.numel(), thread_id)?;
+            let tensor = Tensor::from_vec_with_opts(out, TensorOptions {
+                shape: Some(a.shape().to_vec()),
+                allow_len_mismatch: true,
+                ..TensorOptions::default()
+            })?;
+            Ok(<U4 as TensorElement>::into_value(tensor))
+        }))),
+        (DType::U2, [DType::U2], &OpAttrs::Fill { .. }) => Some(KernelFn::Host(Box::new(|attrs, inputs, thread_id| {
+            let a = <U2 as TensorElement>::from_value(&inputs[0]).ok_or_else(|| anyhow!("fill input 0 dtype mismatch"))?;
+            let out = fill_u2(attrs, a.numel(), thread_id)?;
+            let tensor = Tensor::from_vec_with_opts(out, TensorOptions {
+                shape: Some(a.shape().to_vec()),
+                allow_len_mismatch: true,
+                ..TensorOptions::default()
+            })?;
+            Ok(<U2 as TensorElement>::into_value(tensor))
+        }))),
+        (DType::U1, [DType::U1], &OpAttrs::Fill { .. }) => Some(KernelFn::Host(Box::new(|attrs, inputs, thread_id| {
+            let a = <U1 as TensorElement>::from_value(&inputs[0]).ok_or_else(|| anyhow!("fill input 0 dtype mismatch"))?;
+            let out = fill_u1(attrs, a.numel(), thread_id)?;
+            let tensor = Tensor::from_vec_with_opts(out, TensorOptions {
+                shape: Some(a.shape().to_vec()),
+                allow_len_mismatch: true,
+                ..TensorOptions::default()
+            })?;
+            Ok(<U1 as TensorElement>::into_value(tensor))
+        }))),
         _ => None,
     }
 }

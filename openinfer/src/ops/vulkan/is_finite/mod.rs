@@ -52,16 +52,7 @@ pub fn is_finite_generic(
 
 pub(crate) fn spv_target_name_is_finite(dtype: DType, attrs: &OpAttrs) -> Result<String> {
     match (dtype, attrs) {
-        (DType::I8, &OpAttrs::None)
-        | (DType::I16, &OpAttrs::None)
-        | (DType::F32, &OpAttrs::None)
-        | (DType::Bool, &OpAttrs::None)
-        | (DType::U8, &OpAttrs::None)
-        | (DType::U16, &OpAttrs::None)
-        | (DType::I32, &OpAttrs::None)
-        | (DType::U32, &OpAttrs::None)
-        | (DType::I64, &OpAttrs::None)
-        | (DType::U64, &OpAttrs::None) => {
+        (DType::F32, &OpAttrs::None) | (DType::F64, &OpAttrs::None) => {
             Ok(format!(
                 "is_finite_scalar_{}",
                 super::dtype_suffix(dtype).unwrap()

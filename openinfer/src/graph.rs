@@ -66,6 +66,9 @@ pub struct CacheAccess {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum OpAttrs {
     None,
+    Accumulate {
+        dtype: DType,
+    },
     Relu {
         negative_slope: AttrValue,
         clamp_max: AttrValue,

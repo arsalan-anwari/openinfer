@@ -1,7 +1,8 @@
 use anyhow::{anyhow, Result};
 
 use crate::graph::{AttrValue, OpAttrs};
-use crate::tensor::{Bitset, F16};
+use crate::ops::cpu::packed::packed_unary_signed;
+use crate::tensor::{BF16, F16, F8E5M2, I4};
 use crate::timer::Timer;
 
 pub fn relu_f32(attrs: &OpAttrs, a: &[f32], thread_id: usize) -> Result<Vec<f32>> {
@@ -43,32 +44,32 @@ pub fn relu_f16(attrs: &OpAttrs, a: &[F16], thread_id: usize) -> Result<Vec<F16>
     Timer::stop(thread_id);
     Ok(out)
 }
-pub fn relu_bool(attrs: &OpAttrs, a: &[bool], thread_id: usize) -> Result<Vec<bool>> {
+
+pub fn relu_bf16(attrs: &OpAttrs, a: &[BF16], thread_id: usize) -> Result<Vec<BF16>> {
     let (negative_slope, clamp_max) = relu_params(attrs)?;
     let mut out = Vec::with_capacity(a.len());
     Timer::start(thread_id);
     for x in a {
-        let x = if *x { 1.0 } else { 0.0 };
-        let y = relu_f32_value(x, negative_slope, clamp_max);
-        out.push(y > 0.0);
+        let mut y = relu_f32_value(x.to_f32(), negative_slope, clamp_max);
+        if y < 0.0 {
+            y = 0.0;
+        }
+        out.push(BF16::from_f32(y));
     }
     Timer::stop(thread_id);
     Ok(out)
 }
 
-pub fn relu_bitset(attrs: &OpAttrs, a: &[Bitset], thread_id: usize) -> Result<Vec<Bitset>> {
+pub fn relu_f8(attrs: &OpAttrs, a: &[F8E5M2], thread_id: usize) -> Result<Vec<F8E5M2>> {
     let (negative_slope, clamp_max) = relu_params(attrs)?;
     let mut out = Vec::with_capacity(a.len());
     Timer::start(thread_id);
     for x in a {
-        let mut y = relu_f32_value(x.bits as f32, negative_slope, clamp_max);
+        let mut y = relu_f32_value(x.to_f32(), negative_slope, clamp_max);
         if y < 0.0 {
             y = 0.0;
         }
-        if y > u8::MAX as f32 {
-            y = u8::MAX as f32;
-        }
-        out.push(Bitset { bits: y as u8 });
+        out.push(F8E5M2::from_f32(y));
     }
     Timer::stop(thread_id);
     Ok(out)
@@ -114,36 +115,27 @@ macro_rules! relu_signed {
     };
 }
 
-macro_rules! relu_unsigned {
-    ($name:ident, $ty:ty, $max:expr) => {
-        pub fn $name(attrs: &OpAttrs, a: &[$ty], thread_id: usize) -> Result<Vec<$ty>> {
-            let (negative_slope, clamp_max) = relu_params(attrs)?;
-            let mut out = Vec::with_capacity(a.len());
-            Timer::start(thread_id);
-            for x in a {
-                let mut y = relu_f32_value(*x as f32, negative_slope, clamp_max);
-                if y < 0.0 {
-                    y = 0.0;
-                }
-                if y > $max {
-                    y = $max;
-                }
-                out.push(y as $ty);
-            }
-            Timer::stop(thread_id);
-            Ok(out)
-        }
-    };
-}
-
 relu_signed!(relu_i8, i8, i8::MIN as f32, i8::MAX as f32);
 relu_signed!(relu_i16, i16, i16::MIN as f32, i16::MAX as f32);
 relu_signed!(relu_i32, i32, i32::MIN as f32, i32::MAX as f32);
 relu_signed!(relu_i64, i64, i64::MIN as f32, i64::MAX as f32);
-relu_unsigned!(relu_u8, u8, u8::MAX as f32);
-relu_unsigned!(relu_u16, u16, u16::MAX as f32);
-relu_unsigned!(relu_u32, u32, u32::MAX as f32);
-relu_unsigned!(relu_u64, u64, u64::MAX as f32);
+
+pub fn relu_i4(attrs: &OpAttrs, a: &[I4], logical_len: usize, thread_id: usize) -> Result<Vec<I4>> {
+    let (negative_slope, clamp_max) = relu_params(attrs)?;
+    Timer::start(thread_id);
+    let out = packed_unary_signed(4, a, logical_len, I4 { bits: 0 }, |x| {
+        let mut y = relu_f32_value(x as f32, negative_slope, clamp_max);
+        if y < i8::MIN as f32 {
+            y = i8::MIN as f32;
+        }
+        if y > i8::MAX as f32 {
+            y = i8::MAX as f32;
+        }
+        y as i8
+    });
+    Timer::stop(thread_id);
+    Ok(out)
+}
 
 fn attr_value_f32(value: &AttrValue) -> Result<f32> {
     match value {

@@ -2,7 +2,7 @@ use crate::graph::{OpAttrs, OpKind};
 use crate::ops::registry::InplaceKernelFn;
 use crate::tensor::DType;
 
-use super::{abs, add, mul, relu};
+use super::{abs, add, matmul, mul, relu};
 
 pub fn lookup_kernel_cpu_avx_inplace(
     op: OpKind,
@@ -31,6 +31,12 @@ pub fn lookup_kernel_cpu_avx_inplace(
             input_dtypes,
             attrs,
         ),
-        OpKind::Matmul | OpKind::IsFinite | OpKind::Fill => None,
+        OpKind::Fill => None,
+        OpKind::Matmul => matmul::registry_inplace::lookup_kernel_cpu_avx_matmul_inplace(
+            output_dtype,
+            input_dtypes,
+            attrs,
+        ),
+        OpKind::IsFinite => None,
     }
 }

@@ -4,6 +4,7 @@ pub mod fill;
 pub mod is_finite;
 pub mod matmul;
 pub mod mul;
+pub mod packed;
 pub mod relu;
 pub mod registry;
 pub mod registry_inplace;

@@ -46,6 +46,7 @@ pub(crate) fn dtype_suffix(dtype: DType) -> Option<&'static str> {
         DType::I8 => Some("i8"),
         DType::I16 => Some("i16"),
         DType::F32 => Some("f32"),
+        DType::F64 => Some("f64"),
         DType::Bool => Some("bool"),
         DType::U8 => Some("u8"),
         DType::U16 => Some("u16"),
@@ -53,6 +54,13 @@ pub(crate) fn dtype_suffix(dtype: DType) -> Option<&'static str> {
         DType::U32 => Some("u32"),
         DType::I64 => Some("i64"),
         DType::U64 => Some("u64"),
+        DType::I4 => Some("i4"),
+        DType::I2 => Some("i2"),
+        DType::I1 => Some("i1"),
+        DType::U4 => Some("u4"),
+        DType::U2 => Some("u2"),
+        DType::U1 => Some("u1"),
+        DType::Bitset => Some("bitset"),
         _ => None,
     }
 }

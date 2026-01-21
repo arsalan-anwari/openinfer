@@ -13,6 +13,10 @@ pub trait CpuKernelAdapter {
     fn call(&self, attrs: &OpAttrs, inputs: &[TensorValue], thread_id: usize) -> Result<TensorValue>;
 }
 
+pub trait CpuKernelAdapterOut {
+    fn call(&self, attrs: &OpAttrs, inputs: &[TensorValue], thread_id: usize) -> Result<TensorValue>;
+}
+
 #[cfg(feature = "vulkan")]
 pub trait DeviceKernelAdapter {
     fn call(
@@ -26,6 +30,13 @@ pub trait DeviceKernelAdapter {
 pub fn cpu_kernel<K>(func: K) -> HostKernel
 where
     K: CpuKernelAdapter + Send + Sync + 'static,
+{
+    Box::new(move |attrs, inputs, thread_id| func.call(attrs, inputs, thread_id))
+}
+
+pub fn cpu_kernel_out<K>(func: K) -> HostKernel
+where
+    K: CpuKernelAdapterOut + Send + Sync + 'static,
 {
     Box::new(move |attrs, inputs, thread_id| func.call(attrs, inputs, thread_id))
 }
@@ -57,6 +68,26 @@ where
     }
 }
 
+impl<A, Out> CpuKernelAdapterOut for for<'a> fn(&'a [A], usize) -> Result<Vec<Out>>
+where
+    A: TensorElement + Clone + 'static,
+    Out: TensorElement + Clone + 'static,
+{
+    fn call(&self, _attrs: &OpAttrs, inputs: &[TensorValue], thread_id: usize) -> Result<TensorValue> {
+        let a = inputs
+            .get(0)
+            .ok_or_else(|| anyhow!("cpu kernel expects at least 1 input"))?;
+        let a = A::from_value(a)
+            .ok_or_else(|| anyhow!("cpu kernel input 0 has wrong dtype"))?;
+        let output = (self)(&a.data, thread_id)?;
+        let tensor = Tensor::from_vec_with_opts(output, TensorOptions {
+            shape: Some(a.shape().to_vec()),
+            ..TensorOptions::default()
+        })?;
+        Ok(Out::into_value(tensor))
+    }
+}
+
 impl<A> CpuKernelAdapter for for<'a, 'b> fn(&'a OpAttrs, &'b [A], usize) -> Result<Vec<A>>
 where
     A: TensorElement + Clone + 'static,
@@ -73,6 +104,29 @@ where
             ..TensorOptions::default()
         })?;
         Ok(A::into_value(tensor))
+    }
+}
+
+impl<A, B, Out> CpuKernelAdapterOut for for<'a, 'b> fn(&'a [A], &'b [B], usize) -> Result<Vec<Out>>
+where
+    A: TensorElement + Clone + 'static,
+    B: TensorElement + Clone + 'static,
+    Out: TensorElement + Clone + 'static,
+{
+    fn call(&self, _attrs: &OpAttrs, inputs: &[TensorValue], thread_id: usize) -> Result<TensorValue> {
+        if inputs.len() < 2 {
+            return Err(anyhow!("cpu kernel expects at least 2 inputs"));
+        }
+        let a = A::from_value(&inputs[0])
+            .ok_or_else(|| anyhow!("cpu kernel input 0 has wrong dtype"))?;
+        let b = B::from_value(&inputs[1])
+            .ok_or_else(|| anyhow!("cpu kernel input 1 has wrong dtype"))?;
+        let output = (self)(&a.data, &b.data, thread_id)?;
+        let tensor = Tensor::from_vec_with_opts(output, TensorOptions {
+            shape: Some(a.shape().to_vec()),
+            ..TensorOptions::default()
+        })?;
+        Ok(Out::into_value(tensor))
     }
 }
 

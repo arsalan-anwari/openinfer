@@ -1,7 +1,8 @@
 use anyhow::{anyhow, Result};
 
 use crate::graph::{AttrValue, OpAttrs};
-use crate::tensor::{Bitset, F16};
+use crate::ops::cpu::packed::{packed_fill_signed, packed_fill_unsigned};
+use crate::tensor::{BF16, Bitset, F16, F8E5M2, I1, I2, I4, U1, U2, U4};
 use crate::timer::Timer;
 
 fn fill_value(attrs: &OpAttrs) -> Result<AttrValue> {
@@ -49,6 +50,34 @@ pub fn fill_f16(attrs: &OpAttrs, a: &[F16], thread_id: usize) -> Result<Vec<F16>
     let value = match fill_value(attrs)? {
         AttrValue::Float(val) => F16::from_f32(val),
         _ => return Err(anyhow!("fill expects f16 value")),
+    };
+    let mut out = Vec::with_capacity(a.len());
+    Timer::start(thread_id);
+    for _ in a {
+        out.push(value);
+    }
+    Timer::stop(thread_id);
+    Ok(out)
+}
+
+pub fn fill_bf16(attrs: &OpAttrs, a: &[BF16], thread_id: usize) -> Result<Vec<BF16>> {
+    let value = match fill_value(attrs)? {
+        AttrValue::Float(val) => BF16::from_f32(val),
+        _ => return Err(anyhow!("fill expects bf16 value")),
+    };
+    let mut out = Vec::with_capacity(a.len());
+    Timer::start(thread_id);
+    for _ in a {
+        out.push(value);
+    }
+    Timer::stop(thread_id);
+    Ok(out)
+}
+
+pub fn fill_f8(attrs: &OpAttrs, a: &[F8E5M2], thread_id: usize) -> Result<Vec<F8E5M2>> {
+    let value = match fill_value(attrs)? {
+        AttrValue::Float(val) => F8E5M2::from_f32(val),
+        _ => return Err(anyhow!("fill expects f8 value")),
     };
     let mut out = Vec::with_capacity(a.len());
     Timer::start(thread_id);
@@ -214,6 +243,90 @@ pub fn fill_bitset(
     };
     Timer::start(thread_id);
     let out = vec![Bitset { bits: bit }; a.len()];
+    Timer::stop(thread_id);
+    Ok(out)
+}
+
+pub fn fill_i4(attrs: &OpAttrs, logical_len: usize, thread_id: usize) -> Result<Vec<I4>> {
+    let value = match fill_value(attrs)? {
+        AttrValue::Int(val) => val as i32,
+        _ => return Err(anyhow!("fill expects i4 value")),
+    };
+    Timer::start(thread_id);
+    let out = packed_fill_signed(4, logical_len, value, I4 { bits: 0 });
+    Timer::stop(thread_id);
+    Ok(out)
+}
+
+pub fn fill_i2(attrs: &OpAttrs, logical_len: usize, thread_id: usize) -> Result<Vec<I2>> {
+    let value = match fill_value(attrs)? {
+        AttrValue::Int(val) => val as i32,
+        _ => return Err(anyhow!("fill expects i2 value")),
+    };
+    Timer::start(thread_id);
+    let out = packed_fill_signed(2, logical_len, value, I2 { bits: 0 });
+    Timer::stop(thread_id);
+    Ok(out)
+}
+
+pub fn fill_i1(attrs: &OpAttrs, logical_len: usize, thread_id: usize) -> Result<Vec<I1>> {
+    let value = match fill_value(attrs)? {
+        AttrValue::Int(val) => val as i32,
+        _ => return Err(anyhow!("fill expects i1 value")),
+    };
+    Timer::start(thread_id);
+    let out = packed_fill_signed(1, logical_len, value, I1 { bits: 0 });
+    Timer::stop(thread_id);
+    Ok(out)
+}
+
+pub fn fill_u4(attrs: &OpAttrs, logical_len: usize, thread_id: usize) -> Result<Vec<U4>> {
+    let value = match fill_value(attrs)? {
+        AttrValue::UInt(val) => val as u32,
+        AttrValue::Int(val) => {
+            if val < 0 {
+                return Err(anyhow!("fill expects u4 value"));
+            }
+            val as u32
+        }
+        _ => return Err(anyhow!("fill expects u4 value")),
+    };
+    Timer::start(thread_id);
+    let out = packed_fill_unsigned(4, logical_len, value, U4 { bits: 0 });
+    Timer::stop(thread_id);
+    Ok(out)
+}
+
+pub fn fill_u2(attrs: &OpAttrs, logical_len: usize, thread_id: usize) -> Result<Vec<U2>> {
+    let value = match fill_value(attrs)? {
+        AttrValue::UInt(val) => val as u32,
+        AttrValue::Int(val) => {
+            if val < 0 {
+                return Err(anyhow!("fill expects u2 value"));
+            }
+            val as u32
+        }
+        _ => return Err(anyhow!("fill expects u2 value")),
+    };
+    Timer::start(thread_id);
+    let out = packed_fill_unsigned(2, logical_len, value, U2 { bits: 0 });
+    Timer::stop(thread_id);
+    Ok(out)
+}
+
+pub fn fill_u1(attrs: &OpAttrs, logical_len: usize, thread_id: usize) -> Result<Vec<U1>> {
+    let value = match fill_value(attrs)? {
+        AttrValue::UInt(val) => val as u32,
+        AttrValue::Int(val) => {
+            if val < 0 {
+                return Err(anyhow!("fill expects u1 value"));
+            }
+            val as u32
+        }
+        _ => return Err(anyhow!("fill expects u1 value")),
+    };
+    Timer::start(thread_id);
+    let out = packed_fill_unsigned(1, logical_len, value, U1 { bits: 0 });
     Timer::stop(thread_id);
     Ok(out)
 }

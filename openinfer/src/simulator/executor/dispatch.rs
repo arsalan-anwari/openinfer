@@ -387,6 +387,7 @@ impl Executor {
             && inplace_index.is_some()
             && inplace_hits == 1
             && supports_inplace(op)
+            && !matches!(resolved_attrs, OpAttrs::Accumulate { .. })
             && tensors.len() == inputs.len();
         let result = if use_inplace {
             let index = inplace_index.unwrap();
@@ -417,6 +418,7 @@ impl Executor {
     pub(super) fn resolve_op_attrs(&mut self, attrs: &OpAttrs) -> Result<OpAttrs> {
         match attrs {
             OpAttrs::None => Ok(OpAttrs::None),
+            OpAttrs::Accumulate { dtype } => Ok(OpAttrs::Accumulate { dtype: *dtype }),
             OpAttrs::Relu {
                 negative_slope,
                 clamp_max,
@@ -539,5 +541,8 @@ impl Executor {
 }
 
 fn supports_inplace(op: OpKind) -> bool {
-    matches!(op, OpKind::Add | OpKind::Mul | OpKind::Abs | OpKind::Relu)
+    matches!(
+        op,
+        OpKind::Add | OpKind::Mul | OpKind::Abs | OpKind::Relu | OpKind::Fill | OpKind::Matmul
+    )
 }

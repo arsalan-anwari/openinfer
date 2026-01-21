@@ -179,25 +179,34 @@ fn print_group<T: TensorElement + std::fmt::Debug>(
     exec: &mut Executor,
     tag: &str,
     row_len: usize,
+    has_finite: bool,
+    has_abs: bool,
+    has_relu: bool,
 ) -> anyhow::Result<()> {
     let refs = cpu_refs(tag);
     let add: Tensor<T> = exec.fetch(&format!("add_{}", tag))?;
     let mul: Tensor<T> = exec.fetch(&format!("mul_{}", tag))?;
-    let abs: Tensor<T> = exec.fetch(&format!("abs_{}", tag))?;
-    let relu: Tensor<T> = exec.fetch(&format!("relu_{}", tag))?;
     let fill: Tensor<T> = exec.fetch(&format!("fill_{}", tag))?;
-    let finite: bool = exec.fetch(&format!("finite_{}", tag))?;
     let mm: Tensor<T> = exec.fetch(&format!("mm_{}", tag))?;
 
     println!("=== {} ===", tag);
     print_line("add", &add.data, refs.add);
     print_line("mul", &mul.data, refs.mul);
-    print_line("abs", &abs.data, refs.abs);
-    print_line("relu", &relu.data, refs.relu);
+    if has_abs {
+        let abs: Tensor<T> = exec.fetch(&format!("abs_{}", tag))?;
+        print_line("abs", &abs.data, refs.abs);
+    }
+    if has_relu {
+        let relu: Tensor<T> = exec.fetch(&format!("relu_{}", tag))?;
+        print_line("relu", &relu.data, refs.relu);
+    }
     print_line("fill", &fill.data, refs.fill);
-    let actual = format!("{}", finite);
-    let ok = if actual == refs.finite { "[✅]" } else { "[❌]" };
-    println!("{ok} finite = {actual} -- CPUref: {}", refs.finite);
+    if has_finite {
+        let finite: bool = exec.fetch(&format!("finite_{}", tag))?;
+        let actual = format!("{}", finite);
+        let ok = if actual == refs.finite { "[✅]" } else { "[❌]" };
+        println!("{ok} finite = {actual} -- CPUref: {}", refs.finite);
+    }
     print_row_line("mm", &mm.data, row_len, refs.mm);
     println!();
     Ok(())
@@ -264,56 +273,40 @@ fn main() -> anyhow::Result<()> {
                 abs_i8: i8[V];
                 relu_i8: i8[V];
                 fill_i8: i8[V];
-                finite_i8: bool;
                 mm_i8: i8[M, N];
                 add_i16: i16[V];
                 mul_i16: i16[V];
                 abs_i16: i16[V];
                 relu_i16: i16[V];
                 fill_i16: i16[V];
-                finite_i16: bool;
                 mm_i16: i16[M, N];
                 add_i32: i32[V];
                 mul_i32: i32[V];
                 abs_i32: i32[V];
                 relu_i32: i32[V];
                 fill_i32: i32[V];
-                finite_i32: bool;
                 mm_i32: i32[M, N];
                 add_i64: i64[V];
                 mul_i64: i64[V];
                 abs_i64: i64[V];
                 relu_i64: i64[V];
                 fill_i64: i64[V];
-                finite_i64: bool;
                 mm_i64: i64[M, N];
                 add_u8: u8[V];
                 mul_u8: u8[V];
-                abs_u8: u8[V];
-                relu_u8: u8[V];
                 fill_u8: u8[V];
-                finite_u8: bool;
                 mm_u8: u8[M, N];
                 add_u16: u16[V];
                 mul_u16: u16[V];
-                abs_u16: u16[V];
-                relu_u16: u16[V];
                 fill_u16: u16[V];
-                finite_u16: bool;
                 mm_u16: u16[M, N];
                 add_u32: u32[V];
                 mul_u32: u32[V];
-                abs_u32: u32[V];
-                relu_u32: u32[V];
                 fill_u32: u32[V];
-                finite_u32: bool;
                 mm_u32: u32[M, N];
                 add_u64: u64[V];
                 mul_u64: u64[V];
-                abs_u64: u64[V];
-                relu_u64: u64[V];
                 fill_u64: u64[V];
-                finite_u64: bool;
                 mm_u64: u64[M, N];
                 add_f32: f32[V];
                 mul_f32: f32[V];
@@ -324,10 +317,7 @@ fn main() -> anyhow::Result<()> {
                 mm_f32: f32[M, N];
                 add_bool: bool[V];
                 mul_bool: bool[V];
-                abs_bool: bool[V];
-                relu_bool: bool[V];
                 fill_bool: bool[V];
-                finite_bool: bool;
                 mm_bool: bool[M, N];
             }
 
@@ -337,7 +327,6 @@ fn main() -> anyhow::Result<()> {
                 op abs(a_i8) >> abs_i8;
                 op relu(a_i8, negative_slope=0.1, clamp_max=2.0) >> relu_i8;
                 op fill(a_i8, value=1) >> fill_i8;
-                op is_finite(a_i8) >> finite_i8;
                 op matmul(ma_i8, mb_i8) >> mm_i8;
 
                 op add(a_i16, b_i16) >> add_i16;
@@ -345,7 +334,6 @@ fn main() -> anyhow::Result<()> {
                 op abs(a_i16) >> abs_i16;
                 op relu(a_i16, negative_slope=0.1, clamp_max=2.0) >> relu_i16;
                 op fill(a_i16, value=1) >> fill_i16;
-                op is_finite(a_i16) >> finite_i16;
                 op matmul(ma_i16, mb_i16) >> mm_i16;
 
                 op add(a_i32, b_i32) >> add_i32;
@@ -353,7 +341,6 @@ fn main() -> anyhow::Result<()> {
                 op abs(a_i32) >> abs_i32;
                 op relu(a_i32, negative_slope=0.1, clamp_max=2.0) >> relu_i32;
                 op fill(a_i32, value=1) >> fill_i32;
-                op is_finite(a_i32) >> finite_i32;
                 op matmul(ma_i32, mb_i32) >> mm_i32;
 
                 op add(a_i64, b_i64) >> add_i64;
@@ -361,39 +348,26 @@ fn main() -> anyhow::Result<()> {
                 op abs(a_i64) >> abs_i64;
                 op relu(a_i64, negative_slope=0.1, clamp_max=2.0) >> relu_i64;
                 op fill(a_i64, value=1) >> fill_i64;
-                op is_finite(a_i64) >> finite_i64;
                 op matmul(ma_i64, mb_i64) >> mm_i64;
 
                 op add(a_u8, b_u8) >> add_u8;
                 op mul(a_u8, b_u8) >> mul_u8;
-                op abs(a_u8) >> abs_u8;
-                op relu(a_u8, negative_slope=0.1, clamp_max=2.0) >> relu_u8;
                 op fill(a_u8, value=1) >> fill_u8;
-                op is_finite(a_u8) >> finite_u8;
                 op matmul(ma_u8, mb_u8) >> mm_u8;
 
                 op add(a_u16, b_u16) >> add_u16;
                 op mul(a_u16, b_u16) >> mul_u16;
-                op abs(a_u16) >> abs_u16;
-                op relu(a_u16, negative_slope=0.1, clamp_max=2.0) >> relu_u16;
                 op fill(a_u16, value=1) >> fill_u16;
-                op is_finite(a_u16) >> finite_u16;
                 op matmul(ma_u16, mb_u16) >> mm_u16;
 
                 op add(a_u32, b_u32) >> add_u32;
                 op mul(a_u32, b_u32) >> mul_u32;
-                op abs(a_u32) >> abs_u32;
-                op relu(a_u32, negative_slope=0.1, clamp_max=2.0) >> relu_u32;
                 op fill(a_u32, value=1) >> fill_u32;
-                op is_finite(a_u32) >> finite_u32;
                 op matmul(ma_u32, mb_u32) >> mm_u32;
 
                 op add(a_u64, b_u64) >> add_u64;
                 op mul(a_u64, b_u64) >> mul_u64;
-                op abs(a_u64) >> abs_u64;
-                op relu(a_u64, negative_slope=0.1, clamp_max=2.0) >> relu_u64;
                 op fill(a_u64, value=1) >> fill_u64;
-                op is_finite(a_u64) >> finite_u64;
                 op matmul(ma_u64, mb_u64) >> mm_u64;
 
                 op add(a_f32, b_f32) >> add_f32;
@@ -406,10 +380,7 @@ fn main() -> anyhow::Result<()> {
 
                 op add(a_bool, b_bool) >> add_bool;
                 op mul(a_bool, b_bool) >> mul_bool;
-                op abs(a_bool) >> abs_bool;
-                op relu(a_bool, negative_slope=0.1, clamp_max=2.0) >> relu_bool;
                 op fill(a_bool, value=true) >> fill_bool;
-                op is_finite(a_bool) >> finite_bool;
                 op matmul(ma_bool, mb_bool) >> mm_bool;
                 return;
             }
@@ -477,56 +448,40 @@ fn main() -> anyhow::Result<()> {
                 abs_i8: i8[V];
                 relu_i8: i8[V];
                 fill_i8: i8[V];
-                finite_i8: bool;
                 mm_i8: i8[M, N];
                 add_i16: i16[V];
                 mul_i16: i16[V];
                 abs_i16: i16[V];
                 relu_i16: i16[V];
                 fill_i16: i16[V];
-                finite_i16: bool;
                 mm_i16: i16[M, N];
                 add_i32: i32[V];
                 mul_i32: i32[V];
                 abs_i32: i32[V];
                 relu_i32: i32[V];
                 fill_i32: i32[V];
-                finite_i32: bool;
                 mm_i32: i32[M, N];
                 add_i64: i64[V];
                 mul_i64: i64[V];
                 abs_i64: i64[V];
                 relu_i64: i64[V];
                 fill_i64: i64[V];
-                finite_i64: bool;
                 mm_i64: i64[M, N];
                 add_u8: u8[V];
                 mul_u8: u8[V];
-                abs_u8: u8[V];
-                relu_u8: u8[V];
                 fill_u8: u8[V];
-                finite_u8: bool;
                 mm_u8: u8[M, N];
                 add_u16: u16[V];
                 mul_u16: u16[V];
-                abs_u16: u16[V];
-                relu_u16: u16[V];
                 fill_u16: u16[V];
-                finite_u16: bool;
                 mm_u16: u16[M, N];
                 add_u32: u32[V];
                 mul_u32: u32[V];
-                abs_u32: u32[V];
-                relu_u32: u32[V];
                 fill_u32: u32[V];
-                finite_u32: bool;
                 mm_u32: u32[M, N];
                 add_u64: u64[V];
                 mul_u64: u64[V];
-                abs_u64: u64[V];
-                relu_u64: u64[V];
                 fill_u64: u64[V];
-                finite_u64: bool;
                 mm_u64: u64[M, N];
                 add_f16: f16[V];
                 mul_f16: f16[V];
@@ -551,17 +506,11 @@ fn main() -> anyhow::Result<()> {
                 mm_f64: f64[M, N];
                 add_bool: bool[V];
                 mul_bool: bool[V];
-                abs_bool: bool[V];
-                relu_bool: bool[V];
                 fill_bool: bool[V];
-                finite_bool: bool;
                 mm_bool: bool[M, N];
                 add_bitset: bitset[V];
                 mul_bitset: bitset[V];
-                abs_bitset: bitset[V];
-                relu_bitset: bitset[V];
                 fill_bitset: bitset[V];
-                finite_bitset: bool;
                 mm_bitset: bitset[M, N];
             }
 
@@ -571,7 +520,6 @@ fn main() -> anyhow::Result<()> {
                 op abs(a_i8) >> abs_i8;
                 op relu(a_i8, negative_slope=0.1, clamp_max=2.0) >> relu_i8;
                 op fill(a_i8, value=1) >> fill_i8;
-                op is_finite(a_i8) >> finite_i8;
                 op matmul(ma_i8, mb_i8) >> mm_i8;
 
                 op add(a_i16, b_i16) >> add_i16;
@@ -579,7 +527,6 @@ fn main() -> anyhow::Result<()> {
                 op abs(a_i16) >> abs_i16;
                 op relu(a_i16, negative_slope=0.1, clamp_max=2.0) >> relu_i16;
                 op fill(a_i16, value=1) >> fill_i16;
-                op is_finite(a_i16) >> finite_i16;
                 op matmul(ma_i16, mb_i16) >> mm_i16;
 
                 op add(a_i32, b_i32) >> add_i32;
@@ -587,7 +534,6 @@ fn main() -> anyhow::Result<()> {
                 op abs(a_i32) >> abs_i32;
                 op relu(a_i32, negative_slope=0.1, clamp_max=2.0) >> relu_i32;
                 op fill(a_i32, value=1) >> fill_i32;
-                op is_finite(a_i32) >> finite_i32;
                 op matmul(ma_i32, mb_i32) >> mm_i32;
 
                 op add(a_i64, b_i64) >> add_i64;
@@ -595,39 +541,26 @@ fn main() -> anyhow::Result<()> {
                 op abs(a_i64) >> abs_i64;
                 op relu(a_i64, negative_slope=0.1, clamp_max=2.0) >> relu_i64;
                 op fill(a_i64, value=1) >> fill_i64;
-                op is_finite(a_i64) >> finite_i64;
                 op matmul(ma_i64, mb_i64) >> mm_i64;
 
                 op add(a_u8, b_u8) >> add_u8;
                 op mul(a_u8, b_u8) >> mul_u8;
-                op abs(a_u8) >> abs_u8;
-                op relu(a_u8, negative_slope=0.1, clamp_max=2.0) >> relu_u8;
                 op fill(a_u8, value=1) >> fill_u8;
-                op is_finite(a_u8) >> finite_u8;
                 op matmul(ma_u8, mb_u8) >> mm_u8;
 
                 op add(a_u16, b_u16) >> add_u16;
                 op mul(a_u16, b_u16) >> mul_u16;
-                op abs(a_u16) >> abs_u16;
-                op relu(a_u16, negative_slope=0.1, clamp_max=2.0) >> relu_u16;
                 op fill(a_u16, value=1) >> fill_u16;
-                op is_finite(a_u16) >> finite_u16;
                 op matmul(ma_u16, mb_u16) >> mm_u16;
 
                 op add(a_u32, b_u32) >> add_u32;
                 op mul(a_u32, b_u32) >> mul_u32;
-                op abs(a_u32) >> abs_u32;
-                op relu(a_u32, negative_slope=0.1, clamp_max=2.0) >> relu_u32;
                 op fill(a_u32, value=1) >> fill_u32;
-                op is_finite(a_u32) >> finite_u32;
                 op matmul(ma_u32, mb_u32) >> mm_u32;
 
                 op add(a_u64, b_u64) >> add_u64;
                 op mul(a_u64, b_u64) >> mul_u64;
-                op abs(a_u64) >> abs_u64;
-                op relu(a_u64, negative_slope=0.1, clamp_max=2.0) >> relu_u64;
                 op fill(a_u64, value=1) >> fill_u64;
-                op is_finite(a_u64) >> finite_u64;
                 op matmul(ma_u64, mb_u64) >> mm_u64;
 
                 op add(a_f16, b_f16) >> add_f16;
@@ -656,18 +589,12 @@ fn main() -> anyhow::Result<()> {
 
                 op add(a_bool, b_bool) >> add_bool;
                 op mul(a_bool, b_bool) >> mul_bool;
-                op abs(a_bool) >> abs_bool;
-                op relu(a_bool, negative_slope=0.1, clamp_max=2.0) >> relu_bool;
                 op fill(a_bool, value=true) >> fill_bool;
-                op is_finite(a_bool) >> finite_bool;
                 op matmul(ma_bool, mb_bool) >> mm_bool;
 
                 op add(a_bitset, b_bitset) >> add_bitset;
                 op mul(a_bitset, b_bitset) >> mul_bitset;
-                op abs(a_bitset) >> abs_bitset;
-                op relu(a_bitset, negative_slope=0.1, clamp_max=2.0) >> relu_bitset;
                 op fill(a_bitset, value=1) >> fill_bitset;
-                op is_finite(a_bitset) >> finite_bitset;
                 op matmul(ma_bitset, mb_bitset) >> mm_bitset;
                 return;
             }
@@ -880,24 +807,24 @@ fn main() -> anyhow::Result<()> {
 
     exec.step()?;
 
-    print_group::<i8>(&mut exec, "i8", n)?;
-    print_group::<i16>(&mut exec, "i16", n)?;
-    print_group::<i32>(&mut exec, "i32", n)?;
-    print_group::<i64>(&mut exec, "i64", n)?;
-    print_group::<u8>(&mut exec, "u8", n)?;
-    print_group::<u16>(&mut exec, "u16", n)?;
-    print_group::<u32>(&mut exec, "u32", n)?;
-    print_group::<u64>(&mut exec, "u64", n)?;
+    print_group::<i8>(&mut exec, "i8", n, false, true, true)?;
+    print_group::<i16>(&mut exec, "i16", n, false, true, true)?;
+    print_group::<i32>(&mut exec, "i32", n, false, true, true)?;
+    print_group::<i64>(&mut exec, "i64", n, false, true, true)?;
+    print_group::<u8>(&mut exec, "u8", n, false, false, false)?;
+    print_group::<u16>(&mut exec, "u16", n, false, false, false)?;
+    print_group::<u32>(&mut exec, "u32", n, false, false, false)?;
+    print_group::<u64>(&mut exec, "u64", n, false, false, false)?;
     if !is_vulkan {
-        print_group::<F16>(&mut exec, "f16", n)?;
+        print_group::<F16>(&mut exec, "f16", n, true, true, true)?;
     }
-    print_group::<f32>(&mut exec, "f32", n)?;
+    print_group::<f32>(&mut exec, "f32", n, true, true, true)?;
     if !is_vulkan {
-        print_group::<f64>(&mut exec, "f64", n)?;
+        print_group::<f64>(&mut exec, "f64", n, true, true, true)?;
     }
-    print_group::<bool>(&mut exec, "bool", n)?;
+    print_group::<bool>(&mut exec, "bool", n, false, false, false)?;
     if !is_vulkan {
-        print_group::<Bitset>(&mut exec, "bitset", n)?;
+        print_group::<Bitset>(&mut exec, "bitset", n, false, false, false)?;
     }
 
     println!("ops_matrix completed");

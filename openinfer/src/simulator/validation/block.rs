@@ -293,6 +293,18 @@ fn validate_op(
                 if inputs.len() != 1 {
                     return Err(anyhow!("op is_finite expects 1 input"));
                 }
+                let input_dtype = *input_dtypes
+                    .get(0)
+                    .ok_or_else(|| anyhow!("op is_finite expects input 0"))?;
+                if !matches!(
+                    input_dtype,
+                    DType::F8E5M2 | DType::BF16 | DType::F16 | DType::F32 | DType::F64
+                ) {
+                    return Err(anyhow!(
+                        "op is_finite expects float input, got {:?}",
+                        input_dtype
+                    ));
+                }
                 if output_dtype != DType::Bool {
                     return Err(anyhow!(
                         "op is_finite output must be bool, got {:?}",
@@ -339,6 +351,9 @@ fn validate_op(
         }
     }
 
+    if let OpAttrs::Accumulate { dtype } = attrs {
+        validate_accumulate(op, inputs, &input_dtypes, output, output_dtype, *dtype)?;
+    }
     validate_op_attrs(ctx, attrs)?;
     if op == OpKind::Fill {
         if inputs.len() != 1 {
@@ -418,9 +433,104 @@ fn validate_fill_value(
     }
 }
 
+fn validate_accumulate(
+    op: OpKind,
+    inputs: &[String],
+    input_dtypes: &[DType],
+    output: &str,
+    output_dtype: DType,
+    acc_dtype: DType,
+) -> Result<()> {
+    if !matches!(op, OpKind::Add | OpKind::Mul | OpKind::Abs | OpKind::Matmul) {
+        return Err(anyhow!("op {} does not support acc=", op.as_str()));
+    }
+    if input_dtypes.is_empty() {
+        return Err(anyhow!("op {} expects at least 1 input", op.as_str()));
+    }
+    if inputs.iter().any(|input| input == output) {
+        return Err(anyhow!(
+            "op {} acc= cannot be used with inplace output {}",
+            op.as_str(),
+            output
+        ));
+    }
+    let first = input_dtypes[0];
+    if input_dtypes.iter().any(|dtype| *dtype != first) {
+        return Err(anyhow!(
+            "op {} acc= expects all inputs to share the same dtype",
+            op.as_str()
+        ));
+    }
+    let input_sign = integer_signedness(first).ok_or_else(|| {
+        anyhow!(
+            "op {} acc= only supports integer inputs, got {:?}",
+            op.as_str(),
+            first
+        )
+    })?;
+    let acc_sign = integer_signedness(acc_dtype).ok_or_else(|| {
+        anyhow!(
+            "op {} acc= only supports integer acc dtype, got {:?}",
+            op.as_str(),
+            acc_dtype
+        )
+    })?;
+    if acc_sign != input_sign {
+        return Err(anyhow!(
+            "op {} acc= requires matching signedness: inputs {:?}, acc {:?}",
+            op.as_str(),
+            first,
+            acc_dtype
+        ));
+    }
+    if acc_dtype.bit_width() <= first.bit_width() {
+        return Err(anyhow!(
+            "op {} acc= requires wider dtype than input: {:?} -> {:?}",
+            op.as_str(),
+            first,
+            acc_dtype
+        ));
+    }
+    if output_dtype != acc_dtype {
+        return Err(anyhow!(
+            "op {} acc= output dtype must be {:?}, got {:?}",
+            op.as_str(),
+            acc_dtype,
+            output_dtype
+        ));
+    }
+    Ok(())
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum IntSignedness {
+    Signed,
+    Unsigned,
+}
+
+fn integer_signedness(dtype: DType) -> Option<IntSignedness> {
+    match dtype {
+        DType::I1
+        | DType::I2
+        | DType::I4
+        | DType::I8
+        | DType::I16
+        | DType::I32
+        | DType::I64 => Some(IntSignedness::Signed),
+        DType::U1
+        | DType::U2
+        | DType::U4
+        | DType::U8
+        | DType::U16
+        | DType::U32
+        | DType::U64 => Some(IntSignedness::Unsigned),
+        _ => None,
+    }
+}
+
 fn validate_fill_float(input_dtype: DType, value: f32) -> Result<()> {
     match input_dtype {
-        DType::F16 | DType::F32 | DType::F64 => Ok(()),
+        DType::F8E5M2 | DType::BF16 | DType::F16 | DType::F32 | DType::F64 => Ok(()),
         _ => Err(anyhow!(
             "fill value {} does not match input dtype {:?}",
             value,
@@ -435,10 +545,16 @@ fn validate_fill_int(input_dtype: DType, value: i64) -> Result<()> {
         DType::I16 => validate_int_range(value, i16::MIN as i64, i16::MAX as i64, "i16"),
         DType::I32 => validate_int_range(value, i32::MIN as i64, i32::MAX as i64, "i32"),
         DType::I64 => Ok(()),
+        DType::I4 => validate_int_range(value, -8, 7, "i4"),
+        DType::I2 => validate_int_range(value, -2, 1, "i2"),
+        DType::I1 => validate_int_range(value, -1, 0, "i1"),
         DType::U8 => validate_uint_range(value, u8::MAX as u64, "u8"),
         DType::U16 => validate_uint_range(value, u16::MAX as u64, "u16"),
         DType::U32 => validate_uint_range(value, u32::MAX as u64, "u32"),
         DType::U64 => validate_uint_range(value, u64::MAX, "u64"),
+        DType::U4 => validate_uint_range(value, 15, "u4"),
+        DType::U2 => validate_uint_range(value, 3, "u2"),
+        DType::U1 => validate_uint_range(value, 1, "u1"),
         DType::Bitset => validate_uint_range(value, u8::MAX as u64, "bitset"),
         _ => Err(anyhow!(
             "fill integer value {} does not match input dtype {:?}",
@@ -454,6 +570,9 @@ fn validate_fill_uint(input_dtype: DType, value: u64) -> Result<()> {
         DType::U16 => validate_uint_range_u64(value, u16::MAX as u64, "u16"),
         DType::U32 => validate_uint_range_u64(value, u32::MAX as u64, "u32"),
         DType::U64 => Ok(()),
+        DType::U4 => validate_uint_range_u64(value, 15, "u4"),
+        DType::U2 => validate_uint_range_u64(value, 3, "u2"),
+        DType::U1 => validate_uint_range_u64(value, 1, "u1"),
         DType::Bitset => validate_uint_range_u64(value, u8::MAX as u64, "bitset"),
         _ => Err(anyhow!(
             "fill unsigned value {} does not match input dtype {:?}",

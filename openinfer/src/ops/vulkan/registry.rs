@@ -55,11 +55,16 @@ pub fn lookup_kernel_vulkan_inplace(
             input_dtypes,
             attrs,
         ),
-        OpKind::Relu => relu::registry_inplace::lookup_kernel_vulkan_relu_inplace(
+        OpKind::Fill => fill::registry_inplace::lookup_kernel_vulkan_fill_inplace(
             output_dtype,
             input_dtypes,
             attrs,
         ),
-        OpKind::Matmul | OpKind::IsFinite | OpKind::Fill => None,
+        OpKind::Matmul => matmul::registry_inplace::lookup_kernel_vulkan_matmul_inplace(
+            output_dtype,
+            input_dtypes,
+            attrs,
+        ),
+        OpKind::Relu | OpKind::IsFinite => None,
     }
 }

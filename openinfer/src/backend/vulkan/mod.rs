@@ -142,7 +142,8 @@ impl VulkanBackend {
             | DType::U16
             | DType::U32
             | DType::Bool => Ok(dtype),
-            DType::Bitset => Err(anyhow!("vulkan backend does not support bitset tensors")),
+            DType::Bitset => Ok(dtype),
+            DType::T1 | DType::T2 => Err(anyhow!("vulkan backend does not support t1/t2 tensors")),
             _ => Ok(dtype)
         }
     }

@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 
-use crate::tensor::{Bitset, F16};
+use crate::ops::cpu::packed::{packed_binary_signed, packed_binary_unsigned};
+use crate::tensor::{BF16, Bitset, F16, F8E5M2, I1, I2, I4, U1, U2, U4};
 use crate::timer::Timer;
 
 pub fn add_i8(a: &[i8], b: &[i8], thread_id: usize) -> Result<Vec<i8>> {
@@ -63,6 +64,32 @@ pub fn add_f16(a: &[F16], b: &[F16], thread_id: usize) -> Result<Vec<F16>> {
     Timer::start(thread_id);
     for i in 0..a.len() {
         out.push(F16::from_f32(a[i].to_f32() + b[i].to_f32()));
+    }
+    Timer::stop(thread_id);
+    Ok(out)
+}
+
+pub fn add_bf16(a: &[BF16], b: &[BF16], thread_id: usize) -> Result<Vec<BF16>> {
+    if a.len() != b.len() {
+        return Err(anyhow!("add op shape mismatch"));
+    }
+    let mut out = Vec::with_capacity(a.len());
+    Timer::start(thread_id);
+    for i in 0..a.len() {
+        out.push(BF16::from_f32(a[i].to_f32() + b[i].to_f32()));
+    }
+    Timer::stop(thread_id);
+    Ok(out)
+}
+
+pub fn add_f8(a: &[F8E5M2], b: &[F8E5M2], thread_id: usize) -> Result<Vec<F8E5M2>> {
+    if a.len() != b.len() {
+        return Err(anyhow!("add op shape mismatch"));
+    }
+    let mut out = Vec::with_capacity(a.len());
+    Timer::start(thread_id);
+    for i in 0..a.len() {
+        out.push(F8E5M2::from_f32(a[i].to_f32() + b[i].to_f32()));
     }
     Timer::stop(thread_id);
     Ok(out)
@@ -169,6 +196,66 @@ pub fn add_bitset(a: &[Bitset], b: &[Bitset], thread_id: usize) -> Result<Vec<Bi
             bits: a[i].bits.wrapping_add(b[i].bits),
         });
     }
+    Timer::stop(thread_id);
+    Ok(out)
+}
+
+pub fn add_i4(a: &[I4], b: &[I4], logical_len: usize, thread_id: usize) -> Result<Vec<I4>> {
+    if a.len() != b.len() {
+        return Err(anyhow!("add op shape mismatch"));
+    }
+    Timer::start(thread_id);
+    let out = packed_binary_signed(4, a, b, logical_len, I4 { bits: 0 }, |x, y| x + y);
+    Timer::stop(thread_id);
+    Ok(out)
+}
+
+pub fn add_i2(a: &[I2], b: &[I2], logical_len: usize, thread_id: usize) -> Result<Vec<I2>> {
+    if a.len() != b.len() {
+        return Err(anyhow!("add op shape mismatch"));
+    }
+    Timer::start(thread_id);
+    let out = packed_binary_signed(2, a, b, logical_len, I2 { bits: 0 }, |x, y| x + y);
+    Timer::stop(thread_id);
+    Ok(out)
+}
+
+pub fn add_i1(a: &[I1], b: &[I1], logical_len: usize, thread_id: usize) -> Result<Vec<I1>> {
+    if a.len() != b.len() {
+        return Err(anyhow!("add op shape mismatch"));
+    }
+    Timer::start(thread_id);
+    let out = packed_binary_signed(1, a, b, logical_len, I1 { bits: 0 }, |x, y| x + y);
+    Timer::stop(thread_id);
+    Ok(out)
+}
+
+pub fn add_u4(a: &[U4], b: &[U4], logical_len: usize, thread_id: usize) -> Result<Vec<U4>> {
+    if a.len() != b.len() {
+        return Err(anyhow!("add op shape mismatch"));
+    }
+    Timer::start(thread_id);
+    let out = packed_binary_unsigned(4, a, b, logical_len, U4 { bits: 0 }, |x, y| x + y);
+    Timer::stop(thread_id);
+    Ok(out)
+}
+
+pub fn add_u2(a: &[U2], b: &[U2], logical_len: usize, thread_id: usize) -> Result<Vec<U2>> {
+    if a.len() != b.len() {
+        return Err(anyhow!("add op shape mismatch"));
+    }
+    Timer::start(thread_id);
+    let out = packed_binary_unsigned(2, a, b, logical_len, U2 { bits: 0 }, |x, y| x + y);
+    Timer::stop(thread_id);
+    Ok(out)
+}
+
+pub fn add_u1(a: &[U1], b: &[U1], logical_len: usize, thread_id: usize) -> Result<Vec<U1>> {
+    if a.len() != b.len() {
+        return Err(anyhow!("add op shape mismatch"));
+    }
+    Timer::start(thread_id);
+    let out = packed_binary_unsigned(1, a, b, logical_len, U1 { bits: 0 }, |x, y| x + y);
     Timer::stop(thread_id);
     Ok(out)
 }

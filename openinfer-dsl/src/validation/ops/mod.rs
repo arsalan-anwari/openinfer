@@ -8,6 +8,7 @@ use crate::types::{OpAttrValue, OpSetting};
 
 mod relu;
 mod fill;
+mod accumulate;
 
 type OpAttrHandler = fn(&Ident, &[OpSetting]) -> syn::Result<TokenStream>;
 
@@ -30,6 +31,10 @@ pub(crate) fn op_attrs_expr(op: &Ident, settings: &[OpSetting]) -> syn::Result<T
 
 fn handler_for(name: &str) -> Option<OpAttrHandler> {
     const OPS: &[(&str, OpAttrHandler)] = &[
+        ("add", accumulate::build_attrs),
+        ("mul", accumulate::build_attrs),
+        ("abs", accumulate::build_attrs),
+        ("matmul", accumulate::build_attrs),
         ("relu", relu::build_attrs),
         ("fill", fill::build_attrs),
     ];

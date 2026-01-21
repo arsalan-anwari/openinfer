@@ -1,11 +1,7 @@
 {
   "ops": {
     "abs": {
-      "paths": [
-        "src/ops/vulkan/abs/abs_float.slang",
-        "src/ops/vulkan/abs/abs_signed.slang",
-        "src/ops/vulkan/abs/abs_unsigned.slang"
-      ],
+      "shader_dir": "src/ops/vulkan/abs/shaders",
       "spv_dir": "src/ops/vulkan/abs/bin",
       "push_constants_size": 16,
       "settings": {
@@ -13,97 +9,34 @@
       }
     },
     "add": {
-      "paths": [
-        "src/ops/vulkan/add/add_float.slang",
-        "src/ops/vulkan/add/add_signed.slang",
-        "src/ops/vulkan/add/add_unsigned.slang"
-      ],
+      "shader_dir": "src/ops/vulkan/add/shaders",
       "spv_dir": "src/ops/vulkan/add/bin",
       "push_constants_size": 16
     },
     "fill": {
-      "paths": [
-        "src/ops/vulkan/fill/fill_float.slang",
-        "src/ops/vulkan/fill/fill_signed.slang",
-        "src/ops/vulkan/fill/fill_unsigned.slang"
-      ],
+      "shader_dir": "src/ops/vulkan/fill/shaders",
       "spv_dir": "src/ops/vulkan/fill/bin",
       "push_constants_size": 16
     },
     "is_finite": {
-      "paths": [
-        "src/ops/vulkan/is_finite/is_finite_float.slang",
-        "src/ops/vulkan/is_finite/is_finite_signed.slang",
-        "src/ops/vulkan/is_finite/is_finite_unsigned.slang"
-      ],
+      "shader_dir": "src/ops/vulkan/is_finite/shaders",
       "spv_dir": "src/ops/vulkan/is_finite/bin",
       "push_constants_size": 16
     },
     "matmul": {
-      "paths": [
-        "src/ops/vulkan/matmul/matmul_float.slang",
-        "src/ops/vulkan/matmul/matmul_signed.slang",
-        "src/ops/vulkan/matmul/matmul_unsigned.slang"
-      ],
+      "shader_dir": "src/ops/vulkan/matmul/shaders",
       "spv_dir": "src/ops/vulkan/matmul/bin",
       "push_constants_size": 16
     },
-    "add_inplace": {
-      "paths": [
-        "src/ops/vulkan/add/add_inplace_float.slang",
-        "src/ops/vulkan/add/add_inplace_signed.slang",
-        "src/ops/vulkan/add/add_inplace_unsigned.slang"
-      ],
-      "spv_dir": "src/ops/vulkan/add/bin",
-      "push_constants_size": 16
-    },
     "mul": {
-      "paths": [
-        "src/ops/vulkan/mul/mul_float.slang",
-        "src/ops/vulkan/mul/mul_signed.slang",
-        "src/ops/vulkan/mul/mul_unsigned.slang"
-      ],
-      "spv_dir": "src/ops/vulkan/mul/bin",
-      "push_constants_size": 16
-    },
-    "mul_inplace": {
-      "paths": [
-        "src/ops/vulkan/mul/mul_inplace_float.slang",
-        "src/ops/vulkan/mul/mul_inplace_signed.slang",
-        "src/ops/vulkan/mul/mul_inplace_unsigned.slang"
-      ],
+      "shader_dir": "src/ops/vulkan/mul/shaders",
       "spv_dir": "src/ops/vulkan/mul/bin",
       "push_constants_size": 16
     },
     "relu": {
-      "paths": [
-        "src/ops/vulkan/relu/relu_float.slang",
-        "src/ops/vulkan/relu/relu_signed.slang",
-        "src/ops/vulkan/relu/relu_unsigned.slang"
-      ],
+      "shader_dir": "src/ops/vulkan/relu/shaders",
       "spv_dir": "src/ops/vulkan/relu/bin",
       "push_constants_size": 16
-    },
-    "relu_inplace": {
-      "paths": [
-        "src/ops/vulkan/relu/relu_inplace_float.slang",
-        "src/ops/vulkan/relu/relu_inplace_signed.slang",
-        "src/ops/vulkan/relu/relu_inplace_unsigned.slang"
-      ],
-      "spv_dir": "src/ops/vulkan/relu/bin",
-      "push_constants_size": 16
-    },
-    "abs_inplace": {
-      "paths": [
-        "src/ops/vulkan/abs/abs_inplace_float.slang",
-        "src/ops/vulkan/abs/abs_inplace_signed.slang",
-        "src/ops/vulkan/abs/abs_inplace_unsigned.slang"
-      ],
-      "spv_dir": "src/ops/vulkan/abs/bin",
-      "push_constants_size": 16,
-      "settings": {
-        "abs_unsigned_is_identity": true
-      }
     }
   }
 }
