@@ -349,7 +349,7 @@ def header_push(len_only: bool = True) -> str:
 
 
 def include_packed() -> str:
-    return '#include "../../../packed/packed_utils.slang"\n'
+    return '#include "../../../packed_utils.slang"\n'
 
 
 def scalar_buffers(op: str, ctype: str, inplace: bool, include_input1: bool = True) -> str:

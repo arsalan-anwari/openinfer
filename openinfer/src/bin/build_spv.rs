@@ -1,16 +1,16 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::env;
 use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, ExitStatus, Stdio};
 
 use anyhow::{anyhow, Context, Result};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
 struct VulkanShaderManifest {
-    ops: HashMap<String, VulkanShaderEntry>,
+    ops: std::collections::HashMap<String, VulkanShaderEntry>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -51,92 +51,140 @@ impl Drop for ProgressLine {
     }
 }
 
-fn main() -> Result<()> {
-    if env::var("CARGO_FEATURE_VULKAN").is_err() {
-        return Ok(());
-    }
-    let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").context("missing CARGO_MANIFEST_DIR")?);
-    let manifest_path = manifest_dir.join("src/ops/vulkan/shaders.json");
-    println!("cargo:rerun-if-changed={}", manifest_path.display());
+struct CompileJob {
+    op_name: String,
+    src_path: PathBuf,
+    spv_path: PathBuf,
+    target: String,
+}
 
+fn main() -> Result<()> {
+    let manifest_dir =
+        PathBuf::from(env::var("CARGO_MANIFEST_DIR").context("missing CARGO_MANIFEST_DIR")?);
+    let manifest_path = manifest_dir.join("src/ops/vulkan/shaders.json");
     let contents = fs::read_to_string(&manifest_path)
         .with_context(|| format!("failed to read {}", manifest_path.display()))?;
     let manifest: VulkanShaderManifest = serde_json::from_str(&contents)
         .with_context(|| format!("failed to parse {}", manifest_path.display()))?;
 
-    let mut progress = ProgressLine::new();
-    #[allow(unused_variables)]
-    for (op_name, entry) in &manifest.ops {
-        compile_op(&manifest_dir, op_name, entry, &mut progress)?;
-    }
     let include_broadcast = !manifest.ops.contains_key(BROADCAST_OP);
+    let mut jobs = Vec::new();
+    for (op_name, entry) in &manifest.ops {
+        jobs.extend(gather_jobs_for_op(&manifest_dir, op_name, entry)?);
+    }
     if include_broadcast {
         let broadcast_entry = VulkanShaderEntry {
             shader_dir: None,
             spv_dir: BROADCAST_SPV_DIR.to_string(),
         };
-        compile_op(&manifest_dir, BROADCAST_OP, &broadcast_entry, &mut progress)?;
+        jobs.extend(gather_jobs_for_op(
+            &manifest_dir,
+            BROADCAST_OP,
+            &broadcast_entry,
+        )?);
     }
 
-    write_embedded_module(&manifest_dir, &manifest, include_broadcast)?;
+    let total = jobs.len();
+    let mut progress = ProgressLine::new();
+    let max_width = terminal_width().unwrap_or(120);
+    for (idx, job) in jobs.iter().enumerate() {
+        let spv_display = display_path(&job.spv_path, &manifest_dir);
+        let label = format!(
+            "[{}/{}] {}:{} -> {}",
+            idx + 1,
+            total,
+            job.op_name,
+            job.target,
+            spv_display
+        );
+        let label = truncate_line(&label, max_width);
+        progress
+            .print(&label)
+            .with_context(|| format!("failed to print progress for {}", job.spv_path.display()))?;
+        compile_slang(&job.src_path, &job.spv_path, &job.target)
+            .with_context(|| format!("failed to compile {}", job.op_name))?;
+    }
+
+    let status = run_cargo_build()?;
+    if !status.success() {
+        std::process::exit(status.code().unwrap_or(1));
+    }
     Ok(())
 }
 
-fn compile_op(
+fn run_cargo_build() -> Result<ExitStatus> {
+    let mut cmd = Command::new("cargo");
+    cmd.arg("build");
+    let mut args: Vec<String> = env::args().skip(1).collect();
+    let mut quiet_build = true;
+    if let Some(pos) = args.iter().position(|arg| arg == "--no-quiet-build") {
+        args.remove(pos);
+        quiet_build = false;
+    }
+    if let Some(pos) = args.iter().position(|arg| arg == "--quiet-build") {
+        args.remove(pos);
+        quiet_build = true;
+    }
+
+    if quiet_build {
+        cmd.arg("--quiet");
+    }
+
+    if args.is_empty() {
+        cmd.arg("-p").arg("openinfer");
+        cmd.arg("--features").arg("vulkan");
+    } else {
+        for arg in args {
+            cmd.arg(arg);
+        }
+    }
+    cmd.status().with_context(|| "failed to run cargo build")
+}
+
+fn gather_jobs_for_op(
     manifest_dir: &Path,
     op_name: &str,
     entry: &VulkanShaderEntry,
-    progress: &mut ProgressLine,
-) -> Result<()> {
+) -> Result<Vec<CompileJob>> {
+    let mut jobs = Vec::new();
     let paths = shader_paths(manifest_dir, entry, op_name)?;
     let spv_dir = manifest_dir.join(&entry.spv_dir);
     for src_path in paths {
-        println!("cargo:rerun-if-changed={}", src_path.display());
         let mut includes = Vec::new();
         collect_includes(&src_path, &mut includes, &mut HashSet::new())
             .with_context(|| format!("failed to parse includes for {}", src_path.display()))?;
-        for include in &includes {
-            println!("cargo:rerun-if-changed={}", include.display());
-        }
         let targets = slang_entry_points(&src_path)
             .with_context(|| format!("failed to parse entry points for {}", src_path.display()))?;
         for target in &targets {
             let spv_path = spv_dir.join(format!("{}.spv", target));
             let should_compile = needs_rebuild(&src_path, &spv_path, &includes)?;
             if should_compile {
-                let label = format!(
-                    "Compiling shader {}:{} -> {}",
-                    op_name,
-                    target,
-                    spv_path.display()
-                );
-                progress
-                    .print(&label)
-                    .with_context(|| format!("failed to print progress for {}", spv_path.display()))?;
-                compile_slang(&src_path, &spv_path, target)
-                    .with_context(|| format!("failed to compile {}", op_name))?;
+                jobs.push(CompileJob {
+                    op_name: op_name.to_string(),
+                    src_path: src_path.clone(),
+                    spv_path,
+                    target: target.clone(),
+                });
             }
         }
     }
-    Ok(())
+    Ok(jobs)
 }
 
 fn needs_rebuild(src: &Path, spv: &Path, includes: &[PathBuf]) -> Result<bool> {
     if !spv.exists() {
         return Ok(true);
     }
-    let src_meta = fs::metadata(src)
-        .with_context(|| format!("failed to stat {}", src.display()))?;
-    let spv_meta = fs::metadata(spv)
-        .with_context(|| format!("failed to stat {}", spv.display()))?;
+    let src_meta = fs::metadata(src).with_context(|| format!("failed to stat {}", src.display()))?;
+    let spv_meta = fs::metadata(spv).with_context(|| format!("failed to stat {}", spv.display()))?;
     let src_time = src_meta.modified().unwrap_or(std::time::SystemTime::UNIX_EPOCH);
     let spv_time = spv_meta.modified().unwrap_or(std::time::SystemTime::UNIX_EPOCH);
     if src_time > spv_time {
         return Ok(true);
     }
     for include in includes {
-        let meta = fs::metadata(include)
-            .with_context(|| format!("failed to stat {}", include.display()))?;
+        let meta =
+            fs::metadata(include).with_context(|| format!("failed to stat {}", include.display()))?;
         let inc_time = meta.modified().unwrap_or(std::time::SystemTime::UNIX_EPOCH);
         if inc_time > spv_time {
             return Ok(true);
@@ -145,13 +193,8 @@ fn needs_rebuild(src: &Path, spv: &Path, includes: &[PathBuf]) -> Result<bool> {
     Ok(false)
 }
 
-fn collect_includes(
-    src: &Path,
-    includes: &mut Vec<PathBuf>,
-    seen: &mut HashSet<PathBuf>,
-) -> Result<()> {
-    let contents = fs::read_to_string(src)
-        .with_context(|| format!("failed to read {}", src.display()))?;
+fn collect_includes(src: &Path, includes: &mut Vec<PathBuf>, seen: &mut HashSet<PathBuf>) -> Result<()> {
+    let contents = fs::read_to_string(src).with_context(|| format!("failed to read {}", src.display()))?;
     let parent = src
         .parent()
         .ok_or_else(|| anyhow!("missing parent for {}", src.display()))?;
@@ -203,6 +246,8 @@ fn compile_slang(src: &Path, spv: &Path, entry_point: &str) -> Result<()> {
         .arg("-o")
         .arg(spv)
         .arg(src)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
         .status()
         .with_context(|| {
             format!(
@@ -218,69 +263,8 @@ fn compile_slang(src: &Path, spv: &Path, entry_point: &str) -> Result<()> {
     Ok(())
 }
 
-fn write_embedded_module(
-    manifest_dir: &Path,
-    manifest: &VulkanShaderManifest,
-    include_broadcast: bool,
-) -> Result<()> {
-    let out_dir = PathBuf::from(env::var("OUT_DIR").context("missing OUT_DIR")?);
-    let out_path = out_dir.join("vulkan_spirv.rs");
-
-    let mut contents = String::new();
-    contents.push_str("use std::collections::HashMap;\n\n");
-    contents.push_str("pub fn embedded_spirv_for_op(op: &str) -> HashMap<String, &'static [u8]> {\n");
-    contents.push_str("    let mut map = HashMap::new();\n");
-    contents.push_str("    match op {\n");
-    for (op_name, entry) in &manifest.ops {
-        contents.push_str(&format!("        \"{}\" => {{\n", op_name));
-        let spv_dir = manifest_dir.join(&entry.spv_dir);
-        let mut targets = Vec::new();
-        for src_path in shader_paths(manifest_dir, entry, op_name)? {
-            let mut src_targets = slang_entry_points(&src_path).with_context(|| {
-                format!("failed to parse entry points for {}", src_path.display())
-            })?;
-            targets.append(&mut src_targets);
-        }
-        targets.sort();
-        targets.dedup();
-        for target in &targets {
-            let spv_path = spv_dir.join(format!("{}.spv", target));
-            contents.push_str(&format!(
-                "            map.insert(\"{}\".to_string(), &include_bytes!(r\"{}\")[..]);\n",
-                target,
-                spv_path.display()
-            ));
-        }
-        contents.push_str("        }\n");
-    }
-    if include_broadcast {
-        contents.push_str(&format!("        \"{}\" => {{\n", BROADCAST_OP));
-        let spv_dir = manifest_dir.join(BROADCAST_SPV_DIR);
-        let targets = slang_entry_points(&manifest_dir.join(BROADCAST_PATH))
-            .with_context(|| format!("failed to parse entry points for {}", BROADCAST_PATH))?;
-        for target in &targets {
-            let spv_path = spv_dir.join(format!("{}.spv", target));
-            contents.push_str(&format!(
-                "            map.insert(\"{}\".to_string(), &include_bytes!(r\"{}\")[..]);\n",
-                target,
-                spv_path.display()
-            ));
-        }
-        contents.push_str("        }\n");
-    }
-    contents.push_str("        _ => {}\n");
-    contents.push_str("    }\n");
-    contents.push_str("    map\n");
-    contents.push_str("}\n");
-
-    fs::write(&out_path, contents)
-        .with_context(|| format!("failed to write {}", out_path.display()))?;
-    Ok(())
-}
-
 fn slang_entry_points(src: &Path) -> Result<Vec<String>> {
-    let contents = fs::read_to_string(src)
-        .with_context(|| format!("failed to read {}", src.display()))?;
+    let contents = fs::read_to_string(src).with_context(|| format!("failed to read {}", src.display()))?;
     let mut targets = Vec::new();
     let mut awaiting_entry = false;
     for line in contents.lines() {
@@ -323,9 +307,10 @@ fn shader_paths(
     if op_name == BROADCAST_OP {
         return Ok(vec![manifest_dir.join(BROADCAST_PATH)]);
     }
-    let shader_dir = entry.shader_dir.as_ref().ok_or_else(|| {
-        anyhow!("missing shader_dir for op {}", op_name)
-    })?;
+    let shader_dir = entry
+        .shader_dir
+        .as_ref()
+        .ok_or_else(|| anyhow!("missing shader_dir for op {}", op_name))?;
     let shader_dir = manifest_dir.join(shader_dir);
     if !shader_dir.exists() {
         return Err(anyhow!(
@@ -353,3 +338,24 @@ fn collect_slang_files(dir: &Path, out: &mut Vec<PathBuf>) -> Result<()> {
     Ok(())
 }
 
+fn display_path(path: &Path, base: &Path) -> String {
+    if let Ok(stripped) = path.strip_prefix(base) {
+        return stripped.display().to_string();
+    }
+    path.display().to_string()
+}
+
+fn terminal_width() -> Option<usize> {
+    env::var("COLUMNS").ok().and_then(|value| value.parse::<usize>().ok())
+}
+
+fn truncate_line(line: &str, max_width: usize) -> String {
+    if max_width == 0 || line.len() <= max_width {
+        return line.to_string();
+    }
+    if max_width <= 3 {
+        return ".".repeat(max_width);
+    }
+    let keep = max_width - 3;
+    format!("{}...", &line[..keep])
+}

@@ -1,3 +1,7 @@
 # Enable AVX/AVX2 backends for x86_64 builds. Remove if you want portable builds.
 [target.x86_64-unknown-linux-gnu]
 rustflags = ["-C", "target-feature=+avx,+avx2"]
+
+[alias]
+clean-spv = "run -p openinfer --bin clean_spv --"
+build-spv = "run -p openinfer --bin build_spv --"

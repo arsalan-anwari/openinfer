@@ -145,6 +145,16 @@ cargo build -p openinfer --features vulkan
 cargo build -p openinfer --features avx,avx2,vulkan
 ```
 
+For Vulkan builds with shader progress output, use:
+```bash
+cargo build-spv
+```
+
+To clean Vulkan SPIR-V artifacts and then run `cargo clean`:
+```bash
+cargo clean-spv -p openinfer
+```
+
 ## Run Examples
 
 ### Python

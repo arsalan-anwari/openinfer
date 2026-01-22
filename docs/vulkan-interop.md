@@ -73,10 +73,8 @@ Slang Shader Conventions
   runtime uses `main` for pipeline creation while selecting the SPIR-V blob by
   target.
 - Packed dtypes use `ByteAddressBuffer` with shared helpers in
-  `openinfer/src/ops/vulkan/packed_utils.slang` (shim includes may exist under
-  `ops/vulkan/packed/` for older paths).
-- Low-bit float helpers live in `openinfer/src/ops/vulkan/float_utils.slang`
-  (also with shims for older include paths).
+  `openinfer/src/ops/vulkan/packed_utils.slang`.
+- Low-bit float helpers live in `openinfer/src/ops/vulkan/float_utils.slang`.
 - Push constants:
   - Layout: `uint len`, `uint flags`, `uint pad0`, `uint pad1`
   - Size: 16 bytes
@@ -154,6 +152,8 @@ Build and Run
 -------------
 - Build with Vulkan enabled:
   - `cargo build -p openinfer --features vulkan`
+- Build with Vulkan shader progress output:
+  - `cargo build-spv`
 - Run the minimal example:
   - `cargo run --example minimal --features vulkan`
 

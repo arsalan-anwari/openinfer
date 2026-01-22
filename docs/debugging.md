@@ -13,7 +13,8 @@ General Tips
   `RUST_BACKTRACE=1 <command>`
 - Prefer running from the repo root so relative paths resolve correctly.
 - If you suspect stale build artifacts, use a clean build:
-  `cargo clean`
+  - `cargo clean`
+  - `cargo clean-spv -p openinfer` (also removes Vulkan SPIR-V + embedded blobs)
 
 Graph and Execution Traces
 --------------------------
