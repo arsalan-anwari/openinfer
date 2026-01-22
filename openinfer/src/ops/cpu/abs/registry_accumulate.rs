@@ -1,6 +1,6 @@
 use crate::graph::OpAttrs;
-use crate::ops::{cpu_kernel_out, KernelFn};
-use crate::tensor::{DType, I1, I2, I4, TensorElement};
+use crate::ops::KernelFn;
+use crate::tensor::{DType, I1, I2, I4, Tensor, TensorElement, TensorOptions, TensorValue};
 
 use super::{
     abs_i16_i32, abs_i16_i64, abs_i32_i64, abs_i8_i16, abs_i8_i32, abs_i8_i64, abs_i4_i8_packed,
@@ -9,6 +9,68 @@ use super::{
     abs_i1_i64_packed,
 };
 
+macro_rules! acc_unary_kernel_slice {
+    ($in:ty, $out_ty:ty, $out_variant:ident, $func:ident) => {
+        KernelFn::Host(Box::new(|_attrs, inputs, output, thread_id| {
+            if inputs.is_empty() {
+                return Err(anyhow::anyhow!("abs op expects 1 input"));
+            }
+            let a = <$in as TensorElement>::from_value(&inputs[0])
+                .ok_or_else(|| anyhow::anyhow!("abs input 0 dtype mismatch"))?;
+            let out_slice = output.and_then(|out| match out {
+                TensorValue::$out_variant(t) => Some(&mut t.data),
+                _ => None,
+            });
+            let out = $func(
+                &a.data,
+                out_slice.map(|out| out.as_mut_slice()),
+                thread_id,
+            )?;
+            match out {
+                Some(out) => {
+                    let tensor = Tensor::from_vec_with_opts(out, TensorOptions {
+                        shape: Some(a.shape().to_vec()),
+                        ..TensorOptions::default()
+                    })?;
+                    Ok(Some(<$out_ty as TensorElement>::into_value(tensor)))
+                }
+                None => Ok(None),
+            }
+        }))
+    };
+}
+
+macro_rules! acc_unary_kernel_packed {
+    ($in:ty, $out_ty:ty, $out_variant:ident, $func:ident) => {
+        KernelFn::Host(Box::new(|_attrs, inputs, output, thread_id| {
+            if inputs.is_empty() {
+                return Err(anyhow::anyhow!("abs op expects 1 input"));
+            }
+            let a = <$in as TensorElement>::from_value(&inputs[0])
+                .ok_or_else(|| anyhow::anyhow!("abs input 0 dtype mismatch"))?;
+            let out_slice = output.and_then(|out| match out {
+                TensorValue::$out_variant(t) => Some(&mut t.data),
+                _ => None,
+            });
+            let out = $func(
+                &a,
+                out_slice.map(|out| out.as_mut_slice()),
+                thread_id,
+            )?;
+            match out {
+                Some(out) => {
+                    let tensor = Tensor::from_vec_with_opts(out, TensorOptions {
+                        shape: Some(a.shape().to_vec()),
+                        ..TensorOptions::default()
+                    })?;
+                    Ok(Some(<$out_ty as TensorElement>::into_value(tensor)))
+                }
+                None => Ok(None),
+            }
+        }))
+    };
+}
+
 pub fn lookup_kernel_cpu_abs_accumulate(
     output_dtype: DType,
     input_dtypes: &[DType],
@@ -16,130 +78,58 @@ pub fn lookup_kernel_cpu_abs_accumulate(
 ) -> Option<KernelFn> {
     match (output_dtype, input_dtypes, attrs) {
         (DType::I16, [DType::I8], &OpAttrs::Accumulate { dtype: DType::I16 }) => {
-            Some(KernelFn::Host(cpu_kernel_out(
-                abs_i8_i16 as fn(&[i8], usize) -> anyhow::Result<Vec<i16>>,
-            )))
+            Some(acc_unary_kernel_slice!(i8, i16, I16, abs_i8_i16))
         }
         (DType::I32, [DType::I8], &OpAttrs::Accumulate { dtype: DType::I32 }) => {
-            Some(KernelFn::Host(cpu_kernel_out(
-                abs_i8_i32 as fn(&[i8], usize) -> anyhow::Result<Vec<i32>>,
-            )))
+            Some(acc_unary_kernel_slice!(i8, i32, I32, abs_i8_i32))
         }
         (DType::I64, [DType::I8], &OpAttrs::Accumulate { dtype: DType::I64 }) => {
-            Some(KernelFn::Host(cpu_kernel_out(
-                abs_i8_i64 as fn(&[i8], usize) -> anyhow::Result<Vec<i64>>,
-            )))
+            Some(acc_unary_kernel_slice!(i8, i64, I64, abs_i8_i64))
         }
         (DType::I32, [DType::I16], &OpAttrs::Accumulate { dtype: DType::I32 }) => {
-            Some(KernelFn::Host(cpu_kernel_out(
-                abs_i16_i32 as fn(&[i16], usize) -> anyhow::Result<Vec<i32>>,
-            )))
+            Some(acc_unary_kernel_slice!(i16, i32, I32, abs_i16_i32))
         }
         (DType::I64, [DType::I16], &OpAttrs::Accumulate { dtype: DType::I64 }) => {
-            Some(KernelFn::Host(cpu_kernel_out(
-                abs_i16_i64 as fn(&[i16], usize) -> anyhow::Result<Vec<i64>>,
-            )))
+            Some(acc_unary_kernel_slice!(i16, i64, I64, abs_i16_i64))
         }
         (DType::I64, [DType::I32], &OpAttrs::Accumulate { dtype: DType::I64 }) => {
-            Some(KernelFn::Host(cpu_kernel_out(
-                abs_i32_i64 as fn(&[i32], usize) -> anyhow::Result<Vec<i64>>,
-            )))
+            Some(acc_unary_kernel_slice!(i32, i64, I64, abs_i32_i64))
         }
         (DType::I8, [DType::I4], &OpAttrs::Accumulate { dtype: DType::I8 }) => {
-            Some(KernelFn::Host(Box::new(|_attrs, inputs, thread_id| {
-                let a = <I4 as TensorElement>::from_value(&inputs[0])
-                    .ok_or_else(|| anyhow::anyhow!("abs input 0 dtype mismatch"))?;
-                let out = abs_i4_i8_packed(&a, thread_id)?;
-                Ok(<i8 as TensorElement>::into_value(out))
-            })))
+            Some(acc_unary_kernel_packed!(I4, i8, I8, abs_i4_i8_packed))
         }
         (DType::I16, [DType::I4], &OpAttrs::Accumulate { dtype: DType::I16 }) => {
-            Some(KernelFn::Host(Box::new(|_attrs, inputs, thread_id| {
-                let a = <I4 as TensorElement>::from_value(&inputs[0])
-                    .ok_or_else(|| anyhow::anyhow!("abs input 0 dtype mismatch"))?;
-                let out = abs_i4_i16_packed(&a, thread_id)?;
-                Ok(<i16 as TensorElement>::into_value(out))
-            })))
+            Some(acc_unary_kernel_packed!(I4, i16, I16, abs_i4_i16_packed))
         }
         (DType::I32, [DType::I4], &OpAttrs::Accumulate { dtype: DType::I32 }) => {
-            Some(KernelFn::Host(Box::new(|_attrs, inputs, thread_id| {
-                let a = <I4 as TensorElement>::from_value(&inputs[0])
-                    .ok_or_else(|| anyhow::anyhow!("abs input 0 dtype mismatch"))?;
-                let out = abs_i4_i32_packed(&a, thread_id)?;
-                Ok(<i32 as TensorElement>::into_value(out))
-            })))
+            Some(acc_unary_kernel_packed!(I4, i32, I32, abs_i4_i32_packed))
         }
         (DType::I64, [DType::I4], &OpAttrs::Accumulate { dtype: DType::I64 }) => {
-            Some(KernelFn::Host(Box::new(|_attrs, inputs, thread_id| {
-                let a = <I4 as TensorElement>::from_value(&inputs[0])
-                    .ok_or_else(|| anyhow::anyhow!("abs input 0 dtype mismatch"))?;
-                let out = abs_i4_i64_packed(&a, thread_id)?;
-                Ok(<i64 as TensorElement>::into_value(out))
-            })))
+            Some(acc_unary_kernel_packed!(I4, i64, I64, abs_i4_i64_packed))
         }
         (DType::I8, [DType::I2], &OpAttrs::Accumulate { dtype: DType::I8 }) => {
-            Some(KernelFn::Host(Box::new(|_attrs, inputs, thread_id| {
-                let a = <I2 as TensorElement>::from_value(&inputs[0])
-                    .ok_or_else(|| anyhow::anyhow!("abs input 0 dtype mismatch"))?;
-                let out = abs_i2_i8_packed(&a, thread_id)?;
-                Ok(<i8 as TensorElement>::into_value(out))
-            })))
+            Some(acc_unary_kernel_packed!(I2, i8, I8, abs_i2_i8_packed))
         }
         (DType::I16, [DType::I2], &OpAttrs::Accumulate { dtype: DType::I16 }) => {
-            Some(KernelFn::Host(Box::new(|_attrs, inputs, thread_id| {
-                let a = <I2 as TensorElement>::from_value(&inputs[0])
-                    .ok_or_else(|| anyhow::anyhow!("abs input 0 dtype mismatch"))?;
-                let out = abs_i2_i16_packed(&a, thread_id)?;
-                Ok(<i16 as TensorElement>::into_value(out))
-            })))
+            Some(acc_unary_kernel_packed!(I2, i16, I16, abs_i2_i16_packed))
         }
         (DType::I32, [DType::I2], &OpAttrs::Accumulate { dtype: DType::I32 }) => {
-            Some(KernelFn::Host(Box::new(|_attrs, inputs, thread_id| {
-                let a = <I2 as TensorElement>::from_value(&inputs[0])
-                    .ok_or_else(|| anyhow::anyhow!("abs input 0 dtype mismatch"))?;
-                let out = abs_i2_i32_packed(&a, thread_id)?;
-                Ok(<i32 as TensorElement>::into_value(out))
-            })))
+            Some(acc_unary_kernel_packed!(I2, i32, I32, abs_i2_i32_packed))
         }
         (DType::I64, [DType::I2], &OpAttrs::Accumulate { dtype: DType::I64 }) => {
-            Some(KernelFn::Host(Box::new(|_attrs, inputs, thread_id| {
-                let a = <I2 as TensorElement>::from_value(&inputs[0])
-                    .ok_or_else(|| anyhow::anyhow!("abs input 0 dtype mismatch"))?;
-                let out = abs_i2_i64_packed(&a, thread_id)?;
-                Ok(<i64 as TensorElement>::into_value(out))
-            })))
+            Some(acc_unary_kernel_packed!(I2, i64, I64, abs_i2_i64_packed))
         }
         (DType::I8, [DType::I1], &OpAttrs::Accumulate { dtype: DType::I8 }) => {
-            Some(KernelFn::Host(Box::new(|_attrs, inputs, thread_id| {
-                let a = <I1 as TensorElement>::from_value(&inputs[0])
-                    .ok_or_else(|| anyhow::anyhow!("abs input 0 dtype mismatch"))?;
-                let out = abs_i1_i8_packed(&a, thread_id)?;
-                Ok(<i8 as TensorElement>::into_value(out))
-            })))
+            Some(acc_unary_kernel_packed!(I1, i8, I8, abs_i1_i8_packed))
         }
         (DType::I16, [DType::I1], &OpAttrs::Accumulate { dtype: DType::I16 }) => {
-            Some(KernelFn::Host(Box::new(|_attrs, inputs, thread_id| {
-                let a = <I1 as TensorElement>::from_value(&inputs[0])
-                    .ok_or_else(|| anyhow::anyhow!("abs input 0 dtype mismatch"))?;
-                let out = abs_i1_i16_packed(&a, thread_id)?;
-                Ok(<i16 as TensorElement>::into_value(out))
-            })))
+            Some(acc_unary_kernel_packed!(I1, i16, I16, abs_i1_i16_packed))
         }
         (DType::I32, [DType::I1], &OpAttrs::Accumulate { dtype: DType::I32 }) => {
-            Some(KernelFn::Host(Box::new(|_attrs, inputs, thread_id| {
-                let a = <I1 as TensorElement>::from_value(&inputs[0])
-                    .ok_or_else(|| anyhow::anyhow!("abs input 0 dtype mismatch"))?;
-                let out = abs_i1_i32_packed(&a, thread_id)?;
-                Ok(<i32 as TensorElement>::into_value(out))
-            })))
+            Some(acc_unary_kernel_packed!(I1, i32, I32, abs_i1_i32_packed))
         }
         (DType::I64, [DType::I1], &OpAttrs::Accumulate { dtype: DType::I64 }) => {
-            Some(KernelFn::Host(Box::new(|_attrs, inputs, thread_id| {
-                let a = <I1 as TensorElement>::from_value(&inputs[0])
-                    .ok_or_else(|| anyhow::anyhow!("abs input 0 dtype mismatch"))?;
-                let out = abs_i1_i64_packed(&a, thread_id)?;
-                Ok(<i64 as TensorElement>::into_value(out))
-            })))
+            Some(acc_unary_kernel_packed!(I1, i64, I64, abs_i1_i64_packed))
         }
         _ => None,
     }

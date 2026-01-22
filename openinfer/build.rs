@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -57,11 +57,17 @@ fn compile_op(manifest_dir: &Path, op_name: &str, entry: &VulkanShaderEntry) -> 
     let spv_dir = manifest_dir.join(&entry.spv_dir);
     for src_path in paths {
         println!("cargo:rerun-if-changed={}", src_path.display());
+        let mut includes = Vec::new();
+        collect_includes(&src_path, &mut includes, &mut HashSet::new())
+            .with_context(|| format!("failed to parse includes for {}", src_path.display()))?;
+        for include in &includes {
+            println!("cargo:rerun-if-changed={}", include.display());
+        }
         let targets = slang_entry_points(&src_path)
             .with_context(|| format!("failed to parse entry points for {}", src_path.display()))?;
         for target in &targets {
             let spv_path = spv_dir.join(format!("{}.spv", target));
-            let should_compile = needs_rebuild(&src_path, &spv_path)?;
+            let should_compile = needs_rebuild(&src_path, &spv_path, &includes)?;
             if should_compile {
                 compile_slang(&src_path, &spv_path, target)
                     .with_context(|| format!("failed to compile {}", op_name))?;
@@ -71,7 +77,7 @@ fn compile_op(manifest_dir: &Path, op_name: &str, entry: &VulkanShaderEntry) -> 
     Ok(())
 }
 
-fn needs_rebuild(src: &Path, spv: &Path) -> Result<bool> {
+fn needs_rebuild(src: &Path, spv: &Path, includes: &[PathBuf]) -> Result<bool> {
     if !spv.exists() {
         return Ok(true);
     }
@@ -81,7 +87,57 @@ fn needs_rebuild(src: &Path, spv: &Path) -> Result<bool> {
         .with_context(|| format!("failed to stat {}", spv.display()))?;
     let src_time = src_meta.modified().unwrap_or(std::time::SystemTime::UNIX_EPOCH);
     let spv_time = spv_meta.modified().unwrap_or(std::time::SystemTime::UNIX_EPOCH);
-    Ok(src_time > spv_time)
+    if src_time > spv_time {
+        return Ok(true);
+    }
+    for include in includes {
+        let meta = fs::metadata(include)
+            .with_context(|| format!("failed to stat {}", include.display()))?;
+        let inc_time = meta.modified().unwrap_or(std::time::SystemTime::UNIX_EPOCH);
+        if inc_time > spv_time {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+fn collect_includes(
+    src: &Path,
+    includes: &mut Vec<PathBuf>,
+    seen: &mut HashSet<PathBuf>,
+) -> Result<()> {
+    let contents = fs::read_to_string(src)
+        .with_context(|| format!("failed to read {}", src.display()))?;
+    let parent = src
+        .parent()
+        .ok_or_else(|| anyhow!("missing parent for {}", src.display()))?;
+    for line in contents.lines() {
+        let trimmed = line.trim();
+        let rest = match trimmed.strip_prefix("#include") {
+            Some(rest) => rest.trim(),
+            None => continue,
+        };
+        let start = match rest.find('"') {
+            Some(idx) => idx + 1,
+            None => continue,
+        };
+        let end = match rest[start..].find('"') {
+            Some(idx) => start + idx,
+            None => continue,
+        };
+        let include_path = &rest[start..end];
+        let mut path = PathBuf::from(include_path);
+        if !path.is_absolute() {
+            path = parent.join(path);
+        }
+        let path = fs::canonicalize(&path)
+            .with_context(|| format!("failed to resolve include {}", path.display()))?;
+        if seen.insert(path.clone()) {
+            includes.push(path.clone());
+            collect_includes(&path, includes, seen)?;
+        }
+    }
+    Ok(())
 }
 
 fn compile_slang(src: &Path, spv: &Path, entry_point: &str) -> Result<()> {

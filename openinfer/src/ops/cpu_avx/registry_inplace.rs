@@ -10,7 +10,7 @@ pub fn lookup_kernel_cpu_avx_inplace(
     input_dtypes: &[DType],
     attrs: &OpAttrs,
 ) -> Option<InplaceKernelFn> {
-    match op {
+    let kernel = match op {
         OpKind::Add => add::registry_inplace::lookup_kernel_cpu_avx_add_inplace(
             output_dtype,
             input_dtypes,
@@ -38,5 +38,6 @@ pub fn lookup_kernel_cpu_avx_inplace(
             attrs,
         ),
         OpKind::IsFinite => None,
-    }
+    };
+    kernel.or_else(|| crate::ops::cpu::registry_inplace::lookup_kernel_cpu_inplace(op, output_dtype, input_dtypes, attrs))
 }

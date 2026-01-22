@@ -1,58 +1,9 @@
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 
 use crate::tensor::{Tensor, TensorOptions, TensorValue};
 use crate::timer::Timer;
 
-pub fn is_finite_kernel(inputs: &[TensorValue], thread_id: usize) -> Result<TensorValue> {
-    let input = inputs
-        .get(0)
-        .ok_or_else(|| anyhow!("is_finite op expects 1 input"))?;
-    let mut finite = true;
-    Timer::start(thread_id);
-    match input {
-        TensorValue::F32(tensor) => {
-            for value in &tensor.data {
-                if !value.is_finite() {
-                    finite = false;
-                    break;
-                }
-            }
-        }
-        TensorValue::F64(tensor) => {
-            for value in &tensor.data {
-                if !value.is_finite() {
-                    finite = false;
-                    break;
-                }
-            }
-        }
-        TensorValue::F16(tensor) => {
-            for value in &tensor.data {
-                if !value.to_f32().is_finite() {
-                    finite = false;
-                    break;
-                }
-            }
-        }
-        TensorValue::BF16(tensor) => {
-            for value in &tensor.data {
-                if !value.to_f32().is_finite() {
-                    finite = false;
-                    break;
-                }
-            }
-        }
-        TensorValue::F8E5M2(tensor) => {
-            for value in &tensor.data {
-                if !value.to_f32().is_finite() {
-                    finite = false;
-                    break;
-                }
-            }
-        }
-        _ => {}
-    }
-    Timer::stop(thread_id);
+fn is_finite_scalar(finite: bool) -> Result<TensorValue> {
     let tensor = Tensor::from_vec_with_opts(
         vec![finite],
         TensorOptions {
@@ -61,4 +12,69 @@ pub fn is_finite_kernel(inputs: &[TensorValue], thread_id: usize) -> Result<Tens
         },
     )?;
     Ok(TensorValue::Bool(tensor))
+}
+
+pub fn is_finite_f32(tensor: &Tensor<f32>, thread_id: usize) -> Result<TensorValue> {
+    Timer::start(thread_id);
+    let mut finite = true;
+    for value in &tensor.data {
+        if !value.is_finite() {
+            finite = false;
+            break;
+        }
+    }
+    Timer::stop(thread_id);
+    is_finite_scalar(finite)
+}
+
+pub fn is_finite_f64(tensor: &Tensor<f64>, thread_id: usize) -> Result<TensorValue> {
+    Timer::start(thread_id);
+    let mut finite = true;
+    for value in &tensor.data {
+        if !value.is_finite() {
+            finite = false;
+            break;
+        }
+    }
+    Timer::stop(thread_id);
+    is_finite_scalar(finite)
+}
+
+pub fn is_finite_f16(tensor: &Tensor<crate::tensor::F16>, thread_id: usize) -> Result<TensorValue> {
+    Timer::start(thread_id);
+    let mut finite = true;
+    for value in &tensor.data {
+        if !value.to_f32().is_finite() {
+            finite = false;
+            break;
+        }
+    }
+    Timer::stop(thread_id);
+    is_finite_scalar(finite)
+}
+
+pub fn is_finite_bf16(tensor: &Tensor<crate::tensor::BF16>, thread_id: usize) -> Result<TensorValue> {
+    Timer::start(thread_id);
+    let mut finite = true;
+    for value in &tensor.data {
+        if !value.to_f32().is_finite() {
+            finite = false;
+            break;
+        }
+    }
+    Timer::stop(thread_id);
+    is_finite_scalar(finite)
+}
+
+pub fn is_finite_f8(tensor: &Tensor<crate::tensor::F8E5M2>, thread_id: usize) -> Result<TensorValue> {
+    Timer::start(thread_id);
+    let mut finite = true;
+    for value in &tensor.data {
+        if !value.to_f32().is_finite() {
+            finite = false;
+            break;
+        }
+    }
+    Timer::stop(thread_id);
+    is_finite_scalar(finite)
 }

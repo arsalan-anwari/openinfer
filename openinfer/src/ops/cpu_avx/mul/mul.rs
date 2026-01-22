@@ -8,6 +8,11 @@ use std::arch::x86_64::{
 };
 
 use crate::timer::Timer;
+use crate::ops::cpu_avx::packed::{
+    get_i2_value, get_i4_value, get_u2_value, get_u4_value, set_i2_value, set_i4_value,
+    set_u2_value, set_u4_value,
+};
+use crate::tensor::{I2, I4, U2, U4};
 
 
 pub fn mul_f32(a: &[f32], b: &[f32], thread_id: usize) -> Result<Vec<f32>> {
@@ -183,6 +188,74 @@ pub fn mul_u16(a: &[u16], b: &[u16], thread_id: usize) -> Result<Vec<u16>> {
             *out_ptr.add(i) = a[i] * b[i];
             i += 1;
         }
+    }
+    Timer::stop(thread_id);
+    Ok(out)
+}
+
+pub fn mul_i4_packed(a: &[I4], b: &[I4], logical_len: usize, thread_id: usize) -> Result<Vec<I4>> {
+    if a.len() != b.len() {
+        return Err(anyhow!("mul op shape mismatch"));
+    }
+    let storage_len = (logical_len + 1) / 2;
+    let mut out = vec![I4 { bits: 0 }; storage_len];
+    Timer::start(thread_id);
+    for idx in 0..logical_len {
+        let av = get_i4_value(a, idx);
+        let bv = get_i4_value(b, idx);
+        let prod = av.wrapping_mul(bv);
+        set_i4_value(&mut out, idx, prod);
+    }
+    Timer::stop(thread_id);
+    Ok(out)
+}
+
+pub fn mul_i2_packed(a: &[I2], b: &[I2], logical_len: usize, thread_id: usize) -> Result<Vec<I2>> {
+    if a.len() != b.len() {
+        return Err(anyhow!("mul op shape mismatch"));
+    }
+    let storage_len = (logical_len + 3) / 4;
+    let mut out = vec![I2 { bits: 0 }; storage_len];
+    Timer::start(thread_id);
+    for idx in 0..logical_len {
+        let av = get_i2_value(a, idx);
+        let bv = get_i2_value(b, idx);
+        let prod = av.wrapping_mul(bv);
+        set_i2_value(&mut out, idx, prod);
+    }
+    Timer::stop(thread_id);
+    Ok(out)
+}
+
+pub fn mul_u4_packed(a: &[U4], b: &[U4], logical_len: usize, thread_id: usize) -> Result<Vec<U4>> {
+    if a.len() != b.len() {
+        return Err(anyhow!("mul op shape mismatch"));
+    }
+    let storage_len = (logical_len + 1) / 2;
+    let mut out = vec![U4 { bits: 0 }; storage_len];
+    Timer::start(thread_id);
+    for idx in 0..logical_len {
+        let av = get_u4_value(a, idx);
+        let bv = get_u4_value(b, idx);
+        let prod = av.wrapping_mul(bv);
+        set_u4_value(&mut out, idx, prod);
+    }
+    Timer::stop(thread_id);
+    Ok(out)
+}
+
+pub fn mul_u2_packed(a: &[U2], b: &[U2], logical_len: usize, thread_id: usize) -> Result<Vec<U2>> {
+    if a.len() != b.len() {
+        return Err(anyhow!("mul op shape mismatch"));
+    }
+    let storage_len = (logical_len + 3) / 4;
+    let mut out = vec![U2 { bits: 0 }; storage_len];
+    Timer::start(thread_id);
+    for idx in 0..logical_len {
+        let av = get_u2_value(a, idx);
+        let bv = get_u2_value(b, idx);
+        let prod = av.wrapping_mul(bv);
+        set_u2_value(&mut out, idx, prod);
     }
     Timer::stop(thread_id);
     Ok(out)

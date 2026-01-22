@@ -32,6 +32,9 @@ When broadcasting is enabled for an op, the Vulkan backend:
 2) Runs a GPU broadcast pass to expand each input buffer
 3) Runs the op kernel on equal-length buffers
 
+Broadcast expansion also applies to inplace variants on Vulkan when the op
+supports broadcasting, so `op add(x, y) >> x` can work with broadcasted `y`.
+
 The broadcast pass uses `openinfer/src/ops/vulkan/broadcast/broadcast.slang`.
 
 Timer notes:

@@ -4,7 +4,7 @@ use crate::graph::{AttrValue, OpAttrs};
 use crate::ops::registry::{HostInplaceKernel, InplaceKernelFn};
 use crate::tensor::TensorValue;
 use crate::tensor::{DType, BF16, F16, F8E5M2};
-use super::{fill_i4, fill_i2, fill_i1, fill_u4, fill_u2, fill_u1};
+use crate::ops::cpu::packed::{packed_fill_signed_inplace, packed_fill_unsigned_inplace};
 
 #[allow(dead_code)]
 pub fn supports_fill_inplace(output_dtype: DType, input_dtypes: &[DType], attrs: &OpAttrs) -> bool {
@@ -19,7 +19,7 @@ pub fn lookup_kernel_cpu_fill_inplace(
     if !supports_fill_inplace(output_dtype, input_dtypes, attrs) {
         return None;
     }
-    let kernel: HostInplaceKernel = Box::new(|attrs, output, _inputs, thread_id| {
+    let kernel: HostInplaceKernel = Box::new(|attrs, output, _inputs, _thread_id| {
         let value = match attrs {
             OpAttrs::Fill { value } => value.clone(),
             _ => return Err(anyhow!("fill inplace expects fill attributes")),
@@ -120,49 +120,58 @@ pub fn lookup_kernel_cpu_fill_inplace(
                 out.data.fill(crate::tensor::Bitset { bits: val as u8 });
                 Ok(())
             }
-            (TensorValue::I4(out), AttrValue::Int(_)) => {
-                out.data = fill_i4(attrs, out.numel(), thread_id)?;
+            (TensorValue::I4(out), AttrValue::Int(val)) => {
+                let len = out.numel();
+                packed_fill_signed_inplace(4, &mut out.data, len, val as i32);
                 Ok(())
             }
-            (TensorValue::I2(out), AttrValue::Int(_)) => {
-                out.data = fill_i2(attrs, out.numel(), thread_id)?;
+            (TensorValue::I2(out), AttrValue::Int(val)) => {
+                let len = out.numel();
+                packed_fill_signed_inplace(2, &mut out.data, len, val as i32);
                 Ok(())
             }
-            (TensorValue::I1(out), AttrValue::Int(_)) => {
-                out.data = fill_i1(attrs, out.numel(), thread_id)?;
+            (TensorValue::I1(out), AttrValue::Int(val)) => {
+                let len = out.numel();
+                packed_fill_signed_inplace(1, &mut out.data, len, val as i32);
                 Ok(())
             }
-            (TensorValue::U4(out), AttrValue::UInt(_)) => {
-                out.data = fill_u4(attrs, out.numel(), thread_id)?;
+            (TensorValue::U4(out), AttrValue::UInt(val)) => {
+                let len = out.numel();
+                packed_fill_unsigned_inplace(4, &mut out.data, len, val as u32);
                 Ok(())
             }
             (TensorValue::U4(out), AttrValue::Int(val)) => {
                 if val < 0 {
                     return Err(anyhow!("fill expects u4 value"));
                 }
-                out.data = fill_u4(attrs, out.numel(), thread_id)?;
+                let len = out.numel();
+                packed_fill_unsigned_inplace(4, &mut out.data, len, val as u32);
                 Ok(())
             }
-            (TensorValue::U2(out), AttrValue::UInt(_)) => {
-                out.data = fill_u2(attrs, out.numel(), thread_id)?;
+            (TensorValue::U2(out), AttrValue::UInt(val)) => {
+                let len = out.numel();
+                packed_fill_unsigned_inplace(2, &mut out.data, len, val as u32);
                 Ok(())
             }
             (TensorValue::U2(out), AttrValue::Int(val)) => {
                 if val < 0 {
                     return Err(anyhow!("fill expects u2 value"));
                 }
-                out.data = fill_u2(attrs, out.numel(), thread_id)?;
+                let len = out.numel();
+                packed_fill_unsigned_inplace(2, &mut out.data, len, val as u32);
                 Ok(())
             }
-            (TensorValue::U1(out), AttrValue::UInt(_)) => {
-                out.data = fill_u1(attrs, out.numel(), thread_id)?;
+            (TensorValue::U1(out), AttrValue::UInt(val)) => {
+                let len = out.numel();
+                packed_fill_unsigned_inplace(1, &mut out.data, len, val as u32);
                 Ok(())
             }
             (TensorValue::U1(out), AttrValue::Int(val)) => {
                 if val < 0 {
                     return Err(anyhow!("fill expects u1 value"));
                 }
-                out.data = fill_u1(attrs, out.numel(), thread_id)?;
+                let len = out.numel();
+                packed_fill_unsigned_inplace(1, &mut out.data, len, val as u32);
                 Ok(())
             }
             _ => Err(anyhow!("fill inplace dtype mismatch")),

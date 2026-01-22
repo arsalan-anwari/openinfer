@@ -7,6 +7,8 @@ use std::arch::x86_64::{
 };
 
 use crate::timer::Timer;
+use crate::ops::cpu_avx2::packed::{get_i2_value, get_i4_value, set_i2_value, set_i4_value};
+use crate::tensor::{I2, I4};
 
 
 pub fn abs_f32(a: &[f32], thread_id: usize) -> Result<Vec<f32>> {
@@ -144,6 +146,32 @@ pub fn abs_i64(a: &[i64], thread_id: usize) -> Result<Vec<i64>> {
             *out_ptr.add(i) = a[i].abs();
             i += 1;
         }
+    }
+    Timer::stop(thread_id);
+    Ok(out)
+}
+
+pub fn abs_i4_packed(a: &[I4], logical_len: usize, thread_id: usize) -> Result<Vec<I4>> {
+    let storage_len = (logical_len + 1) / 2;
+    let mut out = vec![I4 { bits: 0 }; storage_len];
+    Timer::start(thread_id);
+    for idx in 0..logical_len {
+        let v = get_i4_value(a, idx);
+        let y = if v < 0 { v.wrapping_neg() } else { v };
+        set_i4_value(&mut out, idx, y);
+    }
+    Timer::stop(thread_id);
+    Ok(out)
+}
+
+pub fn abs_i2_packed(a: &[I2], logical_len: usize, thread_id: usize) -> Result<Vec<I2>> {
+    let storage_len = (logical_len + 3) / 4;
+    let mut out = vec![I2 { bits: 0 }; storage_len];
+    Timer::start(thread_id);
+    for idx in 0..logical_len {
+        let v = get_i2_value(a, idx);
+        let y = if v < 0 { v.wrapping_neg() } else { v };
+        set_i2_value(&mut out, idx, y);
     }
     Timer::stop(thread_id);
     Ok(out)

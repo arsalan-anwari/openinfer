@@ -20,7 +20,7 @@ void fill_bitset(uint3 tid : SV_DispatchThreadID, uniform PushConsts pc) {
 uint i = tid.x;
 if (i < pc.len) {
     float value = asfloat(pc.value_bits);
-    uint v = ((uint)value) & 0xFFu;
+    uint v = value == 0.0f ? 0u : 0xFFu;
     gFill_uint.output0[i] = v;
 }
 }

@@ -11,15 +11,21 @@ Checklist of features described in the README and current implementation status.
 - [x] CPU backend with basic ops (add, mul, abs, relu)
 - [x] Vulkan backend with basic ops (add, mul, abs, relu)
 - [x] Per-op broadcasting with CPU and Vulkan support
+- [x] Vulkan broadcast expansion for inplace ops
 - [x] Vulkan shader manifest and embedded SPIR-V workflow
 - [x] Reference attribute and custom attribute parsing support
 - [x] Prefix tables in `volatile` and `constant`
 - [x] Loops (loop blocks and loop-exit semantics)
 - [x] Inplace kernels for faster simulation when possible
+- [x] Accumulation output buffer reuse (preallocated output reuse)
 - [x] Cache operations beyond basic memory access
 - [x] Prefixed/autodim cache ergonomics
 - [x] Branching and yielding across blocks
 - [x] Support for types universal and special types (see [types.md](types.md)) and upsampling
+- [x] CPU/AVX/AVX2 parity for packed types (i2/i4/u2/u4)
+- [x] Vulkan shader-side casting for low-bit floats
+- [x] Vulkan CPU fallback for missing int64/float64 features
+- [x] N-D matmul with batched dispatch
 
 ## DSL Gaps
 

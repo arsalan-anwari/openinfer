@@ -17,7 +17,7 @@ Special tensor-only types:
 - f8 (float8e5m2) / f16 / bf16
 - i1 / i2 / i4
 - u1 / u2 / u4
-- t1 / t2
+- t1 / t2 (reserved; not currently implemented in backends)
 
 Packed integer types (i1/i2/i4/u1/u2/u4/t1/t2) store multiple elements per byte
 in OINF blobs. Packing is LSB-first within each byte.
@@ -35,36 +35,33 @@ Packed dtype ranges:
 
 ## CPU Backend
 
-- Supports all universal and special tensor types.
-- f16/bf16/f8 are upsampled to f32 for kernel execution and converted back to
-  the original dtype after execution.
-- Packed types (i1/i2/i4/u1/u2/u4/t1/t2) remain packed; kernels are responsible
-  for unpacking and applying the math logic.
+- Supports all universal and special tensor types (t1/t2 reserved).
+- f16/bf16/f8 are cast inline to f32 for arithmetic and converted back per element.
+- Packed types remain packed; kernels read/write packed bytes directly without
+  materializing full unpacked buffers.
 
 ## Vulkan Backend
 
-Hardware feature checks:
+Hardware feature checks and fallback:
 
 - i64/u64 require `shader_int64`.
 - f64 requires `shader_float64`.
-- f16 presence is detected via `shader_float16` but is still upsampled.
+- When these features are missing, Vulkan ops fall back to CPU with a warning
+  (`eprintln!`) so execution continues instead of erroring.
 
-Upsampling behavior:
+Inline float casting:
 
-- f8/bf16/f16 are upsampled to f32 for Vulkan kernels.
-- f8/bf16 are never assumed to be natively supported on Vulkan devices.
-- f16 is also upsampled today for consistency.
+- f8/bf16/f16 are cast to f32 inside shaders per element (no intermediate f32
+  buffers on the host).
+- Results are written back in the original low-bit format.
 
 Packed types:
 
-- i1/i2/i4/u1/u2/u4/t1/t2 are stored as packed bytes in GPU buffers.
-- Kernels must unpack these values and implement the arithmetic in packed form.
-- Packed types are never upsampled to i8.
+- i1/i2/i4/u1/u2/u4 are stored as packed bytes in GPU buffers.
+- Shaders decode/operate/encode in-place with byte-addressed buffers.
+- Packed types are never expanded to i8 buffers.
+## CPU AVX / AVX2 Backends
 
-## Errors vs Upsampling
-
-- If a Vulkan device does not support `shader_float64`, any f64 usage in the DSL
-  returns an error.
-- If a Vulkan device does not support `shader_int64`, i64/u64 usage returns an
-  error.
-- Lower-bit float types (f8/bf16/f16) are always upsampled to f32.
+- Match CPU dtype coverage, including packed types.
+- SIMD kernels operate directly on packed bytes for i2/i4/u2/u4.
+- i1/u1 packed types fall back to the CPU implementation.

@@ -44,7 +44,7 @@ pub fn lookup_kernel_cpu_relu(
         (DType::I64, [DType::I64], &OpAttrs::Relu { .. }) => Some(KernelFn::Host(cpu_kernel(
             relu_i64 as fn(&OpAttrs, &[i64], usize) -> Result<Vec<i64>>,
         ))),
-        (DType::I4, [DType::I4], &OpAttrs::Relu { .. }) => Some(KernelFn::Host(Box::new(|attrs, inputs, thread_id| {
+        (DType::I4, [DType::I4], &OpAttrs::Relu { .. }) => Some(KernelFn::Host(crate::ops::adapter::host_kernel_simple(|attrs, inputs, thread_id| {
             let a = <I4 as TensorElement>::from_value(&inputs[0]).ok_or_else(|| anyhow!("relu input 0 dtype mismatch"))?;
             let out = relu_i4(attrs, &a.data, a.numel(), thread_id)?;
             let tensor = Tensor::from_vec_with_opts(out, TensorOptions {

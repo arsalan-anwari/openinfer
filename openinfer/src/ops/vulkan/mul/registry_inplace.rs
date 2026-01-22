@@ -19,6 +19,9 @@ pub fn lookup_kernel_vulkan_mul_inplace(
                 && matches!(
                     out,
                     DType::F32
+                        | DType::F16
+                        | DType::BF16
+                        | DType::F8E5M2
                         | DType::F64
                         | DType::I8
                         | DType::I16

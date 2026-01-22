@@ -6,7 +6,7 @@ This document lists currently supported ops and their backend coverage.
 
 - **CPU:** scalar Rust kernels.
 - **CPU (AVX/AVX2):** SIMD kernels for x86_64 when enabled.
-- **Vulkan:** compute kernels compiled from Slang.
+- **Vulkan:** compute kernels compiled from Slang with shader-side casting.
 
 ## Adding custom ops
 
@@ -26,6 +26,20 @@ This is the minimal checklist to add a new op end-to-end.
 4. If the op supports broadcasting, update the policy in
    `openinfer/src/ops/registry.rs` (`broadcast_policy`).
 
+### CPU AVX / AVX2
+
+1. Add SIMD implementations under:
+   - `openinfer/src/ops/cpu_avx/<op>/`
+   - `openinfer/src/ops/cpu_avx2/<op>/`
+2. Mirror the CPU file layout:
+   - `mod.rs`, `<op>.rs`, `registry.rs`, optional `<op>_inplace.rs`,
+     `registry_inplace.rs`, `registry_accumulate.rs`.
+3. Register the kernels in the per-device registries:
+   - `openinfer/src/ops/cpu_avx/registry.rs`
+   - `openinfer/src/ops/cpu_avx2/registry.rs`
+4. If a dtype is not possible with SIMD, route it to CPU fallback in the
+   registry (AVX/AVX2 should still advertise CPU-equivalent coverage).
+
 ### Vulkan
 
 1. Add the op under `openinfer/src/ops/vulkan/<op>/`:
@@ -42,6 +56,14 @@ This is the minimal checklist to add a new op end-to-end.
 6. Ensure dtype constraints are enforced in the Vulkan backend
    (`openinfer/src/backend/vulkan/mod.rs`).
 
+### Inplace / Accumulation variants
+
+- If the op supports in-place execution, add `<op>_inplace.rs` and wire it
+  in `registry_inplace.rs` for each backend.
+- If the op supports `acc=`, add `<op>_accumulate.rs` and
+  `registry_accumulate.rs` for each backend.
+- Accumulation kernels accept an optional output buffer to support reuse.
+
 ## Op coverage
 
 The tables below list support by device. Each row includes input/output shapes,
@@ -50,78 +72,62 @@ device-specific notes.
 
 ---
 
-## CPU
-
 | Op name | Dtypes | Input | Output | Attributes | Inplace | Accumulation | Description |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| add | [f8, bf16, f16, f32, f64]<br>[i1, i2, i4, i8, i16, i32, i64]<br>[u1, u2, u4, u8, u16, u32, u64]<br>[i1, i2, i4, u1, u2, u4]<br>[bool, bitset] | a: Tensor[T], b: Tensor[T] | y: Tensor[T] |  | Yes | Yes | Elementwise add with broadcasting. Accumulate is integer-only. |
-| mul | [f8, bf16, f16, f32, f64]<br>[i1, i2, i4, i8, i16, i32, i64]<br>[u1, u2, u4, u8, u16, u32, u64]<br>[i1, i2, i4, u1, u2, u4]<br>[bool, bitset] | a: Tensor[T], b: Tensor[T] | y: Tensor[T] |  | Yes | Yes | Elementwise multiply with broadcasting. Accumulate is integer-only. |
-| abs | [f8, bf16, f16, f32, f64]<br>[i1, i2, i4, i8, i16, i32, i64]<br>[i1, i2, i4] | a: Tensor[T] | y: Tensor[T] |  | Yes | Yes | Elementwise absolute value. Accumulate is integer-only. |
-| relu | [f8, bf16, f16, f32, f64]<br>[i4, i8, i16, i32, i64] | a: Tensor[T] | y: Tensor[T] | negative_slope, clamp_max | No | No | Leaky ReLU with clamp. |
+| add | [f8, bf16, f16, f32, f64]<br>[i1, i2, i4, i8, i16, i32, i64]<br>[u1, u2, u4, u8, u16, u32, u64]<br>[bool, bitset] | a: Tensor[T], b: Tensor[T] | y: Tensor[T] |  | Yes | Yes | Elementwise add with broadcasting. Accumulate is integer-only and widens output dtype. |
+| mul | [f8, bf16, f16, f32, f64]<br>[i1, i2, i4, i8, i16, i32, i64]<br>[u1, u2, u4, u8, u16, u32, u64]<br>[bool, bitset] | a: Tensor[T], b: Tensor[T] | y: Tensor[T] |  | Yes | Yes | Elementwise multiply with broadcasting. Accumulate is integer-only and widens output dtype. |
+| matmul | [f8, bf16, f16, f32, f64]<br>[i1, i2, i4, i8, i16, i32, i64]<br>[u1, u2, u4, u8, u16, u32, u64]<br>[bool, bitset] | a: Tensor[T], b: Tensor[T] | y: Tensor[T] |  | Yes | Yes | N-D matmul with batched dispatch. Accumulate is integer-only and widens output dtype. |
+| abs | [f8, bf16, f16, f32, f64]<br>[i1, i2, i4, i8, i16, i32, i64] | a: Tensor[T] | y: Tensor[T] |  | Yes | Yes | Elementwise absolute value. Accumulate is integer-only and widens output dtype. |
+| relu | [f8, bf16, f16, f32, f64]<br>[i4, i8, i16, i32, i64] | a: Tensor[T] | y: Tensor[T] | negative_slope, clamp_max | Yes | No | Leaky ReLU with clamp. |
 | is_finite | [f8, bf16, f16, f32, f64] | a: Tensor[T] | y: bool (scalar) | None | No | No | True if all elements are finite. |
-| fill | [f8, bf16, f16, f32, f64]<br>[i1, i2, i4, i8, i16, i32, i64]<br>[u1, u2, u4, u8, u16, u32, u64]<br>[i1, i2, i4, u1, u2, u4]<br>[bool, bitset] | a: Tensor[T] | y: Tensor[T] | value | Yes | No | Fill output with a scalar literal. |
+| fill | [f8, bf16, f16, f32, f64]<br>[i1, i2, i4, i8, i16, i32, i64]<br>[u1, u2, u4, u8, u16, u32, u64]<br>[bool, bitset] | a: Tensor[T] | y: Tensor[T] | value | Yes | No | Fill output with a scalar literal. |
 
-CPU notes:
+Device notes:
 
-- Scalar kernels cover all listed dtypes, including packed types via bit-level ops.
+- CPU is the reference implementation for all listed dtypes.
+- AVX/AVX2 match CPU dtype coverage; i1/u1 packed types fall back to CPU.
+- Vulkan supports all listed dtypes with shader-side casting for f8/bf16/f16.
+- If Vulkan lacks `shader_int64` or `shader_float64`, ops fall back to CPU with a warning.
 
----
+## CPU Fallback Coverage (Non-CPU Backends)
 
-## CPU (AVX)
+Fallbacks are per-op and per-dtype. Tables below list the dtypes that may fall
+back to CPU when using the non-CPU backend.
 
-| Op name | Dtypes | Input | Output | Attributes | Inplace | Accumulation | Description |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| add | [f32, f64]<br>[i8, i16]<br>[u8, u16] | a: Tensor[T], b: Tensor[T] | y: Tensor[T] |  | Yes | Yes | SIMD-only add. Accumulate limited to i8→i16, i16→i32, i32→i64, u8→u16, u16→u32, u32→u64. |
-| mul | [f32, f64]<br>[i8, i16, i32]<br>[u8, u16, u32] | a: Tensor[T], b: Tensor[T] | y: Tensor[T] |  | Yes | Yes | SIMD-only multiply. Accumulate limited to i8→i16 and u8→u16. |
-| abs | [f32, f64]<br>[i8, i16, i32, i64] | a: Tensor[T] | y: Tensor[T] |  | Yes | Yes | SIMD-only abs. Accumulate limited to i8→i16 and i16→i32. |
-| relu | [f32] | a: Tensor[T] | y: Tensor[T] | negative_slope, clamp_max | No | No | SIMD-only relu (f32 only). |
-| fill | - | a: Tensor[T] | y: Tensor[T] | value | No | No | Unsupported on AVX. |
-| is_finite | - | a: Tensor[T] | y: bool (scalar) | None | No | No | Unsupported on AVX. |
-| matmul | - | a: Tensor[T], b: Tensor[T] | y: Tensor[T] | None | No | No | Unsupported on AVX. |
+### CPU AVX
 
-AVX notes:
+| Op name | Dtypes that fall back to CPU |
+| --- | --- |
+| add | i1, u1 |
+| mul | i1, u1 |
+| matmul | i1, u1 |
+| abs | i1 |
+| relu | none |
+| is_finite | none |
+| fill | i1, u1 |
 
-- SIMD-only: packed, bool/bitset, and f8/bf16/f16 are unsupported.
-- Any dtype not covered above returns “unsupported op on this device”.
+### CPU AVX2
 
----
+| Op name | Dtypes that fall back to CPU |
+| --- | --- |
+| add | i1, u1 |
+| mul | i1, u1 |
+| matmul | i1, u1 |
+| abs | i1 |
+| relu | none |
+| is_finite | none |
+| fill | i1, u1 |
 
-## CPU (AVX2)
+### Vulkan
 
-| Op name | Dtypes | Input | Output | Attributes | Inplace | Accumulation | Description |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| add | [f32, f64]<br>[i8, i16]<br>[u8, u16] | a: Tensor[T], b: Tensor[T] | y: Tensor[T] |  | Yes | Yes | SIMD-only add. Accumulate limited to i8→i16, i16→i32, i32→i64, u8→u16, u16→u32, u32→u64. |
-| mul | [f32, f64]<br>[i8, i16, i32]<br>[u8, u16, u32] | a: Tensor[T], b: Tensor[T] | y: Tensor[T] |  | Yes | Yes | SIMD-only multiply. Accumulate limited to i8→i16 and u8→u16. |
-| abs | [f32, f64]<br>[i8, i16, i32, i64] | a: Tensor[T] | y: Tensor[T] |  | Yes | Yes | SIMD-only abs. Accumulate limited to i8→i16 and i16→i32. |
-| relu | [f32] | a: Tensor[T] | y: Tensor[T] | negative_slope, clamp_max | No | No | SIMD-only relu (f32 only). |
-| fill | - | a: Tensor[T] | y: Tensor[T] | value | No | No | Unsupported on AVX2. |
-| is_finite | - | a: Tensor[T] | y: bool (scalar) | None | No | No | Unsupported on AVX2. |
-| matmul | - | a: Tensor[T], b: Tensor[T] | y: Tensor[T] | None | No | No | Unsupported on AVX2. |
+These fallbacks are conditional on GPU feature support:
 
-AVX2 notes:
-
-- SIMD-only: packed, bool/bitset, and f8/bf16/f16 are unsupported.
-- Any dtype not covered above returns “unsupported op on this device”.
-
----
-
-## Vulkan
-
-| Op name | Dtypes | Input | Output | Attributes | Inplace | Accumulation | Description |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| add | [f8, bf16, f16, f32, f64]<br>[i1, i2, i4, i8, i16, i32, i64]<br>[u1, u2, u4, u8, u16, u32, u64]<br>[i1, i2, i4, u1, u2, u4]<br>[bool, bitset] | a: Tensor[T], b: Tensor[T] | y: Tensor[T] |  | Yes | Yes | Elementwise add with broadcasting. Packed dtypes decode/encode in shader. |
-| mul | [f8, bf16, f16, f32, f64]<br>[i1, i2, i4, i8, i16, i32, i64]<br>[u1, u2, u4, u8, u16, u32, u64]<br>[i1, i2, i4, u1, u2, u4]<br>[bool, bitset] | a: Tensor[T], b: Tensor[T] | y: Tensor[T] |  | Yes | Yes | Elementwise multiply with broadcasting. Packed dtypes decode/encode in shader. |
-| abs | [f8, bf16, f16, f32, f64]<br>[i1, i2, i4, i8, i16, i32, i64]<br>[i1, i2, i4] | a: Tensor[T] | y: Tensor[T] |  | Yes | Yes | Elementwise abs. Packed dtypes decode/encode in shader. |
-| relu | [f8, bf16, f16, f32, f64]<br>[i4, i8, i16, i32, i64] | a: Tensor[T] | y: Tensor[T] | negative_slope, clamp_max | No | No | Leaky ReLU with clamp. |
-| matmul | [f8, bf16, f16, f32, f64]<br>[i1, i2, i4, i8, i16, i32, i64]<br>[u1, u2, u4, u8, u16, u32, u64]<br>[i1, i2, i4, u1, u2, u4]<br>[bool, bitset] | a: Tensor[T] (M×K), b: Tensor[T] (K×N) | y: Tensor[T] (M×N) |  | Yes | Yes | Matmul. Packed dtypes decode/encode in shader. |
-| is_finite | [f8, bf16, f16, f32, f64] | a: Tensor[T] | y: bool (scalar) | None | No | No | True if all elements are finite. |
-| fill | [f8, bf16, f16, f32, f64]<br>[i1, i2, i4, i8, i16, i32, i64]<br>[u1, u2, u4, u8, u16, u32, u64]<br>[i1, i2, i4, u1, u2, u4]<br>[bool, bitset] | a: Tensor[T] | y: Tensor[T] | value | Yes | No | Fill output with a scalar literal. Packed dtypes decode/encode in shader. |
-
----
-
-Vulkan notes:
-
-- Packed types are processed in-shader using byte-addressed buffers; no scalar expansion.
-- f16/bf16/f8 are upcast to f32 buffers on upload and converted back on download.
-- i64/u64 require `shader_int64` and f64 requires `shader_float64`; unsupported GPUs error.
-- `bitset` is treated as an 8-bit scalar in Vulkan shaders.
+| Op name | Dtypes that fall back to CPU |
+| --- | --- |
+| add | i64, u64, f64 (if missing `shader_int64` / `shader_float64`) |
+| mul | i64, u64, f64 (if missing `shader_int64` / `shader_float64`) |
+| matmul | i64, u64, f64 (if missing `shader_int64` / `shader_float64`) |
+| abs | i64, f64 (if missing `shader_int64` / `shader_float64`) |
+| relu | i64, f64 (if missing `shader_int64` / `shader_float64`) |
+| is_finite | f64 (if missing `shader_float64`) |
+| fill | i64, u64, f64 (if missing `shader_int64` / `shader_float64`) |

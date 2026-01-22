@@ -1,6 +1,8 @@
 use anyhow::{anyhow, Result};
 
-use crate::ops::cpu::packed::{packed_binary_signed, packed_binary_unsigned};
+use crate::ops::cpu::packed::{
+    packed_binary_signed_inplace, packed_binary_unsigned_inplace,
+};
 use crate::tensor::{BF16, Bitset, F16, F8E5M2, I1, I2, I4, U1, U2, U4};
 use crate::timer::Timer;
 
@@ -181,8 +183,7 @@ pub fn add_inplace_i4(
         return Err(anyhow!("add inplace shape mismatch"));
     }
     Timer::start(thread_id);
-    let out = packed_binary_signed(4, a, b, logical_len, I4 { bits: 0 }, |x, y| x + y);
-    a.copy_from_slice(&out);
+    packed_binary_signed_inplace(4, a, b, logical_len, |x, y| x + y);
     Timer::stop(thread_id);
     Ok(())
 }
@@ -197,8 +198,7 @@ pub fn add_inplace_i2(
         return Err(anyhow!("add inplace shape mismatch"));
     }
     Timer::start(thread_id);
-    let out = packed_binary_signed(2, a, b, logical_len, I2 { bits: 0 }, |x, y| x + y);
-    a.copy_from_slice(&out);
+    packed_binary_signed_inplace(2, a, b, logical_len, |x, y| x + y);
     Timer::stop(thread_id);
     Ok(())
 }
@@ -213,8 +213,7 @@ pub fn add_inplace_i1(
         return Err(anyhow!("add inplace shape mismatch"));
     }
     Timer::start(thread_id);
-    let out = packed_binary_signed(1, a, b, logical_len, I1 { bits: 0 }, |x, y| x + y);
-    a.copy_from_slice(&out);
+    packed_binary_signed_inplace(1, a, b, logical_len, |x, y| x + y);
     Timer::stop(thread_id);
     Ok(())
 }
@@ -229,8 +228,7 @@ pub fn add_inplace_u4(
         return Err(anyhow!("add inplace shape mismatch"));
     }
     Timer::start(thread_id);
-    let out = packed_binary_unsigned(4, a, b, logical_len, U4 { bits: 0 }, |x, y| x + y);
-    a.copy_from_slice(&out);
+    packed_binary_unsigned_inplace(4, a, b, logical_len, |x, y| x + y);
     Timer::stop(thread_id);
     Ok(())
 }
@@ -245,8 +243,7 @@ pub fn add_inplace_u2(
         return Err(anyhow!("add inplace shape mismatch"));
     }
     Timer::start(thread_id);
-    let out = packed_binary_unsigned(2, a, b, logical_len, U2 { bits: 0 }, |x, y| x + y);
-    a.copy_from_slice(&out);
+    packed_binary_unsigned_inplace(2, a, b, logical_len, |x, y| x + y);
     Timer::stop(thread_id);
     Ok(())
 }
@@ -261,8 +258,7 @@ pub fn add_inplace_u1(
         return Err(anyhow!("add inplace shape mismatch"));
     }
     Timer::start(thread_id);
-    let out = packed_binary_unsigned(1, a, b, logical_len, U1 { bits: 0 }, |x, y| x + y);
-    a.copy_from_slice(&out);
+    packed_binary_unsigned_inplace(1, a, b, logical_len, |x, y| x + y);
     Timer::stop(thread_id);
     Ok(())
 }

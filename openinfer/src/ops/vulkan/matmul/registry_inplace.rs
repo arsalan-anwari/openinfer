@@ -19,6 +19,7 @@ pub fn lookup_kernel_vulkan_matmul_inplace(
                 && matches!(
                     out,
                     DType::F32
+                        | DType::F16
                         | DType::F64
                         | DType::I8
                         | DType::I16

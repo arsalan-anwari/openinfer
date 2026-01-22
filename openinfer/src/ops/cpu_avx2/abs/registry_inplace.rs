@@ -2,7 +2,10 @@ use crate::graph::OpAttrs;
 use crate::ops::registry::{HostInplaceKernel, InplaceKernelFn};
 use crate::tensor::{DType, TensorValue};
 
-use super::{abs_inplace_f32, abs_inplace_f64, abs_inplace_i16, abs_inplace_i32, abs_inplace_i64, abs_inplace_i8};
+use super::{
+    abs_inplace_f32, abs_inplace_f64, abs_inplace_i16, abs_inplace_i32, abs_inplace_i64,
+    abs_inplace_i8, abs_inplace_i4, abs_inplace_i2,
+};
 
 pub fn supports_abs_inplace(output_dtype: DType, input_dtypes: &[DType], attrs: &OpAttrs) -> bool {
     matches!(
@@ -13,6 +16,8 @@ pub fn supports_abs_inplace(output_dtype: DType, input_dtypes: &[DType], attrs: 
             | (DType::F64, [DType::F64], OpAttrs::None)
             | (DType::I32, [DType::I32], OpAttrs::None)
             | (DType::I64, [DType::I64], OpAttrs::None)
+            | (DType::I4, [DType::I4], OpAttrs::None)
+            | (DType::I2, [DType::I2], OpAttrs::None)
     )
 }
 
@@ -32,6 +37,14 @@ pub fn lookup_kernel_cpu_avx2_abs_inplace(
             TensorValue::F64(out) => abs_inplace_f64(&mut out.data, thread_id),
             TensorValue::I32(out) => abs_inplace_i32(&mut out.data, thread_id),
             TensorValue::I64(out) => abs_inplace_i64(&mut out.data, thread_id),
+            TensorValue::I4(out) => {
+                let len = out.numel();
+                abs_inplace_i4(&mut out.data, len, thread_id)
+            }
+            TensorValue::I2(out) => {
+                let len = out.numel();
+                abs_inplace_i2(&mut out.data, len, thread_id)
+            }
             _ => Err(anyhow::anyhow!("abs inplace dtype mismatch")),
         }
     });

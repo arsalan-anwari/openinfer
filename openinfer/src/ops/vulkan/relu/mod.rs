@@ -52,6 +52,9 @@ pub fn relu_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: usize) -> Resu
 
 pub(crate) fn spv_target_name_relu(dtype: DType, attrs: &OpAttrs) -> Result<String> {
     match (dtype, attrs) {
+        (DType::F16, &OpAttrs::Relu { .. }) => Ok("relu_f16".to_string()),
+        (DType::BF16, &OpAttrs::Relu { .. }) => Ok("relu_bf16".to_string()),
+        (DType::F8E5M2, &OpAttrs::Relu { .. }) => Ok("relu_f8".to_string()),
         (DType::F32, &OpAttrs::Relu { .. }) => Ok("relu_f32".to_string()),
         (DType::F64, &OpAttrs::Relu { .. }) => Ok("relu_f64".to_string()),
         (DType::I8, &OpAttrs::Relu { .. }) => Ok("relu_i8".to_string()),

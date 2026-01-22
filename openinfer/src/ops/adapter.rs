@@ -10,12 +10,15 @@ use crate::backend::VulkanBuffer;
 use crate::ops::registry::VulkanKernel;
 
 pub trait CpuKernelAdapter {
-    fn call(&self, attrs: &OpAttrs, inputs: &[TensorValue], thread_id: usize) -> Result<TensorValue>;
+    fn call(
+        &self,
+        attrs: &OpAttrs,
+        inputs: &[TensorValue],
+        output: Option<&mut TensorValue>,
+        thread_id: usize,
+    ) -> Result<Option<TensorValue>>;
 }
 
-pub trait CpuKernelAdapterOut {
-    fn call(&self, attrs: &OpAttrs, inputs: &[TensorValue], thread_id: usize) -> Result<TensorValue>;
-}
 
 #[cfg(feature = "vulkan")]
 pub trait DeviceKernelAdapter {
@@ -31,14 +34,15 @@ pub fn cpu_kernel<K>(func: K) -> HostKernel
 where
     K: CpuKernelAdapter + Send + Sync + 'static,
 {
-    Box::new(move |attrs, inputs, thread_id| func.call(attrs, inputs, thread_id))
+    Box::new(move |attrs, inputs, output, thread_id| func.call(attrs, inputs, output, thread_id))
 }
 
-pub fn cpu_kernel_out<K>(func: K) -> HostKernel
+
+pub fn host_kernel_simple<F>(func: F) -> HostKernel
 where
-    K: CpuKernelAdapterOut + Send + Sync + 'static,
+    F: Fn(&OpAttrs, &[TensorValue], usize) -> Result<TensorValue> + Send + Sync + 'static,
 {
-    Box::new(move |attrs, inputs, thread_id| func.call(attrs, inputs, thread_id))
+    Box::new(move |attrs, inputs, _output, thread_id| func(attrs, inputs, thread_id).map(Some))
 }
 
 #[cfg(feature = "vulkan")]
@@ -53,7 +57,13 @@ impl<A> CpuKernelAdapter for for<'a> fn(&'a [A], usize) -> Result<Vec<A>>
 where
     A: TensorElement + Clone + 'static,
 {
-    fn call(&self, _attrs: &OpAttrs, inputs: &[TensorValue], thread_id: usize) -> Result<TensorValue> {
+    fn call(
+        &self,
+        _attrs: &OpAttrs,
+        inputs: &[TensorValue],
+        _output: Option<&mut TensorValue>,
+        thread_id: usize,
+    ) -> Result<Option<TensorValue>> {
         let a = inputs
             .get(0)
             .ok_or_else(|| anyhow!("cpu kernel expects at least 1 input"))?;
@@ -64,35 +74,23 @@ where
             shape: Some(a.shape().to_vec()),
             ..TensorOptions::default()
         })?;
-        Ok(A::into_value(tensor))
+        Ok(Some(A::into_value(tensor)))
     }
 }
 
-impl<A, Out> CpuKernelAdapterOut for for<'a> fn(&'a [A], usize) -> Result<Vec<Out>>
-where
-    A: TensorElement + Clone + 'static,
-    Out: TensorElement + Clone + 'static,
-{
-    fn call(&self, _attrs: &OpAttrs, inputs: &[TensorValue], thread_id: usize) -> Result<TensorValue> {
-        let a = inputs
-            .get(0)
-            .ok_or_else(|| anyhow!("cpu kernel expects at least 1 input"))?;
-        let a = A::from_value(a)
-            .ok_or_else(|| anyhow!("cpu kernel input 0 has wrong dtype"))?;
-        let output = (self)(&a.data, thread_id)?;
-        let tensor = Tensor::from_vec_with_opts(output, TensorOptions {
-            shape: Some(a.shape().to_vec()),
-            ..TensorOptions::default()
-        })?;
-        Ok(Out::into_value(tensor))
-    }
-}
+
 
 impl<A> CpuKernelAdapter for for<'a, 'b> fn(&'a OpAttrs, &'b [A], usize) -> Result<Vec<A>>
 where
     A: TensorElement + Clone + 'static,
 {
-    fn call(&self, attrs: &OpAttrs, inputs: &[TensorValue], thread_id: usize) -> Result<TensorValue> {
+    fn call(
+        &self,
+        attrs: &OpAttrs,
+        inputs: &[TensorValue],
+        _output: Option<&mut TensorValue>,
+        thread_id: usize,
+    ) -> Result<Option<TensorValue>> {
         let a = inputs
             .get(0)
             .ok_or_else(|| anyhow!("cpu kernel expects at least 1 input"))?;
@@ -103,30 +101,7 @@ where
             shape: Some(a.shape().to_vec()),
             ..TensorOptions::default()
         })?;
-        Ok(A::into_value(tensor))
-    }
-}
-
-impl<A, B, Out> CpuKernelAdapterOut for for<'a, 'b> fn(&'a [A], &'b [B], usize) -> Result<Vec<Out>>
-where
-    A: TensorElement + Clone + 'static,
-    B: TensorElement + Clone + 'static,
-    Out: TensorElement + Clone + 'static,
-{
-    fn call(&self, _attrs: &OpAttrs, inputs: &[TensorValue], thread_id: usize) -> Result<TensorValue> {
-        if inputs.len() < 2 {
-            return Err(anyhow!("cpu kernel expects at least 2 inputs"));
-        }
-        let a = A::from_value(&inputs[0])
-            .ok_or_else(|| anyhow!("cpu kernel input 0 has wrong dtype"))?;
-        let b = B::from_value(&inputs[1])
-            .ok_or_else(|| anyhow!("cpu kernel input 1 has wrong dtype"))?;
-        let output = (self)(&a.data, &b.data, thread_id)?;
-        let tensor = Tensor::from_vec_with_opts(output, TensorOptions {
-            shape: Some(a.shape().to_vec()),
-            ..TensorOptions::default()
-        })?;
-        Ok(Out::into_value(tensor))
+        Ok(Some(A::into_value(tensor)))
     }
 }
 
@@ -136,7 +111,13 @@ macro_rules! impl_cpu_kernel_adapter_noattrs {
         where
             $($T: TensorElement + Clone + 'static,)+
         {
-            fn call(&self, _attrs: &OpAttrs, inputs: &[TensorValue], thread_id: usize) -> Result<TensorValue> {
+            fn call(
+                &self,
+                _attrs: &OpAttrs,
+                inputs: &[TensorValue],
+                _output: Option<&mut TensorValue>,
+                thread_id: usize,
+            ) -> Result<Option<TensorValue>> {
                 if inputs.len() < $count {
                     return Err(anyhow!("cpu kernel expects at least {} inputs", $count));
                 }
@@ -149,7 +130,7 @@ macro_rules! impl_cpu_kernel_adapter_noattrs {
                     shape: Some($first.shape().to_vec()),
                     ..TensorOptions::default()
                 })?;
-                Ok(A::into_value(tensor))
+                Ok(Some(A::into_value(tensor)))
             }
         }
     };
@@ -162,7 +143,13 @@ macro_rules! impl_cpu_kernel_adapter_attrs {
         where
             $($T: TensorElement + Clone + 'static,)+
         {
-            fn call(&self, attrs: &OpAttrs, inputs: &[TensorValue], thread_id: usize) -> Result<TensorValue> {
+            fn call(
+                &self,
+                attrs: &OpAttrs,
+                inputs: &[TensorValue],
+                _output: Option<&mut TensorValue>,
+                thread_id: usize,
+            ) -> Result<Option<TensorValue>> {
                 if inputs.len() < $count {
                     return Err(anyhow!("cpu kernel expects at least {} inputs", $count));
                 }
@@ -175,7 +162,7 @@ macro_rules! impl_cpu_kernel_adapter_attrs {
                     shape: Some($first.shape().to_vec()),
                     ..TensorOptions::default()
                 })?;
-                Ok(A::into_value(tensor))
+                Ok(Some(A::into_value(tensor)))
             }
         }
     };

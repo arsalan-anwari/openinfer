@@ -1,4 +1,5 @@
 // Generic broadcast kernel (single source, multiple entry points).
+#include "../../../ops/vulkan/float_utils.slang"
 struct PushConsts {
     uint len;
     uint flags;
@@ -24,6 +25,16 @@ ParameterBlock<BroadcastBuffers<uint>> gBroadcast_u32;
 ParameterBlock<BroadcastBuffers<uint>> gBroadcast_bool;
 ParameterBlock<BroadcastBuffers<int64_t>> gBroadcast_i64;
 ParameterBlock<BroadcastBuffers<uint64_t>> gBroadcast_u64;
+
+struct BroadcastBuffersBytes {
+    [[vk::binding(0, 0)]] ByteAddressBuffer input0;
+    [[vk::binding(1, 0)]] StructuredBuffer<uint, Std430DataLayout> meta;
+    [[vk::binding(2, 0)]] RWByteAddressBuffer output0;
+};
+
+ParameterBlock<BroadcastBuffersBytes> gBroadcast_f16;
+ParameterBlock<BroadcastBuffersBytes> gBroadcast_bf16;
+ParameterBlock<BroadcastBuffersBytes> gBroadcast_f8;
 
 __generic<typename T, let BLOCK_SIZE : int>
 void broadcastImpl(uint3 tid, BroadcastBuffers<T> bufs, PushConsts pc)
@@ -54,6 +65,31 @@ void broadcastImpl(uint3 tid, BroadcastBuffers<T> bufs, PushConsts pc)
         }
     }
     bufs.output0[i] = bufs.input0[offset];
+}
+
+uint broadcastOffset(uint index, StructuredBuffer<uint, Std430DataLayout> meta) {
+    uint rank = meta[0];
+    uint baseOut = 2;
+    uint baseInShape = 2 + rank;
+    uint baseInStride = 2 + rank * 2;
+    uint rem = index;
+    uint offset = 0;
+    if (rank > 0) {
+        for (int r = int(rank) - 1; r >= 0; --r) {
+            uint ur = (uint)r;
+            uint dim = meta[baseOut + ur];
+            uint coord = 0;
+            if (dim > 0) {
+                coord = rem % dim;
+                rem = rem / dim;
+            }
+            uint inDim = meta[baseInShape + ur];
+            uint stride = meta[baseInStride + ur];
+            uint inCoord = (inDim == 1) ? 0 : coord;
+            offset += inCoord * stride;
+        }
+    }
+    return offset;
 }
 
 [shader("compute")]
@@ -114,4 +150,40 @@ void broadcast_i64(uint3 tid : SV_DispatchThreadID, uniform PushConsts pc) {
 [numthreads(256, 1, 1)]
 void broadcast_u64(uint3 tid : SV_DispatchThreadID, uniform PushConsts pc) {
     broadcastImpl<uint64_t, 256>(tid, gBroadcast_u64, pc);
+}
+
+[shader("compute")]
+[numthreads(256, 1, 1)]
+void broadcast_f16(uint3 tid : SV_DispatchThreadID, uniform PushConsts pc) {
+    uint i = tid.x;
+    if (i >= pc.len) {
+        return;
+    }
+    uint offset = broadcastOffset(i, gBroadcast_f16.meta);
+    float value = read_f16(gBroadcast_f16.input0, offset);
+    write_f16(gBroadcast_f16.output0, i, value);
+}
+
+[shader("compute")]
+[numthreads(256, 1, 1)]
+void broadcast_bf16(uint3 tid : SV_DispatchThreadID, uniform PushConsts pc) {
+    uint i = tid.x;
+    if (i >= pc.len) {
+        return;
+    }
+    uint offset = broadcastOffset(i, gBroadcast_bf16.meta);
+    float value = read_bf16(gBroadcast_bf16.input0, offset);
+    write_bf16(gBroadcast_bf16.output0, i, value);
+}
+
+[shader("compute")]
+[numthreads(256, 1, 1)]
+void broadcast_f8(uint3 tid : SV_DispatchThreadID, uniform PushConsts pc) {
+    uint i = tid.x;
+    if (i >= pc.len) {
+        return;
+    }
+    uint offset = broadcastOffset(i, gBroadcast_f8.meta);
+    float value = read_f8(gBroadcast_f8.input0, offset);
+    write_f8(gBroadcast_f8.output0, i, value);
 }

@@ -117,6 +117,35 @@ pub(crate) fn packed_binary_signed<T: PackedByte>(
     out
 }
 
+pub(crate) fn packed_binary_signed_inplace<T: PackedByte>(
+    bits: u8,
+    a: &mut [T],
+    b: &[T],
+    logical_len: usize,
+    op: impl Fn(i8, i8) -> i8,
+) {
+    let per = packed_per_byte(bits);
+    let storage_len = (logical_len + per - 1) / per;
+    for byte_idx in 0..storage_len {
+        let base = byte_idx * per;
+        let lane_count = logical_len.saturating_sub(base).min(per);
+        let a_byte = a[byte_idx].get();
+        let b_byte = b[byte_idx].get();
+        let mut out_byte = 0u8;
+        for lane in 0..lane_count {
+            let shift = (lane as u8) * bits;
+            let mask = packed_mask(bits);
+            let ax = sign_extend((a_byte >> shift) & mask, bits);
+            let bx = sign_extend((b_byte >> shift) & mask, bits);
+            let raw = op(ax, bx) as u8;
+            out_byte |= (raw & mask) << shift;
+        }
+        let mut slot = a[byte_idx];
+        slot.set(out_byte);
+        a[byte_idx] = slot;
+    }
+}
+
 pub(crate) fn packed_binary_unsigned<T: PackedByte>(
     bits: u8,
     a: &[T],
@@ -137,6 +166,35 @@ pub(crate) fn packed_binary_unsigned<T: PackedByte>(
     out
 }
 
+pub(crate) fn packed_binary_unsigned_inplace<T: PackedByte>(
+    bits: u8,
+    a: &mut [T],
+    b: &[T],
+    logical_len: usize,
+    op: impl Fn(u8, u8) -> u8,
+) {
+    let per = packed_per_byte(bits);
+    let storage_len = (logical_len + per - 1) / per;
+    for byte_idx in 0..storage_len {
+        let base = byte_idx * per;
+        let lane_count = logical_len.saturating_sub(base).min(per);
+        let a_byte = a[byte_idx].get();
+        let b_byte = b[byte_idx].get();
+        let mut out_byte = 0u8;
+        for lane in 0..lane_count {
+            let shift = (lane as u8) * bits;
+            let mask = packed_mask(bits);
+            let ax = (a_byte >> shift) & mask;
+            let bx = (b_byte >> shift) & mask;
+            let raw = op(ax, bx);
+            out_byte |= (raw & mask) << shift;
+        }
+        let mut slot = a[byte_idx];
+        slot.set(out_byte);
+        a[byte_idx] = slot;
+    }
+}
+
 pub(crate) fn packed_unary_signed<T: PackedByte>(
     bits: u8,
     a: &[T],
@@ -153,6 +211,32 @@ pub(crate) fn packed_unary_signed<T: PackedByte>(
         packed_write(&mut out, idx, bits, raw);
     }
     out
+}
+
+pub(crate) fn packed_unary_signed_inplace<T: PackedByte>(
+    bits: u8,
+    a: &mut [T],
+    logical_len: usize,
+    op: impl Fn(i8) -> i8,
+) {
+    let per = packed_per_byte(bits);
+    let storage_len = (logical_len + per - 1) / per;
+    for byte_idx in 0..storage_len {
+        let base = byte_idx * per;
+        let lane_count = logical_len.saturating_sub(base).min(per);
+        let a_byte = a[byte_idx].get();
+        let mut out_byte = 0u8;
+        for lane in 0..lane_count {
+            let shift = (lane as u8) * bits;
+            let mask = packed_mask(bits);
+            let ax = sign_extend((a_byte >> shift) & mask, bits);
+            let raw = op(ax) as u8;
+            out_byte |= (raw & mask) << shift;
+        }
+        let mut slot = a[byte_idx];
+        slot.set(out_byte);
+        a[byte_idx] = slot;
+    }
 }
 
 pub(crate) fn packed_binary_accumulate_signed<T: PackedByte, O>(
@@ -217,6 +301,29 @@ pub(crate) fn packed_fill_signed<T: PackedByte>(
     out
 }
 
+pub(crate) fn packed_fill_signed_inplace<T: PackedByte>(
+    bits: u8,
+    data: &mut [T],
+    logical_len: usize,
+    value: i32,
+) {
+    let per = packed_per_byte(bits);
+    let storage_len = (logical_len + per - 1) / per;
+    let raw = value as u8 & packed_mask(bits);
+    for byte_idx in 0..storage_len {
+        let base = byte_idx * per;
+        let lane_count = logical_len.saturating_sub(base).min(per);
+        let mut out_byte = 0u8;
+        for lane in 0..lane_count {
+            let shift = (lane as u8) * bits;
+            out_byte |= raw << shift;
+        }
+        let mut slot = data[byte_idx];
+        slot.set(out_byte);
+        data[byte_idx] = slot;
+    }
+}
+
 pub(crate) fn packed_fill_unsigned<T: PackedByte>(
     bits: u8,
     logical_len: usize,
@@ -231,4 +338,27 @@ pub(crate) fn packed_fill_unsigned<T: PackedByte>(
         packed_write(&mut out, idx, bits, raw);
     }
     out
+}
+
+pub(crate) fn packed_fill_unsigned_inplace<T: PackedByte>(
+    bits: u8,
+    data: &mut [T],
+    logical_len: usize,
+    value: u32,
+) {
+    let per = packed_per_byte(bits);
+    let storage_len = (logical_len + per - 1) / per;
+    let raw = value as u8 & packed_mask(bits);
+    for byte_idx in 0..storage_len {
+        let base = byte_idx * per;
+        let lane_count = logical_len.saturating_sub(base).min(per);
+        let mut out_byte = 0u8;
+        for lane in 0..lane_count {
+            let shift = (lane as u8) * bits;
+            out_byte |= raw << shift;
+        }
+        let mut slot = data[byte_idx];
+        slot.set(out_byte);
+        data[byte_idx] = slot;
+    }
 }

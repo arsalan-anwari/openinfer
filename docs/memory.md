@@ -36,6 +36,13 @@ There are 4 different types of memory that can used with the model:
 - You can only mutate `dynamic` memory before the inference step is started or has completed. You can use the macro `insert_executor!{}` to modify one or more variables defined in the DSL with new data.
 - You are free to fetch data during any time of the inference step that is stored in { `volatile`, `constant` or `persistent` }, but you **cannot** mutate it. You can use the macro `fetch_executor!{}` to get a copy of one or more variables defined in the DSL.
 
+## Output reuse and memory pressure
+
+Some ops (notably accumulation variants) can reuse an existing output buffer if
+the output tensor already exists and matches dtype/shape. This reduces memory
+churn and helps large graphs run within tight memory budgets. See
+`docs/memory_reuse.md` for details and trade-offs.
+
 ## Attributes on variable definitions
 
 Atrributes can be used only on variable definitions for things like linking model data, expressing layouts, quantization, or other metadata relevant for the Simulator and Synthesizer.

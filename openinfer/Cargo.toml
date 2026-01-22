@@ -111,3 +111,7 @@ path = "../examples/rust/dtypes.rs"
 [[example]]
 name = "accumulate_packed"
 path = "../examples/rust/accumulate_packed.rs"
+
+[[example]]
+name = "ops_accumulate_inplace"
+path = "../examples/rust/ops_accumulate_inplace.rs"

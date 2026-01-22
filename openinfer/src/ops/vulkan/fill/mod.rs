@@ -96,7 +96,7 @@ fn fill_value_bits(dtype: DType, attrs: &OpAttrs) -> Result<u32> {
         _ => return Err(anyhow!("fill expects value attribute")),
     };
     let value = match (dtype, value) {
-        (DType::F16 | DType::F32 | DType::F64, crate::graph::AttrValue::Float(val)) => *val,
+        (DType::F16 | DType::BF16 | DType::F8E5M2 | DType::F32 | DType::F64, crate::graph::AttrValue::Float(val)) => *val,
         (
             DType::I8
             | DType::I16
@@ -168,6 +168,9 @@ pub(crate) fn spv_target_name_fill(dtype: DType, attrs: &OpAttrs) -> Result<Stri
         | (DType::U1, &OpAttrs::Fill { .. })
         | (DType::Bool, &OpAttrs::Fill { .. })
         | (DType::Bitset, &OpAttrs::Fill { .. })
+        | (DType::F16, &OpAttrs::Fill { .. })
+        | (DType::BF16, &OpAttrs::Fill { .. })
+        | (DType::F8E5M2, &OpAttrs::Fill { .. })
         | (DType::F32, &OpAttrs::Fill { .. })
         | (DType::F64, &OpAttrs::Fill { .. }) => {
             Ok(format!("fill_{}", super::dtype_suffix(dtype).unwrap()))
@@ -198,6 +201,9 @@ pub(crate) fn spv_target_name_fill_inplace(dtype: DType, attrs: &OpAttrs) -> Res
         | (DType::U1, &OpAttrs::Fill { .. })
         | (DType::Bool, &OpAttrs::Fill { .. })
         | (DType::Bitset, &OpAttrs::Fill { .. })
+        | (DType::F16, &OpAttrs::Fill { .. })
+        | (DType::BF16, &OpAttrs::Fill { .. })
+        | (DType::F8E5M2, &OpAttrs::Fill { .. })
         | (DType::F32, &OpAttrs::Fill { .. })
         | (DType::F64, &OpAttrs::Fill { .. }) => {
             Ok(format!("fill_inplace_{}", super::dtype_suffix(dtype).unwrap()))

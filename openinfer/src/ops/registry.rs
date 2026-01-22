@@ -28,8 +28,11 @@ pub fn broadcast_enabled(op: OpKind, device: Device) -> bool {
     }
 }
 
-pub type HostKernel =
-    Box<dyn Fn(&OpAttrs, &[TensorValue], usize) -> Result<TensorValue> + Send + Sync>;
+pub type HostKernel = Box<
+    dyn Fn(&OpAttrs, &[TensorValue], Option<&mut TensorValue>, usize) -> Result<Option<TensorValue>>
+        + Send
+        + Sync,
+>;
 #[cfg(feature = "vulkan")]
 pub type VulkanKernel =
     Box<dyn Fn(&OpAttrs, &[&crate::backend::VulkanBuffer], usize) -> Result<crate::backend::VulkanBuffer> + Send + Sync>;

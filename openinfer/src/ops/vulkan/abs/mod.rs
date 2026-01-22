@@ -48,6 +48,7 @@ pub fn abs_accumulate_generic(
     attrs: &OpAttrs,
     a: &VulkanBuffer,
     output_dtype: DType,
+    output: Option<&VulkanBuffer>,
     thread_id: usize,
 ) -> Result<VulkanBuffer> {
     let runtime = super::runtime_from_buffers(a, None)?;
@@ -57,7 +58,17 @@ pub fn abs_accumulate_generic(
         .spv_bytes_for_target(&target)
         .ok_or_else(|| anyhow!("missing SPIR-V target {} for abs accumulate", target))?;
     let output_size = storage_size_bytes_for_len(output_dtype, a.len);
-    let output_inner = runtime.create_buffer(output_size)?;
+    let output_inner = match output {
+        Some(out)
+            if out.dtype == output_dtype
+                && out.effective_dtype == output_dtype
+                && out.len == a.len
+                && (out.inner.size as usize) >= output_size =>
+        {
+            out.inner.clone()
+        }
+        _ => runtime.create_buffer(output_size)?,
+    };
     let push = [a.len as u32, 0, 0, 0];
     let duration_ns = runtime.dispatch(
         OpKind::Abs,
@@ -128,6 +139,9 @@ pub(crate) fn spv_target_name_abs(dtype: DType, attrs: &OpAttrs) -> Result<Strin
         | (DType::I4, &OpAttrs::None)
         | (DType::I2, &OpAttrs::None)
         | (DType::I1, &OpAttrs::None)
+        | (DType::F16, &OpAttrs::None)
+        | (DType::BF16, &OpAttrs::None)
+        | (DType::F8E5M2, &OpAttrs::None)
         | (DType::F32, &OpAttrs::None)
         | (DType::F64, &OpAttrs::None) => Ok(format!("abs_{}", super::dtype_suffix(dtype).unwrap())),
         _ => Err(anyhow!(
@@ -184,6 +198,9 @@ pub(crate) fn spv_target_name_abs_inplace(dtype: DType, attrs: &OpAttrs) -> Resu
         | (DType::I4, &OpAttrs::None)
         | (DType::I2, &OpAttrs::None)
         | (DType::I1, &OpAttrs::None)
+        | (DType::F16, &OpAttrs::None)
+        | (DType::BF16, &OpAttrs::None)
+        | (DType::F8E5M2, &OpAttrs::None)
         | (DType::F32, &OpAttrs::None)
         | (DType::F64, &OpAttrs::None) => Ok(format!(
             "abs_inplace_{}",

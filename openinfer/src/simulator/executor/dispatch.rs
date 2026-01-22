@@ -383,6 +383,17 @@ impl Executor {
                 .ok_or_else(|| anyhow!("op {} expects at least 1 input", op.as_str()))?
                 .dtype(),
         };
+        let mut reuse_output = None;
+        if matches!(resolved_attrs, OpAttrs::Accumulate { .. }) {
+            if matches!(self.storage.get(output), Some(super::StoredTensor::Data(_))) {
+                if let Some(super::StoredTensor::Data(data)) = self.storage.remove(output) {
+                    reuse_output = Some(data);
+                }
+            }
+            if reuse_output.is_none() {
+                reuse_output = self.dynamic.remove(output);
+            }
+        }
         let use_inplace = self.inplace_enabled
             && inplace_index.is_some()
             && inplace_hits == 1
@@ -403,7 +414,7 @@ impl Executor {
             )?
         } else {
             self.backend
-                .exec_op(op, &resolved_attrs, output_dtype, &tensors, self.thread_id)?
+                .exec_op(op, &resolved_attrs, output_dtype, &tensors, reuse_output, self.thread_id)?
         };
 
         if self.kinds.get(output) == Some(&MemoryKind::Dynamic) {

@@ -67,7 +67,7 @@ pub fn lookup_kernel_cpu_add(
             )))
         }
         (DType::I4, [DType::I4, DType::I4], &OpAttrs::None) => {
-            Some(KernelFn::Host(Box::new(|_, inputs, thread_id| {
+            Some(KernelFn::Host(crate::ops::adapter::host_kernel_simple(|_, inputs, thread_id| {
                 let a = <I4 as TensorElement>::from_value(&inputs[0]).ok_or_else(|| anyhow!("add input 0 dtype mismatch"))?;
                 let b = <I4 as TensorElement>::from_value(&inputs[1]).ok_or_else(|| anyhow!("add input 1 dtype mismatch"))?;
                 let out = add_i4(&a.data, &b.data, a.numel(), thread_id)?;
@@ -80,7 +80,7 @@ pub fn lookup_kernel_cpu_add(
             })))
         }
         (DType::I2, [DType::I2, DType::I2], &OpAttrs::None) => {
-            Some(KernelFn::Host(Box::new(|_, inputs, thread_id| {
+            Some(KernelFn::Host(crate::ops::adapter::host_kernel_simple(|_, inputs, thread_id| {
                 let a = <I2 as TensorElement>::from_value(&inputs[0]).ok_or_else(|| anyhow!("add input 0 dtype mismatch"))?;
                 let b = <I2 as TensorElement>::from_value(&inputs[1]).ok_or_else(|| anyhow!("add input 1 dtype mismatch"))?;
                 let out = add_i2(&a.data, &b.data, a.numel(), thread_id)?;
@@ -93,7 +93,7 @@ pub fn lookup_kernel_cpu_add(
             })))
         }
         (DType::I1, [DType::I1, DType::I1], &OpAttrs::None) => {
-            Some(KernelFn::Host(Box::new(|_, inputs, thread_id| {
+            Some(KernelFn::Host(crate::ops::adapter::host_kernel_simple(|_, inputs, thread_id| {
                 let a = <I1 as TensorElement>::from_value(&inputs[0]).ok_or_else(|| anyhow!("add input 0 dtype mismatch"))?;
                 let b = <I1 as TensorElement>::from_value(&inputs[1]).ok_or_else(|| anyhow!("add input 1 dtype mismatch"))?;
                 let out = add_i1(&a.data, &b.data, a.numel(), thread_id)?;
@@ -106,7 +106,7 @@ pub fn lookup_kernel_cpu_add(
             })))
         }
         (DType::U4, [DType::U4, DType::U4], &OpAttrs::None) => {
-            Some(KernelFn::Host(Box::new(|_, inputs, thread_id| {
+            Some(KernelFn::Host(crate::ops::adapter::host_kernel_simple(|_, inputs, thread_id| {
                 let a = <U4 as TensorElement>::from_value(&inputs[0]).ok_or_else(|| anyhow!("add input 0 dtype mismatch"))?;
                 let b = <U4 as TensorElement>::from_value(&inputs[1]).ok_or_else(|| anyhow!("add input 1 dtype mismatch"))?;
                 let out = add_u4(&a.data, &b.data, a.numel(), thread_id)?;
@@ -119,7 +119,7 @@ pub fn lookup_kernel_cpu_add(
             })))
         }
         (DType::U2, [DType::U2, DType::U2], &OpAttrs::None) => {
-            Some(KernelFn::Host(Box::new(|_, inputs, thread_id| {
+            Some(KernelFn::Host(crate::ops::adapter::host_kernel_simple(|_, inputs, thread_id| {
                 let a = <U2 as TensorElement>::from_value(&inputs[0]).ok_or_else(|| anyhow!("add input 0 dtype mismatch"))?;
                 let b = <U2 as TensorElement>::from_value(&inputs[1]).ok_or_else(|| anyhow!("add input 1 dtype mismatch"))?;
                 let out = add_u2(&a.data, &b.data, a.numel(), thread_id)?;
@@ -132,7 +132,7 @@ pub fn lookup_kernel_cpu_add(
             })))
         }
         (DType::U1, [DType::U1, DType::U1], &OpAttrs::None) => {
-            Some(KernelFn::Host(Box::new(|_, inputs, thread_id| {
+            Some(KernelFn::Host(crate::ops::adapter::host_kernel_simple(|_, inputs, thread_id| {
                 let a = <U1 as TensorElement>::from_value(&inputs[0]).ok_or_else(|| anyhow!("add input 0 dtype mismatch"))?;
                 let b = <U1 as TensorElement>::from_value(&inputs[1]).ok_or_else(|| anyhow!("add input 1 dtype mismatch"))?;
                 let out = add_u1(&a.data, &b.data, a.numel(), thread_id)?;

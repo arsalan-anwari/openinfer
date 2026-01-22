@@ -217,6 +217,13 @@ inputs before kernel dispatch, and Vulkan uses
 `openinfer/src/backend/vulkan/broadcast.rs` to expand buffers when an op allows
 broadcasting.
 
+### Accumulation output reuse
+
+Accumulation kernels accept an optional mutable output buffer. When the DSL
+already defines the output tensor (matching dtype and shape), the executor
+passes that buffer into the kernel to reuse allocations. When no compatible
+output exists, the kernel allocates a new buffer and returns it as usual.
+
 ### Vulkan execution notes
 
 The Vulkan backend compiles Slang shaders into SPIR-V at build time and embeds
@@ -230,6 +237,14 @@ them in `OUT_DIR`. During dispatch, the runtime:
 
 This allows ops to split float/signed/unsigned kernels into separate shaders
 without exceeding descriptor set limits.
+
+Low-bit float types (f8/bf16/f16) are cast to f32 inside shaders per element
+and written back in the original dtype. Packed integer types are decoded and
+encoded in-place from packed bytes using shared helpers in
+`openinfer/src/ops/vulkan/packed_utils.slang`.
+
+When a Vulkan device does not expose `shader_int64` or `shader_float64`, the
+backend falls back to CPU for i64/u64/f64 kernels and prints a warning.
 
 Yield/await scheduling is implemented in `openinfer/src/backend/vulkan/`. Consumer
 blocks are dispatched asynchronously on the GPU and synchronized back to the entry

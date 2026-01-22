@@ -7,7 +7,8 @@ This document describes the accumulation (`acc=`) attribute and how it is used.
 - `acc=` enables accumulation into a wider integer output type to reduce overflow.
 - It is opt-in and only available on specific ops (example: `add`, `mul`, `abs`, `matmul`).
 - The output tensor dtype must match the `acc=` type.
-- `acc=` disables inplace behavior for that op.
+- `acc=` disables aliasing the output with an input, but it can reuse a preallocated
+  output buffer when the DSL output already exists and matches type/shape.
 
 ## Supported Types
 
@@ -46,6 +47,13 @@ Invalid examples:
 - `u8 -> i16` (signedness mismatch)
 - `f16 -> f32` (floats not allowed)
 
+## Output Buffer Reuse
+
+If the output tensor already exists (same dtype and shape), the executor passes
+it into the accumulation kernel so the op can reuse the buffer instead of
+allocating a fresh one. This is important when tensors are large or memory is
+tight. When no compatible output exists, the kernel allocates a new buffer.
+
 ## Graph Validation
 
 The simulator validates accumulation usage:
@@ -53,4 +61,4 @@ The simulator validates accumulation usage:
 - Ensures `acc=` is only on supported ops.
 - Ensures output dtype matches `acc=`.
 - Ensures `acc=` is wider and same signedness as inputs.
-- Rejects in-place usage when `acc=` is present.
+- Rejects in-place aliasing with inputs when `acc=` is present.

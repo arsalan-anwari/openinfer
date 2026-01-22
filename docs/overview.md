@@ -55,4 +55,5 @@ Model Package (.oinf)
 
 For more information see [docs/implementation.md](implementation.md)
 
-See [docs/types.md](types.md) for dtype support and device-specific behavior.
+See [docs/types.md](types.md) for dtype support, CPU/AVX/AVX2 parity, and Vulkan
+fallback behavior.

@@ -20,6 +20,9 @@ pub fn lookup_kernel_vulkan_add(
                 && matches!(
                     out,
                     DType::F32
+                        | DType::F16
+                        | DType::BF16
+                        | DType::F8E5M2
                         | DType::F64
                         | DType::I8
                         | DType::I16
@@ -47,7 +50,7 @@ pub fn lookup_kernel_vulkan_add(
             if *a == *b && out == dtype =>
         {
             Some(KernelFn::Vulkan(Box::new(move |attrs, buffers, thread_id| {
-                add_accumulate_generic(attrs, buffers[0], buffers[1], out, thread_id)
+                add_accumulate_generic(attrs, buffers[0], buffers[1], out, None, thread_id)
             })))
         }
         _ => None,

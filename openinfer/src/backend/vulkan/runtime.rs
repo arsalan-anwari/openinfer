@@ -282,6 +282,35 @@ impl VulkanRuntime {
         push: [u32; 4],
         len: usize,
     ) -> Result<u128> {
+        self.dispatch_with_offsets(
+            op,
+            dtype,
+            pipeline_key,
+            entry_point,
+            spirv,
+            input0,
+            input1,
+            output,
+            push,
+            len,
+            [0, 0, 0],
+        )
+    }
+
+    pub fn dispatch_with_offsets(
+        &self,
+        op: OpKind,
+        dtype: DType,
+        pipeline_key: &str,
+        entry_point: &str,
+        spirv: &[u8],
+        input0: &VulkanBufferInner,
+        input1: &VulkanBufferInner,
+        output: &VulkanBufferInner,
+        push: [u32; 4],
+        len: usize,
+        offsets: [u64; 3],
+    ) -> Result<u128> {
         if len == 0 {
             return Ok(0);
         }
@@ -338,21 +367,37 @@ impl VulkanRuntime {
         } else {
             input1
         };
+        let offsets = [
+            offsets[0] as vk::DeviceSize,
+            offsets[1] as vk::DeviceSize,
+            offsets[2] as vk::DeviceSize,
+        ];
+        let sizes = [input0.size, input1_buffer.size, output.size];
+        for (idx, (offset, size)) in offsets.iter().zip(sizes.iter()).enumerate() {
+            if *offset >= *size {
+                return Err(anyhow!(
+                    "vulkan dispatch offset {} exceeds buffer size {} for slot {}",
+                    offset,
+                    size,
+                    idx
+                ));
+            }
+        }
         let buffer_infos = [
             vk::DescriptorBufferInfo {
                 buffer: input0.buffer,
-                offset: 0,
-                range: input0.size,
+                offset: offsets[0],
+                range: input0.size - offsets[0],
             },
             vk::DescriptorBufferInfo {
                 buffer: input1_buffer.buffer,
-                offset: 0,
-                range: input1_buffer.size,
+                offset: offsets[1],
+                range: input1_buffer.size - offsets[1],
             },
             vk::DescriptorBufferInfo {
                 buffer: output.buffer,
-                offset: 0,
-                range: output.size,
+                offset: offsets[2],
+                range: output.size - offsets[2],
             },
         ];
         let writes = [
@@ -586,6 +631,8 @@ impl Drop for VulkanRuntime {
 pub fn storage_size_bytes(dtype: DType) -> usize {
     match dtype {
         DType::I64 | DType::U64 | DType::F64 => 8,
+        DType::F16 | DType::BF16 => 2,
+        DType::F8E5M2 => 1,
         _ => 4,
     }
 }

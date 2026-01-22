@@ -49,6 +49,7 @@ pub(crate) trait DeviceBackend: Send + Sync {
         attrs: &crate::graph::OpAttrs,
         output_dtype: DType,
         tensors: &[crate::backend::TensorStorage],
+        output: Option<crate::backend::TensorStorage>,
         thread_id: usize,
     ) -> Result<crate::backend::TensorStorage>;
     fn exec_op_inplace(

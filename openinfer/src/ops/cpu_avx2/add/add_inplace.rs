@@ -6,6 +6,12 @@ use std::arch::x86_64::{
 };
 
 use crate::timer::Timer;
+use crate::ops::cpu_avx2::packed::{
+    get_i2_value, get_i4_value, get_u2_value, get_u4_value, set_i2_value, set_i4_value,
+    set_u2_value, set_u4_value,
+};
+use crate::tensor::{I2, I4, U2, U4};
+
 pub fn add_inplace_f32(a: &mut [f32], b: &[f32], thread_id: usize) -> Result<()> {
     if a.len() != b.len() {
         return Err(anyhow!("add inplace shape mismatch"));
@@ -402,4 +408,64 @@ pub fn add_bool(a: &[bool], b: &[bool], thread_id: usize) -> Result<Vec<bool>> {
     }
     Timer::stop(thread_id);
     Ok(out)
+}
+
+pub fn add_inplace_i4(a: &mut [I4], b: &[I4], logical_len: usize, thread_id: usize) -> Result<()> {
+    if a.len() != b.len() {
+        return Err(anyhow!("add inplace shape mismatch"));
+    }
+    Timer::start(thread_id);
+    for idx in 0..logical_len {
+        let av = get_i4_value(a, idx);
+        let bv = get_i4_value(b, idx);
+        let sum = av.wrapping_add(bv);
+        set_i4_value(a, idx, sum);
+    }
+    Timer::stop(thread_id);
+    Ok(())
+}
+
+pub fn add_inplace_i2(a: &mut [I2], b: &[I2], logical_len: usize, thread_id: usize) -> Result<()> {
+    if a.len() != b.len() {
+        return Err(anyhow!("add inplace shape mismatch"));
+    }
+    Timer::start(thread_id);
+    for idx in 0..logical_len {
+        let av = get_i2_value(a, idx);
+        let bv = get_i2_value(b, idx);
+        let sum = av.wrapping_add(bv);
+        set_i2_value(a, idx, sum);
+    }
+    Timer::stop(thread_id);
+    Ok(())
+}
+
+pub fn add_inplace_u4(a: &mut [U4], b: &[U4], logical_len: usize, thread_id: usize) -> Result<()> {
+    if a.len() != b.len() {
+        return Err(anyhow!("add inplace shape mismatch"));
+    }
+    Timer::start(thread_id);
+    for idx in 0..logical_len {
+        let av = get_u4_value(a, idx);
+        let bv = get_u4_value(b, idx);
+        let sum = av.wrapping_add(bv);
+        set_u4_value(a, idx, sum);
+    }
+    Timer::stop(thread_id);
+    Ok(())
+}
+
+pub fn add_inplace_u2(a: &mut [U2], b: &[U2], logical_len: usize, thread_id: usize) -> Result<()> {
+    if a.len() != b.len() {
+        return Err(anyhow!("add inplace shape mismatch"));
+    }
+    Timer::start(thread_id);
+    for idx in 0..logical_len {
+        let av = get_u2_value(a, idx);
+        let bv = get_u2_value(b, idx);
+        let sum = av.wrapping_add(bv);
+        set_u2_value(a, idx, sum);
+    }
+    Timer::stop(thread_id);
+    Ok(())
 }

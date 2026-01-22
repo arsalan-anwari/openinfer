@@ -6,6 +6,8 @@ use std::arch::x86_64::{
 
 use crate::graph::{AttrValue, OpAttrs};
 use crate::timer::Timer;
+use crate::ops::cpu_avx2::packed::{get_i4_value, set_i4_value};
+use crate::tensor::I4;
 
 pub fn relu_f32(attrs: &OpAttrs, a: &[f32], thread_id: usize) -> Result<Vec<f32>> {
     let (negative_slope, clamp_max) = match attrs {
@@ -43,6 +45,34 @@ pub fn relu_f32(attrs: &OpAttrs, a: &[f32], thread_id: usize) -> Result<Vec<f32>
             *out_ptr.add(i) = y;
             i += 1;
         }
+    }
+    Timer::stop(thread_id);
+    Ok(out)
+}
+
+pub fn relu_i4(attrs: &OpAttrs, a: &[I4], logical_len: usize, thread_id: usize) -> Result<Vec<I4>> {
+    let (negative_slope, clamp_max) = match attrs {
+        OpAttrs::Relu { negative_slope, clamp_max } => {
+            (attr_value_f32(negative_slope)?, attr_value_f32(clamp_max)?)
+        }
+        _ => return Err(anyhow!("relu op expects relu attributes")),
+    };
+    let storage_len = (logical_len + 1) / 2;
+    let mut out = vec![I4 { bits: 0 }; storage_len];
+    Timer::start(thread_id);
+    for idx in 0..logical_len {
+        let x = get_i4_value(a, idx) as f32;
+        let mut y = if x >= 0.0 { x } else { x * negative_slope };
+        if y > clamp_max {
+            y = clamp_max;
+        }
+        if y < i8::MIN as f32 {
+            y = i8::MIN as f32;
+        }
+        if y > i8::MAX as f32 {
+            y = i8::MAX as f32;
+        }
+        set_i4_value(&mut out, idx, y as i8);
     }
     Timer::stop(thread_id);
     Ok(out)

@@ -23,7 +23,7 @@ pub use registry::{
 };
 
 #[allow(unused_imports)]
-pub use adapter::{cpu_kernel, cpu_kernel_out, CpuKernelAdapter, CpuKernelAdapterOut};
+pub use adapter::{cpu_kernel, CpuKernelAdapter};
 #[cfg(feature = "vulkan")]
 #[allow(unused_imports)]
 pub use adapter::{device_kernel, DeviceKernelAdapter};

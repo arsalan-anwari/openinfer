@@ -7,6 +7,8 @@ use std::arch::x86_64::{
 };
 
 use crate::timer::Timer;
+use crate::ops::cpu_avx2::packed::{get_i2_value, get_i4_value, set_i2_value, set_i4_value};
+use crate::tensor::{I2, I4};
 pub fn abs_inplace_f32(a: &mut [f32], thread_id: usize) -> Result<()> {
     Timer::start(thread_id);
     unsafe {
@@ -124,6 +126,28 @@ pub fn abs_inplace_i64(a: &mut [i64], thread_id: usize) -> Result<()> {
             *a.get_unchecked_mut(i) = a.get_unchecked(i).abs();
             i += 1;
         }
+    }
+    Timer::stop(thread_id);
+    Ok(())
+}
+
+pub fn abs_inplace_i4(a: &mut [I4], logical_len: usize, thread_id: usize) -> Result<()> {
+    Timer::start(thread_id);
+    for idx in 0..logical_len {
+        let v = get_i4_value(a, idx);
+        let y = if v < 0 { v.wrapping_neg() } else { v };
+        set_i4_value(a, idx, y);
+    }
+    Timer::stop(thread_id);
+    Ok(())
+}
+
+pub fn abs_inplace_i2(a: &mut [I2], logical_len: usize, thread_id: usize) -> Result<()> {
+    Timer::start(thread_id);
+    for idx in 0..logical_len {
+        let v = get_i2_value(a, idx);
+        let y = if v < 0 { v.wrapping_neg() } else { v };
+        set_i2_value(a, idx, y);
     }
     Timer::stop(thread_id);
     Ok(())

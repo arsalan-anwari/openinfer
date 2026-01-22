@@ -19,3 +19,5 @@ This list mirrors the Rust examples wired into `openinfer/Cargo.toml`.
 - `examples/rust/cache_weight_update.rs`: Updates cached weights across steps using ops.
 - `examples/rust/cache_fixed_limit.rs`: Shows `@fixed` bounds triggering a cache error.
 - `examples/rust/yield.rs`: Demonstrates yield/await concurrency across blocks.
+- `examples/rust/ops_accumulate_inplace.rs`: Validates CPU vs device outputs with drift-aware checks.
+- `examples/rust/ops_matrix.rs`: Matrix-focused op coverage and dtype checks.

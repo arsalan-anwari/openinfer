@@ -42,7 +42,7 @@ pub fn lookup_kernel_cpu_abs(
         (DType::I64, [DType::I64], &OpAttrs::None) => Some(KernelFn::Host(cpu_kernel(
             abs_i64 as fn(&[i64] , usize) -> Result<Vec<i64>>,
         ))),
-        (DType::I4, [DType::I4], &OpAttrs::None) => Some(KernelFn::Host(Box::new(|_, inputs, thread_id| {
+        (DType::I4, [DType::I4], &OpAttrs::None) => Some(KernelFn::Host(crate::ops::adapter::host_kernel_simple(|_, inputs, thread_id| {
             let a = <I4 as TensorElement>::from_value(&inputs[0]).ok_or_else(|| anyhow!("abs input 0 dtype mismatch"))?;
             let out = abs_i4(&a.data, a.numel(), thread_id)?;
             let tensor = Tensor::from_vec_with_opts(out, TensorOptions {
@@ -52,7 +52,7 @@ pub fn lookup_kernel_cpu_abs(
             })?;
             Ok(<I4 as TensorElement>::into_value(tensor))
         }))),
-        (DType::I2, [DType::I2], &OpAttrs::None) => Some(KernelFn::Host(Box::new(|_, inputs, thread_id| {
+        (DType::I2, [DType::I2], &OpAttrs::None) => Some(KernelFn::Host(crate::ops::adapter::host_kernel_simple(|_, inputs, thread_id| {
             let a = <I2 as TensorElement>::from_value(&inputs[0]).ok_or_else(|| anyhow!("abs input 0 dtype mismatch"))?;
             let out = abs_i2(&a.data, a.numel(), thread_id)?;
             let tensor = Tensor::from_vec_with_opts(out, TensorOptions {
@@ -62,7 +62,7 @@ pub fn lookup_kernel_cpu_abs(
             })?;
             Ok(<I2 as TensorElement>::into_value(tensor))
         }))),
-        (DType::I1, [DType::I1], &OpAttrs::None) => Some(KernelFn::Host(Box::new(|_, inputs, thread_id| {
+        (DType::I1, [DType::I1], &OpAttrs::None) => Some(KernelFn::Host(crate::ops::adapter::host_kernel_simple(|_, inputs, thread_id| {
             let a = <I1 as TensorElement>::from_value(&inputs[0]).ok_or_else(|| anyhow!("abs input 0 dtype mismatch"))?;
             let out = abs_i1(&a.data, a.numel(), thread_id)?;
             let tensor = Tensor::from_vec_with_opts(out, TensorOptions {

@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use crate::ops::cpu::packed::packed_unary_signed;
+use crate::ops::cpu::packed::packed_unary_signed_inplace;
 use crate::tensor::{BF16, F16, F8E5M2, I1, I2, I4};
 use crate::timer::Timer;
 
@@ -86,24 +86,21 @@ pub fn abs_inplace_i64(a: &mut [i64], thread_id: usize) -> Result<()> {
 
 pub fn abs_inplace_i4(a: &mut [I4], logical_len: usize, thread_id: usize) -> Result<()> {
     Timer::start(thread_id);
-    let out = packed_unary_signed(4, a, logical_len, I4 { bits: 0 }, |x| if x < 0 { -x } else { x });
-    a.copy_from_slice(&out);
+    packed_unary_signed_inplace(4, a, logical_len, |x| if x < 0 { -x } else { x });
     Timer::stop(thread_id);
     Ok(())
 }
 
 pub fn abs_inplace_i2(a: &mut [I2], logical_len: usize, thread_id: usize) -> Result<()> {
     Timer::start(thread_id);
-    let out = packed_unary_signed(2, a, logical_len, I2 { bits: 0 }, |x| if x < 0 { -x } else { x });
-    a.copy_from_slice(&out);
+    packed_unary_signed_inplace(2, a, logical_len, |x| if x < 0 { -x } else { x });
     Timer::stop(thread_id);
     Ok(())
 }
 
 pub fn abs_inplace_i1(a: &mut [I1], logical_len: usize, thread_id: usize) -> Result<()> {
     Timer::start(thread_id);
-    let out = packed_unary_signed(1, a, logical_len, I1 { bits: 0 }, |x| if x < 0 { -x } else { x });
-    a.copy_from_slice(&out);
+    packed_unary_signed_inplace(1, a, logical_len, |x| if x < 0 { -x } else { x });
     Timer::stop(thread_id);
     Ok(())
 }

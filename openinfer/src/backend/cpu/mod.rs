@@ -51,6 +51,7 @@ impl DeviceBackend for CpuBackend {
         attrs: &OpAttrs,
         output_dtype: DType,
         tensors: &[TensorStorage],
+        output: Option<TensorStorage>,
         thread_id: usize,
     ) -> Result<TensorStorage> {
         let output_effective = effective_dtype(output_dtype)?;
@@ -79,9 +80,20 @@ impl DeviceBackend for CpuBackend {
             .ok_or_else(|| anyhow!("unsupported op {}", op.as_str()))?;
         match kernel {
             KernelFn::Host(func) => {
-                let output = (func)(attrs, &host, thread_id)?;
-                let output = from_effective_tensor(output, output_dtype)?;
-                Ok(TensorStorage::Host(output))
+                let mut output_value = match output {
+                    Some(TensorStorage::Host(value)) => Some(value),
+                    _ => None,
+                };
+                let output_value_result = (func)(attrs, &host, output_value.as_mut(), thread_id)?;
+                if let Some(value) = output_value_result {
+                    let value = from_effective_tensor(value, output_dtype)?;
+                    return Ok(TensorStorage::Host(value));
+                }
+                if let Some(existing) = output_value {
+                    let value = from_effective_tensor(existing, output_dtype)?;
+                    return Ok(TensorStorage::Host(value));
+                }
+                Err(anyhow!("cpu kernel returned no output"))
             }
             #[cfg(feature = "vulkan")]
             KernelFn::Vulkan(_) => Err(anyhow!("host backend cannot run device kernel")),

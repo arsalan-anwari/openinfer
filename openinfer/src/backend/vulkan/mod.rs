@@ -7,12 +7,12 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use crate::backend::{DeviceTensor, OpShaderInfo, ShaderRegistry, TensorStorage, VulkanBuffer};
+use crate::backend::cpu::CpuBackend;
 use crate::graph::{OpAttrs, OpKind};
 use crate::ops::{broadcast_enabled, lookup_kernel, KernelFn};
 use crate::ops::registry::lookup_kernel_inplace;
 use crate::simulator::{Device, DeviceBackend};
 use crate::tensor::{broadcast_shapes, BF16, Bitset, DType, F16, F8E5M2, I1, I2, I4, T1, T2, U1, U2, U4, TensorValue};
-use crate::types::vulkan::{from_effective_tensor, to_effective_tensor};
 
 pub mod runtime;
 pub use runtime::{storage_size_bytes_for_len, VulkanBufferInner, VulkanRuntime};
@@ -70,6 +70,7 @@ impl VulkanShaderRegistry {
         Self::load_from_file(Self::default_manifest_path())
     }
 
+    #[allow(dead_code)]
     pub fn shader_for_name(&self, name: &str) -> Option<Arc<OpShaderInfo>> {
         self.ops.get(name).cloned()
     }
@@ -121,7 +122,7 @@ impl VulkanBackend {
     fn effective_dtype(&self, dtype: DType) -> Result<DType> {
         let runtime = self.runtime()?;
         match dtype {
-            DType::F16 | DType::BF16 | DType::F8E5M2 => Ok(DType::F32),
+            DType::F16 | DType::BF16 | DType::F8E5M2 => Ok(dtype),
             DType::I64 | DType::U64 => {
                 if !runtime.supports_i64() {
                     return Err(anyhow!("vulkan device does not support i64/u64 (shader_int64)"));
@@ -147,6 +148,106 @@ impl VulkanBackend {
             _ => Ok(dtype)
         }
     }
+
+    fn exec_op_cpu_fallback(
+        &self,
+        op: OpKind,
+        attrs: &OpAttrs,
+        output_dtype: DType,
+        tensors: &[TensorStorage],
+        output: Option<TensorStorage>,
+        thread_id: usize,
+    ) -> Result<TensorStorage> {
+        let cpu_backend = CpuBackend::new(Device::Cpu);
+        let mut host_inputs = Vec::with_capacity(tensors.len());
+        for tensor in tensors {
+            match tensor {
+                TensorStorage::Host(value) => host_inputs.push(TensorStorage::Host(value.clone())),
+                TensorStorage::Device(DeviceTensor::Vulkan(_)) => {
+                    let host = self.download(tensor.clone())?;
+                    host_inputs.push(TensorStorage::Host(host));
+                }
+            }
+        }
+        let output_host = match output {
+            Some(TensorStorage::Host(value)) => Some(TensorStorage::Host(value)),
+            Some(TensorStorage::Device(DeviceTensor::Vulkan(buf))) => {
+                let host = self.download(TensorStorage::Device(DeviceTensor::Vulkan(buf)))?;
+                Some(TensorStorage::Host(host))
+            }
+            None => None,
+        };
+        let output = cpu_backend.exec_op(
+            op,
+            attrs,
+            output_dtype,
+            &host_inputs,
+            output_host,
+            thread_id,
+        )?;
+        match output {
+            TensorStorage::Host(value) => match self.effective_dtype(output_dtype) {
+                Ok(_) => {
+                    eprintln!(
+                        "vulkan fallback: running {} on CPU and uploading output",
+                        op.as_str()
+                    );
+                    self.upload(value)
+                }
+                Err(err) => {
+                    eprintln!(
+                        "vulkan fallback: running {} on CPU ({}), keeping host output",
+                        op.as_str(),
+                        err
+                    );
+                    Ok(TensorStorage::Host(value))
+                }
+            },
+            TensorStorage::Device(_) => Ok(output),
+        }
+    }
+
+    fn exec_op_inplace_cpu_fallback(
+        &self,
+        op: OpKind,
+        attrs: &OpAttrs,
+        output_dtype: DType,
+        tensors: &[TensorStorage],
+        thread_id: usize,
+    ) -> Result<TensorStorage> {
+        let cpu_backend = CpuBackend::new(Device::Cpu);
+        let mut host_inputs = Vec::with_capacity(tensors.len());
+        for tensor in tensors {
+            match tensor {
+                TensorStorage::Host(value) => host_inputs.push(TensorStorage::Host(value.clone())),
+                TensorStorage::Device(DeviceTensor::Vulkan(_)) => {
+                    let host = self.download(tensor.clone())?;
+                    host_inputs.push(TensorStorage::Host(host));
+                }
+            }
+        }
+        let output = cpu_backend.exec_op_inplace(op, attrs, output_dtype, &host_inputs, thread_id)?;
+        match output {
+            TensorStorage::Host(value) => match self.effective_dtype(output_dtype) {
+                Ok(_) => {
+                    eprintln!(
+                        "vulkan fallback: running {} inplace on CPU and uploading output",
+                        op.as_str()
+                    );
+                    self.upload(value)
+                }
+                Err(err) => {
+                    eprintln!(
+                        "vulkan fallback: running {} inplace on CPU ({}), keeping host output",
+                        op.as_str(),
+                        err
+                    );
+                    Ok(TensorStorage::Host(value))
+                }
+            },
+            TensorStorage::Device(_) => Ok(output),
+        }
+    }
 }
 
 impl DeviceBackend for VulkanBackend {
@@ -160,7 +261,13 @@ impl DeviceBackend for VulkanBackend {
             .lock()
             .map_err(|_| anyhow!("vulkan dispatch lock poisoned"))?;
         let runtime = self.runtime()?;
-        let effective_dtype = self.effective_dtype(dtype)?;
+        let effective_dtype = match self.effective_dtype(dtype) {
+            Ok(dtype) => dtype,
+            Err(err) => {
+                eprintln!("vulkan fallback: alloc {:?} on CPU ({})", dtype, err);
+                return Ok(TensorStorage::Host(TensorValue::zeros(dtype, shape)));
+            }
+        };
         let len = crate::tensor::numel(shape);
         let size = storage_size_bytes_for_len(effective_dtype, len);
         let inner = runtime.create_buffer(size)?;
@@ -183,14 +290,19 @@ impl DeviceBackend for VulkanBackend {
             .map_err(|_| anyhow!("vulkan dispatch lock poisoned"))?;
         let runtime = self.runtime()?;
         let dtype = value.dtype();
-        let effective_dtype = self.effective_dtype(dtype)?;
+        let effective_dtype = match self.effective_dtype(dtype) {
+            Ok(dtype) => dtype,
+            Err(err) => {
+                eprintln!("vulkan fallback: upload {:?} on CPU ({})", dtype, err);
+                return Ok(TensorStorage::Host(value));
+            }
+        };
         let len = value.len();
         let shape = value.shape().to_vec();
         let strides = value.strides().to_vec();
         let size = storage_size_bytes_for_len(effective_dtype, len);
         let inner = runtime.create_buffer(size)?;
-        let encoded = to_effective_tensor(value, effective_dtype)?;
-        let bytes = encode_tensor(encoded);
+        let bytes = encode_tensor_with_effective(&value, effective_dtype)?;
         runtime.write_buffer(&inner, &bytes)?;
         Ok(TensorStorage::Device(DeviceTensor::Vulkan(VulkanBuffer {
             dtype,
@@ -209,14 +321,18 @@ impl DeviceBackend for VulkanBackend {
             .lock()
             .map_err(|_| anyhow!("vulkan dispatch lock poisoned"))?;
         match value {
-            TensorStorage::Host(_) => Err(anyhow!("vulkan backend cannot download host tensor")),
+            TensorStorage::Host(host) => Ok(host),
             TensorStorage::Device(DeviceTensor::Vulkan(buf)) => {
                 let runtime = self.runtime()?;
                 let size = storage_size_bytes_for_len(buf.effective_dtype, buf.len);
                 let mut bytes = vec![0u8; size];
                 runtime.read_buffer(&buf.inner, &mut bytes)?;
-                let value = decode_tensor(buf.effective_dtype, buf.shape.as_slice(), &bytes)?;
-                from_effective_tensor(value, buf.dtype)
+                decode_tensor_with_effective(
+                    buf.dtype,
+                    buf.effective_dtype,
+                    buf.shape.as_slice(),
+                    &bytes,
+                )
             }
         }
     }
@@ -227,49 +343,140 @@ impl DeviceBackend for VulkanBackend {
         attrs: &OpAttrs,
         output_dtype: DType,
         tensors: &[TensorStorage],
+        output: Option<TensorStorage>,
         thread_id: usize,
     ) -> Result<TensorStorage> {
-        let output_effective = self.effective_dtype(output_dtype)?;
+        if tensors.iter().any(|t| matches!(t, TensorStorage::Host(_))) {
+            return self.exec_op_cpu_fallback(op, attrs, output_dtype, tensors, output, thread_id);
+        }
+        let output_effective = match self.effective_dtype(output_dtype) {
+            Ok(dtype) => dtype,
+            Err(err) => {
+                eprintln!(
+                    "vulkan fallback: op {} output {:?} unsupported ({})",
+                    op.as_str(),
+                    output_dtype,
+                    err
+                );
+                return self.exec_op_cpu_fallback(op, attrs, output_dtype, tensors, output, thread_id);
+            }
+        };
         let shader = self.shaders.shader_for_op(op);
         if shader.is_none() {
             eprintln!("vulkan shaders: missing entry for op {}", op.as_str());
         }
-        let _guard = self
-            .dispatch_lock
-            .lock()
-            .map_err(|_| anyhow!("vulkan dispatch lock poisoned"))?;
         let mut buffers = to_vulkan_buffers(tensors, shader.clone())?;
+        let input_dtypes: Vec<DType> = buffers.iter().map(|b| b.effective_dtype).collect();
+        let output_buffer = match output.as_ref() {
+            Some(TensorStorage::Device(DeviceTensor::Vulkan(buf))) => Some(buf),
+            _ => None,
+        };
+        let use_accumulate = matches!(attrs, OpAttrs::Accumulate { .. })
+            && output_buffer.is_some()
+            && matches!(op, OpKind::Add | OpKind::Mul | OpKind::Abs | OpKind::Matmul);
+        let kernel = if use_accumulate {
+            None
+        } else {
+            match lookup_kernel(self.device(), op, output_effective, &input_dtypes, attrs) {
+                Some(kernel) => Some(kernel),
+                None => {
+                    eprintln!(
+                        "vulkan fallback: no kernel for {} {:?}->{:?}",
+                        op.as_str(),
+                        input_dtypes,
+                        output_effective
+                    );
+                    return self.exec_op_cpu_fallback(
+                        op,
+                        attrs,
+                        output_dtype,
+                        tensors,
+                        output,
+                        thread_id,
+                    );
+                }
+            }
+        };
+        if let Some(KernelFn::Host(_)) = kernel {
+            eprintln!("vulkan fallback: host kernel for {}", op.as_str());
+            return self.exec_op_cpu_fallback(op, attrs, output_dtype, tensors, output, thread_id);
+        }
+        let mut broadcast_shape = None;
         if buffers.len() > 1 {
             if broadcast_enabled(op, self.device()) {
                 let mut out_shape = buffers[0].shape.clone();
                 for buffer in buffers.iter().skip(1) {
                     out_shape = broadcast_shapes(&out_shape, buffer.shape.as_slice())?;
                 }
-                buffers = buffers
-                    .into_iter()
-                    .map(|buffer| {
-                        if buffer.shape == out_shape {
-                            Ok(buffer)
-                        } else {
-                            crate::backend::vulkan::broadcast::broadcast_buffer(
-                                &buffer,
-                                out_shape.as_slice(),
-                                thread_id,
-                            )
-                        }
-                    })
-                    .collect::<Result<Vec<_>>>()?;
+                if buffers.iter().any(|buffer| buffer.shape != out_shape) {
+                    broadcast_shape = Some(out_shape);
+                }
             }
         }
-        let input_dtypes: Vec<DType> = buffers.iter().map(|b| b.effective_dtype).collect();
+        let _guard = self
+            .dispatch_lock
+            .lock()
+            .map_err(|_| anyhow!("vulkan dispatch lock poisoned"))?;
+        if let Some(out_shape) = broadcast_shape {
+            buffers = buffers
+                .into_iter()
+                .map(|buffer| {
+                    if buffer.shape == out_shape {
+                        Ok(buffer)
+                    } else {
+                        crate::backend::vulkan::broadcast::broadcast_buffer(
+                            &buffer,
+                            out_shape.as_slice(),
+                            thread_id,
+                        )
+                    }
+                })
+                .collect::<Result<Vec<_>>>()?;
+        }
         let buffer_refs: Vec<&VulkanBuffer> = buffers.iter().collect();
-        let kernel = lookup_kernel(self.device(), op, output_effective, &input_dtypes, attrs)
-            .ok_or_else(|| anyhow!("unsupported op {}", op.as_str()))?;
-        match kernel {
+        if use_accumulate {
+            let out_buf = output_buffer.expect("accumulate output buffer must exist");
+            let output = match op {
+                OpKind::Add => crate::ops::vulkan::add::add_accumulate_generic(
+                    attrs,
+                    &buffers[0],
+                    &buffers[1],
+                    output_dtype,
+                    Some(out_buf),
+                    thread_id,
+                )?,
+                OpKind::Mul => crate::ops::vulkan::mul::mul_accumulate_generic(
+                    attrs,
+                    &buffers[0],
+                    &buffers[1],
+                    output_dtype,
+                    Some(out_buf),
+                    thread_id,
+                )?,
+                OpKind::Abs => crate::ops::vulkan::abs::abs_accumulate_generic(
+                    attrs,
+                    &buffers[0],
+                    output_dtype,
+                    Some(out_buf),
+                    thread_id,
+                )?,
+                OpKind::Matmul => crate::ops::vulkan::matmul::matmul_accumulate_generic(
+                    attrs,
+                    &buffers[0],
+                    &buffers[1],
+                    output_dtype,
+                    Some(out_buf),
+                    thread_id,
+                )?,
+                _ => unreachable!("unsupported accumulate op"),
+            };
+            return Ok(TensorStorage::Device(DeviceTensor::Vulkan(output)));
+        }
+        match kernel.expect("kernel must be resolved before dispatch") {
             KernelFn::Vulkan(func) => Ok(TensorStorage::Device(DeviceTensor::Vulkan(
                 (func)(attrs, &buffer_refs, thread_id)?,
             ))),
-            KernelFn::Host(_) => Err(anyhow!("vulkan backend cannot run host kernel")),
+            KernelFn::Host(_) => unreachable!("host kernel handled before dispatch"),
         }
     }
 
@@ -281,45 +488,104 @@ impl DeviceBackend for VulkanBackend {
         tensors: &[TensorStorage],
         thread_id: usize,
     ) -> Result<TensorStorage> {
-        let output_effective = self.effective_dtype(output_dtype)?;
-        let shader = self
-            .shaders
-            .shader_for_name(&format!("{}_inplace", op.as_str()));
+        if tensors.iter().any(|t| matches!(t, TensorStorage::Host(_))) {
+            return self.exec_op_inplace_cpu_fallback(op, attrs, output_dtype, tensors, thread_id);
+        }
+        let output_effective = match self.effective_dtype(output_dtype) {
+            Ok(dtype) => dtype,
+            Err(err) => {
+                eprintln!(
+                    "vulkan fallback: inplace op {} output {:?} unsupported ({})",
+                    op.as_str(),
+                    output_dtype,
+                    err
+                );
+                return self.exec_op_inplace_cpu_fallback(op, attrs, output_dtype, tensors, thread_id);
+            }
+        };
+        let shader = self.shaders.shader_for_op(op);
         if shader.is_none() {
             eprintln!(
-                "vulkan shaders: missing entry for op {}_inplace",
+                "vulkan shaders: missing entry for op {}",
                 op.as_str()
             );
+            return self.exec_op_inplace_cpu_fallback(op, attrs, output_dtype, tensors, thread_id);
         }
-        let _guard = self
-            .dispatch_lock
-            .lock()
-            .map_err(|_| anyhow!("vulkan dispatch lock poisoned"))?;
-        let buffers = to_vulkan_buffers(tensors, shader)?;
-        if buffers.len() > 1 {
-            let first = buffers[0].shape.clone();
-            for buffer in buffers.iter().skip(1) {
-                if buffer.shape != first {
-                    return Err(anyhow!(
-                        "op {} inplace requires identical input shapes on {:?}",
-                        op.as_str(),
-                        self.device()
-                    ));
+        let mut buffers = to_vulkan_buffers(tensors, shader)?;
+        if buffers.len() > 1 && op != OpKind::Matmul {
+            if broadcast_enabled(op, self.device()) {
+                let out_shape = buffers[0].shape.clone();
+                for buffer in buffers.iter().skip(1) {
+                    let merged = broadcast_shapes(&out_shape, buffer.shape.as_slice())?;
+                    if merged != out_shape {
+                        return Err(anyhow!(
+                            "op {} inplace requires broadcastable input shapes on {:?}",
+                            op.as_str(),
+                            self.device()
+                        ));
+                    }
+                }
+                if buffers.iter().skip(1).any(|buffer| buffer.shape != out_shape) {
+                    let _guard = self
+                        .dispatch_lock
+                        .lock()
+                        .map_err(|_| anyhow!("vulkan dispatch lock poisoned"))?;
+                    buffers = buffers
+                        .into_iter()
+                        .enumerate()
+                        .map(|(idx, buffer)| {
+                            if idx == 0 || buffer.shape == out_shape {
+                                Ok(buffer)
+                            } else {
+                                crate::backend::vulkan::broadcast::broadcast_buffer(
+                                    &buffer,
+                                    out_shape.as_slice(),
+                                    thread_id,
+                                )
+                            }
+                        })
+                        .collect::<Result<Vec<_>>>()?;
+                }
+            } else {
+                let first = buffers[0].shape.clone();
+                for buffer in buffers.iter().skip(1) {
+                    if buffer.shape != first {
+                        return Err(anyhow!(
+                            "op {} inplace requires identical input shapes on {:?}",
+                            op.as_str(),
+                            self.device()
+                        ));
+                    }
                 }
             }
         }
         let input_dtypes: Vec<DType> = buffers.iter().map(|b| b.effective_dtype).collect();
-        let buffer_refs: Vec<&VulkanBuffer> = buffers.iter().collect();
-        let kernel = lookup_kernel_inplace(self.device(), op, output_effective, &input_dtypes, attrs)
-            .ok_or_else(|| anyhow!("unsupported inplace op {}", op.as_str()))?;
+        let kernel = match lookup_kernel_inplace(self.device(), op, output_effective, &input_dtypes, attrs) {
+            Some(kernel) => kernel,
+            None => {
+                eprintln!(
+                    "vulkan fallback: no inplace kernel for {} {:?}->{:?}",
+                    op.as_str(),
+                    input_dtypes,
+                    output_effective
+                );
+                return self.exec_op_inplace_cpu_fallback(op, attrs, output_dtype, tensors, thread_id);
+            }
+        };
         match kernel {
+            crate::ops::registry::InplaceKernelFn::Host(_) => {
+                eprintln!("vulkan fallback: host inplace kernel for {}", op.as_str());
+                self.exec_op_inplace_cpu_fallback(op, attrs, output_dtype, tensors, thread_id)
+            }
             crate::ops::registry::InplaceKernelFn::Vulkan(func) => {
+                let _guard = self
+                    .dispatch_lock
+                    .lock()
+                    .map_err(|_| anyhow!("vulkan dispatch lock poisoned"))?;
+                let buffer_refs: Vec<&VulkanBuffer> = buffers.iter().collect();
                 Ok(TensorStorage::Device(DeviceTensor::Vulkan(
                 (func)(attrs, &buffer_refs, thread_id)?,
                 )))
-            }
-            crate::ops::registry::InplaceKernelFn::Host(_) => {
-                Err(anyhow!("vulkan backend cannot run host kernel"))
             }
         }
     }
@@ -341,7 +607,7 @@ fn to_vulkan_buffers(
     Ok(out)
 }
 
-fn encode_tensor(value: TensorValue) -> Vec<u8> {
+fn encode_tensor(value: &TensorValue) -> Vec<u8> {
     match value {
         TensorValue::I8(tensor) => tensor
             .data
@@ -386,18 +652,14 @@ fn encode_tensor(value: TensorValue) -> Vec<u8> {
         TensorValue::F16(tensor) => tensor
             .data
             .iter()
-            .flat_map(|v| u32::from(v.bits).to_le_bytes())
+            .flat_map(|v| v.bits.to_le_bytes())
             .collect(),
         TensorValue::BF16(tensor) => tensor
             .data
             .iter()
-            .flat_map(|v| u32::from(v.bits).to_le_bytes())
+            .flat_map(|v| v.bits.to_le_bytes())
             .collect(),
-        TensorValue::F8E5M2(tensor) => tensor
-            .data
-            .iter()
-            .flat_map(|v| u32::from(v.bits).to_le_bytes())
-            .collect(),
+        TensorValue::F8E5M2(tensor) => tensor.data.iter().map(|v| v.bits).collect(),
         TensorValue::F32(tensor) => tensor
             .data
             .iter()
@@ -426,6 +688,34 @@ fn encode_tensor(value: TensorValue) -> Vec<u8> {
         TensorValue::U1(tensor) => tensor.data.iter().map(|v| v.bits).collect(),
         TensorValue::T2(tensor) => tensor.data.iter().map(|v| v.bits).collect(),
         TensorValue::T1(tensor) => tensor.data.iter().map(|v| v.bits).collect(),
+    }
+}
+
+fn encode_tensor_with_effective(value: &TensorValue, effective: DType) -> Result<Vec<u8>> {
+    if value.dtype() == effective {
+        return Ok(encode_tensor(value));
+    }
+    match (value, effective) {
+        (TensorValue::F16(tensor), DType::F32) => Ok(tensor
+            .data
+            .iter()
+            .flat_map(|v| v.to_f32().to_le_bytes())
+            .collect()),
+        (TensorValue::BF16(tensor), DType::F32) => Ok(tensor
+            .data
+            .iter()
+            .flat_map(|v| v.to_f32().to_le_bytes())
+            .collect()),
+        (TensorValue::F8E5M2(tensor), DType::F32) => Ok(tensor
+            .data
+            .iter()
+            .flat_map(|v| v.to_f32().to_le_bytes())
+            .collect()),
+        _ => Err(anyhow!(
+            "vulkan encode {:?} -> {:?} not supported",
+            value.dtype(),
+            effective
+        )),
     }
 }
 
@@ -522,10 +812,10 @@ fn decode_tensor(dtype: DType, shape: &[usize], bytes: &[u8]) -> Result<TensorVa
         )?)),
         DType::F16 => Ok(TensorValue::F16(crate::tensor::Tensor::from_vec_with_opts(
             bytes
-                .chunks_exact(4)
+                .chunks_exact(2)
                 .take(len)
                 .map(|chunk| F16 {
-                    bits: u32::from_le_bytes(chunk.try_into().unwrap()) as u16,
+                    bits: u16::from_le_bytes(chunk.try_into().unwrap()),
                 })
                 .collect(),
             crate::tensor::TensorOptions {
@@ -535,10 +825,10 @@ fn decode_tensor(dtype: DType, shape: &[usize], bytes: &[u8]) -> Result<TensorVa
         )?)),
         DType::BF16 => Ok(TensorValue::BF16(crate::tensor::Tensor::from_vec_with_opts(
             bytes
-                .chunks_exact(4)
+                .chunks_exact(2)
                 .take(len)
                 .map(|chunk| BF16 {
-                    bits: u32::from_le_bytes(chunk.try_into().unwrap()) as u16,
+                    bits: u16::from_le_bytes(chunk.try_into().unwrap()),
                 })
                 .collect(),
             crate::tensor::TensorOptions {
@@ -547,13 +837,7 @@ fn decode_tensor(dtype: DType, shape: &[usize], bytes: &[u8]) -> Result<TensorVa
             },
         )?)),
         DType::F8E5M2 => Ok(TensorValue::F8E5M2(crate::tensor::Tensor::from_vec_with_opts(
-            bytes
-                .chunks_exact(4)
-                .take(len)
-                .map(|chunk| F8E5M2 {
-                    bits: u32::from_le_bytes(chunk.try_into().unwrap()) as u8,
-                })
-                .collect(),
+            bytes.iter().take(len).map(|bits| F8E5M2 { bits: *bits }).collect(),
             crate::tensor::TensorOptions {
                 shape: Some(shape.to_vec()),
                 ..crate::tensor::TensorOptions::default()
@@ -675,5 +959,57 @@ fn decode_tensor(dtype: DType, shape: &[usize], bytes: &[u8]) -> Result<TensorVa
                 ..crate::tensor::TensorOptions::default()
             },
         )?)),
+    }
+}
+
+fn decode_tensor_with_effective(
+    original: DType,
+    effective: DType,
+    shape: &[usize],
+    bytes: &[u8],
+) -> Result<TensorValue> {
+    if original == effective {
+        return decode_tensor(effective, shape, bytes);
+    }
+    let len = crate::tensor::numel(shape);
+    match (original, effective) {
+        (DType::F16, DType::F32) => Ok(TensorValue::F16(crate::tensor::Tensor::from_vec_with_opts(
+            bytes
+                .chunks_exact(4)
+                .take(len)
+                .map(|chunk| F16::from_f32(f32::from_le_bytes(chunk.try_into().unwrap())))
+                .collect(),
+            crate::tensor::TensorOptions {
+                shape: Some(shape.to_vec()),
+                ..crate::tensor::TensorOptions::default()
+            },
+        )?)),
+        (DType::BF16, DType::F32) => Ok(TensorValue::BF16(crate::tensor::Tensor::from_vec_with_opts(
+            bytes
+                .chunks_exact(4)
+                .take(len)
+                .map(|chunk| BF16::from_f32(f32::from_le_bytes(chunk.try_into().unwrap())))
+                .collect(),
+            crate::tensor::TensorOptions {
+                shape: Some(shape.to_vec()),
+                ..crate::tensor::TensorOptions::default()
+            },
+        )?)),
+        (DType::F8E5M2, DType::F32) => Ok(TensorValue::F8E5M2(crate::tensor::Tensor::from_vec_with_opts(
+            bytes
+                .chunks_exact(4)
+                .take(len)
+                .map(|chunk| F8E5M2::from_f32(f32::from_le_bytes(chunk.try_into().unwrap())))
+                .collect(),
+            crate::tensor::TensorOptions {
+                shape: Some(shape.to_vec()),
+                ..crate::tensor::TensorOptions::default()
+            },
+        )?)),
+        _ => Err(anyhow!(
+            "vulkan decode {:?} <- {:?} not supported",
+            original,
+            effective
+        )),
     }
 }

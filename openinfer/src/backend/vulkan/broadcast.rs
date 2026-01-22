@@ -78,6 +78,9 @@ fn dtype_suffix(dtype: DType) -> Option<&'static str> {
     match dtype {
         DType::I8 => Some("i8"),
         DType::I16 => Some("i16"),
+        DType::F16 => Some("f16"),
+        DType::BF16 => Some("bf16"),
+        DType::F8E5M2 => Some("f8"),
         DType::F32 => Some("f32"),
         DType::Bool => Some("bool"),
         DType::U8 => Some("u8"),

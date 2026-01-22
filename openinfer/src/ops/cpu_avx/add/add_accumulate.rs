@@ -2,18 +2,64 @@ use anyhow::{anyhow, Result};
 use std::arch::x86_64::*;
 
 use crate::timer::Timer;
+use crate::ops::cpu_avx::packed::{get_i2_value, get_i4_value, get_u2_value, get_u4_value};
+use crate::tensor::{I2, I4, U2, U4};
 
-pub fn add_i8_i16(a: &[i8], b: &[i8], thread_id: usize) -> Result<Vec<i16>> {
+enum OutputBuf<'a, T>
+where
+    T: Default + Copy,
+{
+    Borrowed(&'a mut [T]),
+    Owned(Vec<T>),
+}
+
+impl<'a, T> OutputBuf<'a, T>
+where
+    T: Default + Copy,
+{
+    fn new(len: usize, output: Option<&'a mut [T]>, err: &'static str) -> Result<Self> {
+        if let Some(out) = output {
+            if out.len() != len {
+                return Err(anyhow!(err));
+            }
+            Ok(Self::Borrowed(out))
+        } else {
+            Ok(Self::Owned(vec![T::default(); len]))
+        }
+    }
+
+    fn as_mut_slice(&mut self) -> &mut [T] {
+        match self {
+            Self::Borrowed(slice) => slice,
+            Self::Owned(vec) => vec.as_mut_slice(),
+        }
+    }
+
+    fn into_result(self) -> Option<Vec<T>> {
+        match self {
+            Self::Borrowed(_) => None,
+            Self::Owned(vec) => Some(vec),
+        }
+    }
+}
+
+
+pub fn add_i8_i16(
+    a: &[i8],
+    b: &[i8],
+    output: Option<&mut [i16]>,
+    thread_id: usize,
+) -> Result<Option<Vec<i16>>> {
     if a.len() != b.len() {
         return Err(anyhow!("add op shape mismatch"));
     }
     let len = a.len();
-    let mut out = vec![0i16; len];
+    let mut out = OutputBuf::new(len, output, "add op output shape mismatch")?;
     Timer::start(thread_id);
     unsafe {
         let mut i = 0usize;
         let zero = _mm_setzero_si128();
-        let out_ptr = out.as_mut_ptr();
+        let out_ptr = out.as_mut_slice().as_mut_ptr();
         while i + 16 <= len {
             let va = _mm_loadu_si128(a.as_ptr().add(i) as *const __m128i);
             let vb = _mm_loadu_si128(b.as_ptr().add(i) as *const __m128i);
@@ -35,20 +81,25 @@ pub fn add_i8_i16(a: &[i8], b: &[i8], thread_id: usize) -> Result<Vec<i16>> {
         }
     }
     Timer::stop(thread_id);
-    Ok(out)
+    Ok(out.into_result())
 }
 
-pub fn add_u8_u16(a: &[u8], b: &[u8], thread_id: usize) -> Result<Vec<u16>> {
+pub fn add_u8_u16(
+    a: &[u8],
+    b: &[u8],
+    output: Option<&mut [u16]>,
+    thread_id: usize,
+) -> Result<Option<Vec<u16>>> {
     if a.len() != b.len() {
         return Err(anyhow!("add op shape mismatch"));
     }
     let len = a.len();
-    let mut out = vec![0u16; len];
+    let mut out = OutputBuf::new(len, output, "add op output shape mismatch")?;
     Timer::start(thread_id);
     unsafe {
         let mut i = 0usize;
         let zero = _mm_setzero_si128();
-        let out_ptr = out.as_mut_ptr();
+        let out_ptr = out.as_mut_slice().as_mut_ptr();
         while i + 16 <= len {
             let va = _mm_loadu_si128(a.as_ptr().add(i) as *const __m128i);
             let vb = _mm_loadu_si128(b.as_ptr().add(i) as *const __m128i);
@@ -68,19 +119,24 @@ pub fn add_u8_u16(a: &[u8], b: &[u8], thread_id: usize) -> Result<Vec<u16>> {
         }
     }
     Timer::stop(thread_id);
-    Ok(out)
+    Ok(out.into_result())
 }
 
-pub fn add_i16_i32(a: &[i16], b: &[i16], thread_id: usize) -> Result<Vec<i32>> {
+pub fn add_i16_i32(
+    a: &[i16],
+    b: &[i16],
+    output: Option<&mut [i32]>,
+    thread_id: usize,
+) -> Result<Option<Vec<i32>>> {
     if a.len() != b.len() {
         return Err(anyhow!("add op shape mismatch"));
     }
     let len = a.len();
-    let mut out = vec![0i32; len];
+    let mut out = OutputBuf::new(len, output, "add op output shape mismatch")?;
     Timer::start(thread_id);
     unsafe {
         let mut i = 0usize;
-        let out_ptr = out.as_mut_ptr();
+        let out_ptr = out.as_mut_slice().as_mut_ptr();
         while i + 8 <= len {
             let va = _mm_loadu_si128(a.as_ptr().add(i) as *const __m128i);
             let vb = _mm_loadu_si128(b.as_ptr().add(i) as *const __m128i);
@@ -102,20 +158,25 @@ pub fn add_i16_i32(a: &[i16], b: &[i16], thread_id: usize) -> Result<Vec<i32>> {
         }
     }
     Timer::stop(thread_id);
-    Ok(out)
+    Ok(out.into_result())
 }
 
-pub fn add_u16_u32(a: &[u16], b: &[u16], thread_id: usize) -> Result<Vec<u32>> {
+pub fn add_u16_u32(
+    a: &[u16],
+    b: &[u16],
+    output: Option<&mut [u32]>,
+    thread_id: usize,
+) -> Result<Option<Vec<u32>>> {
     if a.len() != b.len() {
         return Err(anyhow!("add op shape mismatch"));
     }
     let len = a.len();
-    let mut out = vec![0u32; len];
+    let mut out = OutputBuf::new(len, output, "add op output shape mismatch")?;
     Timer::start(thread_id);
     unsafe {
         let mut i = 0usize;
         let zero = _mm_setzero_si128();
-        let out_ptr = out.as_mut_ptr();
+        let out_ptr = out.as_mut_slice().as_mut_ptr();
         while i + 8 <= len {
             let va = _mm_loadu_si128(a.as_ptr().add(i) as *const __m128i);
             let vb = _mm_loadu_si128(b.as_ptr().add(i) as *const __m128i);
@@ -135,19 +196,24 @@ pub fn add_u16_u32(a: &[u16], b: &[u16], thread_id: usize) -> Result<Vec<u32>> {
         }
     }
     Timer::stop(thread_id);
-    Ok(out)
+    Ok(out.into_result())
 }
 
-pub fn add_i32_i64(a: &[i32], b: &[i32], thread_id: usize) -> Result<Vec<i64>> {
+pub fn add_i32_i64(
+    a: &[i32],
+    b: &[i32],
+    output: Option<&mut [i64]>,
+    thread_id: usize,
+) -> Result<Option<Vec<i64>>> {
     if a.len() != b.len() {
         return Err(anyhow!("add op shape mismatch"));
     }
     let len = a.len();
-    let mut out = vec![0i64; len];
+    let mut out = OutputBuf::new(len, output, "add op output shape mismatch")?;
     Timer::start(thread_id);
     unsafe {
         let mut i = 0usize;
-        let out_ptr = out.as_mut_ptr();
+        let out_ptr = out.as_mut_slice().as_mut_ptr();
         while i + 4 <= len {
             let va = _mm_loadu_si128(a.as_ptr().add(i) as *const __m128i);
             let vb = _mm_loadu_si128(b.as_ptr().add(i) as *const __m128i);
@@ -169,20 +235,25 @@ pub fn add_i32_i64(a: &[i32], b: &[i32], thread_id: usize) -> Result<Vec<i64>> {
         }
     }
     Timer::stop(thread_id);
-    Ok(out)
+    Ok(out.into_result())
 }
 
-pub fn add_u32_u64(a: &[u32], b: &[u32], thread_id: usize) -> Result<Vec<u64>> {
+pub fn add_u32_u64(
+    a: &[u32],
+    b: &[u32],
+    output: Option<&mut [u64]>,
+    thread_id: usize,
+) -> Result<Option<Vec<u64>>> {
     if a.len() != b.len() {
         return Err(anyhow!("add op shape mismatch"));
     }
     let len = a.len();
-    let mut out = vec![0u64; len];
+    let mut out = OutputBuf::new(len, output, "add op output shape mismatch")?;
     Timer::start(thread_id);
     unsafe {
         let mut i = 0usize;
         let zero = _mm_setzero_si128();
-        let out_ptr = out.as_mut_ptr();
+        let out_ptr = out.as_mut_slice().as_mut_ptr();
         while i + 4 <= len {
             let va = _mm_loadu_si128(a.as_ptr().add(i) as *const __m128i);
             let vb = _mm_loadu_si128(b.as_ptr().add(i) as *const __m128i);
@@ -202,89 +273,236 @@ pub fn add_u32_u64(a: &[u32], b: &[u32], thread_id: usize) -> Result<Vec<u64>> {
         }
     }
     Timer::stop(thread_id);
-    Ok(out)
+    Ok(out.into_result())
 }
 
-pub fn add_i8_i32(a: &[i8], b: &[i8], thread_id: usize) -> Result<Vec<i32>> {
+pub fn add_i8_i32(
+    a: &[i8],
+    b: &[i8],
+    output: Option<&mut [i32]>,
+    thread_id: usize,
+) -> Result<Option<Vec<i32>>> {
     if a.len() != b.len() {
         return Err(anyhow!("add op shape mismatch"));
     }
     let len = a.len();
-    let mut out = vec![0i32; len];
+    let mut out = OutputBuf::new(len, output, "add op output shape mismatch")?;
     Timer::start(thread_id);
     for i in 0..len {
-        out[i] = a[i] as i32 + b[i] as i32;
+        out.as_mut_slice()[i] = a[i] as i32 + b[i] as i32;
     }
     Timer::stop(thread_id);
-    Ok(out)
+    Ok(out.into_result())
 }
 
-pub fn add_i8_i64(a: &[i8], b: &[i8], thread_id: usize) -> Result<Vec<i64>> {
+pub fn add_i8_i64(
+    a: &[i8],
+    b: &[i8],
+    output: Option<&mut [i64]>,
+    thread_id: usize,
+) -> Result<Option<Vec<i64>>> {
     if a.len() != b.len() {
         return Err(anyhow!("add op shape mismatch"));
     }
     let len = a.len();
-    let mut out = vec![0i64; len];
+    let mut out = OutputBuf::new(len, output, "add op output shape mismatch")?;
     Timer::start(thread_id);
     for i in 0..len {
-        out[i] = a[i] as i64 + b[i] as i64;
+        out.as_mut_slice()[i] = a[i] as i64 + b[i] as i64;
     }
     Timer::stop(thread_id);
-    Ok(out)
+    Ok(out.into_result())
 }
 
-pub fn add_i16_i64(a: &[i16], b: &[i16], thread_id: usize) -> Result<Vec<i64>> {
+pub fn add_i16_i64(
+    a: &[i16],
+    b: &[i16],
+    output: Option<&mut [i64]>,
+    thread_id: usize,
+) -> Result<Option<Vec<i64>>> {
     if a.len() != b.len() {
         return Err(anyhow!("add op shape mismatch"));
     }
     let len = a.len();
-    let mut out = vec![0i64; len];
+    let mut out = OutputBuf::new(len, output, "add op output shape mismatch")?;
     Timer::start(thread_id);
     for i in 0..len {
-        out[i] = a[i] as i64 + b[i] as i64;
+        out.as_mut_slice()[i] = a[i] as i64 + b[i] as i64;
     }
     Timer::stop(thread_id);
-    Ok(out)
+    Ok(out.into_result())
 }
 
-pub fn add_u8_u32(a: &[u8], b: &[u8], thread_id: usize) -> Result<Vec<u32>> {
+pub fn add_u8_u32(
+    a: &[u8],
+    b: &[u8],
+    output: Option<&mut [u32]>,
+    thread_id: usize,
+) -> Result<Option<Vec<u32>>> {
     if a.len() != b.len() {
         return Err(anyhow!("add op shape mismatch"));
     }
     let len = a.len();
-    let mut out = vec![0u32; len];
+    let mut out = OutputBuf::new(len, output, "add op output shape mismatch")?;
     Timer::start(thread_id);
     for i in 0..len {
-        out[i] = a[i] as u32 + b[i] as u32;
+        out.as_mut_slice()[i] = a[i] as u32 + b[i] as u32;
     }
     Timer::stop(thread_id);
-    Ok(out)
+    Ok(out.into_result())
 }
 
-pub fn add_u8_u64(a: &[u8], b: &[u8], thread_id: usize) -> Result<Vec<u64>> {
+pub fn add_u8_u64(
+    a: &[u8],
+    b: &[u8],
+    output: Option<&mut [u64]>,
+    thread_id: usize,
+) -> Result<Option<Vec<u64>>> {
     if a.len() != b.len() {
         return Err(anyhow!("add op shape mismatch"));
     }
     let len = a.len();
-    let mut out = vec![0u64; len];
+    let mut out = OutputBuf::new(len, output, "add op output shape mismatch")?;
     Timer::start(thread_id);
     for i in 0..len {
-        out[i] = a[i] as u64 + b[i] as u64;
+        out.as_mut_slice()[i] = a[i] as u64 + b[i] as u64;
     }
     Timer::stop(thread_id);
-    Ok(out)
+    Ok(out.into_result())
 }
 
-pub fn add_u16_u64(a: &[u16], b: &[u16], thread_id: usize) -> Result<Vec<u64>> {
+pub fn add_u16_u64(
+    a: &[u16],
+    b: &[u16],
+    output: Option<&mut [u64]>,
+    thread_id: usize,
+) -> Result<Option<Vec<u64>>> {
     if a.len() != b.len() {
         return Err(anyhow!("add op shape mismatch"));
     }
     let len = a.len();
-    let mut out = vec![0u64; len];
+    let mut out = OutputBuf::new(len, output, "add op output shape mismatch")?;
     Timer::start(thread_id);
     for i in 0..len {
-        out[i] = a[i] as u64 + b[i] as u64;
+        out.as_mut_slice()[i] = a[i] as u64 + b[i] as u64;
     }
     Timer::stop(thread_id);
-    Ok(out)
+    Ok(out.into_result())
 }
+
+macro_rules! add_packed_signed_wrap {
+    ($name:ident, $in:ty, $get:ident) => {
+        pub fn $name(
+            a: &[$in],
+            b: &[$in],
+            logical_len: usize,
+            output: Option<&mut [i8]>,
+            thread_id: usize,
+        ) -> Result<Option<Vec<i8>>> {
+            if a.len() != b.len() {
+                return Err(anyhow!("add op shape mismatch"));
+            }
+            let mut out = OutputBuf::new(logical_len, output, "add op output shape mismatch")?;
+            Timer::start(thread_id);
+            for idx in 0..logical_len {
+                let av = $get(a, idx);
+                let bv = $get(b, idx);
+                out.as_mut_slice()[idx] = av.wrapping_add(bv);
+            }
+            Timer::stop(thread_id);
+            Ok(out.into_result())
+        }
+    };
+}
+
+macro_rules! add_packed_signed_widen {
+    ($name:ident, $in:ty, $get:ident, $out:ty) => {
+        pub fn $name(
+            a: &[$in],
+            b: &[$in],
+            logical_len: usize,
+            output: Option<&mut [$out]>,
+            thread_id: usize,
+        ) -> Result<Option<Vec<$out>>> {
+            if a.len() != b.len() {
+                return Err(anyhow!("add op shape mismatch"));
+            }
+            let mut out = OutputBuf::new(logical_len, output, "add op output shape mismatch")?;
+            Timer::start(thread_id);
+            for idx in 0..logical_len {
+                let av = $get(a, idx) as $out;
+                let bv = $get(b, idx) as $out;
+                out.as_mut_slice()[idx] = av + bv;
+            }
+            Timer::stop(thread_id);
+            Ok(out.into_result())
+        }
+    };
+}
+
+macro_rules! add_packed_unsigned_wrap {
+    ($name:ident, $in:ty, $get:ident) => {
+        pub fn $name(
+            a: &[$in],
+            b: &[$in],
+            logical_len: usize,
+            output: Option<&mut [u8]>,
+            thread_id: usize,
+        ) -> Result<Option<Vec<u8>>> {
+            if a.len() != b.len() {
+                return Err(anyhow!("add op shape mismatch"));
+            }
+            let mut out = OutputBuf::new(logical_len, output, "add op output shape mismatch")?;
+            Timer::start(thread_id);
+            for idx in 0..logical_len {
+                let av = $get(a, idx);
+                let bv = $get(b, idx);
+                out.as_mut_slice()[idx] = av.wrapping_add(bv);
+            }
+            Timer::stop(thread_id);
+            Ok(out.into_result())
+        }
+    };
+}
+
+macro_rules! add_packed_unsigned_widen {
+    ($name:ident, $in:ty, $get:ident, $out:ty) => {
+        pub fn $name(
+            a: &[$in],
+            b: &[$in],
+            logical_len: usize,
+            output: Option<&mut [$out]>,
+            thread_id: usize,
+        ) -> Result<Option<Vec<$out>>> {
+            if a.len() != b.len() {
+                return Err(anyhow!("add op shape mismatch"));
+            }
+            let mut out = OutputBuf::new(logical_len, output, "add op output shape mismatch")?;
+            Timer::start(thread_id);
+            for idx in 0..logical_len {
+                let av = $get(a, idx) as $out;
+                let bv = $get(b, idx) as $out;
+                out.as_mut_slice()[idx] = av + bv;
+            }
+            Timer::stop(thread_id);
+            Ok(out.into_result())
+        }
+    };
+}
+
+add_packed_signed_wrap!(add_i4_i8_packed, I4, get_i4_value);
+add_packed_signed_widen!(add_i4_i16_packed, I4, get_i4_value, i16);
+add_packed_signed_widen!(add_i4_i32_packed, I4, get_i4_value, i32);
+add_packed_signed_widen!(add_i4_i64_packed, I4, get_i4_value, i64);
+add_packed_signed_wrap!(add_i2_i8_packed, I2, get_i2_value);
+add_packed_signed_widen!(add_i2_i16_packed, I2, get_i2_value, i16);
+add_packed_signed_widen!(add_i2_i32_packed, I2, get_i2_value, i32);
+add_packed_signed_widen!(add_i2_i64_packed, I2, get_i2_value, i64);
+add_packed_unsigned_wrap!(add_u4_u8_packed, U4, get_u4_value);
+add_packed_unsigned_widen!(add_u4_u16_packed, U4, get_u4_value, u16);
+add_packed_unsigned_widen!(add_u4_u32_packed, U4, get_u4_value, u32);
+add_packed_unsigned_widen!(add_u4_u64_packed, U4, get_u4_value, u64);
+add_packed_unsigned_wrap!(add_u2_u8_packed, U2, get_u2_value);
+add_packed_unsigned_widen!(add_u2_u16_packed, U2, get_u2_value, u16);
+add_packed_unsigned_widen!(add_u2_u32_packed, U2, get_u2_value, u32);
+add_packed_unsigned_widen!(add_u2_u64_packed, U2, get_u2_value, u64);

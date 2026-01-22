@@ -16,7 +16,7 @@ pub fn lookup_kernel_vulkan_is_finite(
         (DType::Bool, [input], &OpAttrs::None)
             if matches!(
                 input,
-                DType::F32 | DType::F64
+                DType::F16 | DType::BF16 | DType::F8E5M2 | DType::F32 | DType::F64
             ) =>
         {
             Some(KernelFn::Vulkan(device_kernel(

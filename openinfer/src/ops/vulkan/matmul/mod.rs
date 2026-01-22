@@ -9,18 +9,33 @@ use crate::timer::Timer;
 pub mod registry;
 pub mod registry_inplace;
 
-fn matmul_dims(a: &VulkanBuffer, b: &VulkanBuffer) -> Result<(usize, usize, usize)> {
-    if a.shape.len() != 2 || b.shape.len() != 2 {
+fn matmul_dims(a: &VulkanBuffer, b: &VulkanBuffer) -> Result<(usize, usize, usize, usize, Vec<usize>)> {
+    if a.shape.len() < 2 || b.shape.len() < 2 {
         return Err(anyhow!(
-            "matmul expects 2D inputs, got {:?} and {:?}",
+            "matmul expects >=2D inputs, got {:?} and {:?}",
             a.shape,
             b.shape
         ));
     }
-    let m = a.shape[0];
-    let k = a.shape[1];
-    let k2 = b.shape[0];
-    let n = b.shape[1];
+    if a.shape.len() != b.shape.len() {
+        return Err(anyhow!(
+            "matmul expects matching ranks, got {:?} and {:?}",
+            a.shape,
+            b.shape
+        ));
+    }
+    let rank = a.shape.len();
+    if rank > 2 && a.shape[..rank - 2] != b.shape[..rank - 2] {
+        return Err(anyhow!(
+            "matmul expects matching batch dims, got {:?} and {:?}",
+            a.shape,
+            b.shape
+        ));
+    }
+    let m = a.shape[rank - 2];
+    let k = a.shape[rank - 1];
+    let k2 = b.shape[rank - 2];
+    let n = b.shape[rank - 1];
     if k != k2 {
         return Err(anyhow!(
             "matmul inner dims must match, got {:?} and {:?}",
@@ -28,7 +43,11 @@ fn matmul_dims(a: &VulkanBuffer, b: &VulkanBuffer) -> Result<(usize, usize, usiz
             b.shape
         ));
     }
-    Ok((m, k, n))
+    let batch = a.shape[..rank - 2].iter().product();
+    let mut out_shape = a.shape[..rank - 2].to_vec();
+    out_shape.push(m);
+    out_shape.push(n);
+    Ok((batch, m, k, n, out_shape))
 }
 
 pub fn matmul_generic(
@@ -40,7 +59,7 @@ pub fn matmul_generic(
     if a.effective_dtype != b.effective_dtype {
         return Err(anyhow!("matmul op expects matching dtypes"));
     }
-    let (m, k, n) = matmul_dims(a, b)?;
+    let (batch, m, k, n, out_shape) = matmul_dims(a, b)?;
     let runtime = super::runtime_from_buffers(a, Some(b))?;
     let target = super::spv_target_name(OpKind::Matmul, a.effective_dtype, attrs)?;
     let entry = "main";
@@ -48,29 +67,63 @@ pub fn matmul_generic(
         .spv_bytes_for_target(&target)
         .ok_or_else(|| anyhow!("missing SPIR-V target {} for matmul op", target))?;
     let len = m.saturating_mul(n);
-    let output_size = storage_size_bytes_for_len(a.effective_dtype, len);
+    let total_len = batch.saturating_mul(len);
+    let output_size = storage_size_bytes_for_len(a.effective_dtype, total_len);
     let output_inner = runtime.create_buffer(output_size)?;
     let push = [len as u32, m as u32, n as u32, k as u32];
-    let duration_ns = runtime.dispatch(
-        OpKind::Matmul,
-        a.effective_dtype,
-        &target,
-        entry,
-        spirv,
-        &a.inner,
-        &b.inner,
-        &output_inner,
-        push,
-        len,
-    )?;
-    Timer::record(thread_id, duration_ns);
-    let shape = vec![m, n];
-    let strides = compute_strides(shape.as_slice());
+    let bits = a.effective_dtype.bit_width() as usize;
+    let packed = a.effective_dtype.is_packed();
+    let a_batch_elems = m.saturating_mul(k);
+    let b_batch_elems = k.saturating_mul(n);
+    let out_batch_elems = len;
+    let (a_batch_bytes, b_batch_bytes, out_batch_bytes) = if packed {
+        let a_bits = a_batch_elems.saturating_mul(bits);
+        let b_bits = b_batch_elems.saturating_mul(bits);
+        let out_bits = out_batch_elems.saturating_mul(bits);
+        if a_bits % 8 != 0 || b_bits % 8 != 0 || out_bits % 8 != 0 {
+            return Err(anyhow!(
+                "vulkan batched matmul requires byte-aligned packed batches (dtype {:?})",
+                a.effective_dtype
+            ));
+        }
+        (a_bits / 8, b_bits / 8, out_bits / 8)
+    } else {
+        let elem_bytes = storage_size_bytes_for_len(a.effective_dtype, 1);
+        (
+            a_batch_elems.saturating_mul(elem_bytes),
+            b_batch_elems.saturating_mul(elem_bytes),
+            out_batch_elems.saturating_mul(elem_bytes),
+        )
+    };
+    let mut total_duration = 0u128;
+    for batch_idx in 0..batch {
+        let offsets = [
+            (a_batch_bytes.saturating_mul(batch_idx)) as u64,
+            (b_batch_bytes.saturating_mul(batch_idx)) as u64,
+            (out_batch_bytes.saturating_mul(batch_idx)) as u64,
+        ];
+        let duration_ns = runtime.dispatch_with_offsets(
+            OpKind::Matmul,
+            a.effective_dtype,
+            &target,
+            entry,
+            spirv,
+            &a.inner,
+            &b.inner,
+            &output_inner,
+            push,
+            len,
+            offsets,
+        )?;
+        total_duration = total_duration.saturating_add(duration_ns);
+    }
+    Timer::record(thread_id, total_duration);
+    let strides = compute_strides(out_shape.as_slice());
     Ok(VulkanBuffer {
         dtype: a.dtype,
         effective_dtype: a.effective_dtype,
-        len,
-        shape,
+        len: total_len,
+        shape: out_shape,
         strides,
         shader: a.shader.clone(),
         inner: output_inner,
@@ -82,12 +135,13 @@ pub fn matmul_accumulate_generic(
     a: &VulkanBuffer,
     b: &VulkanBuffer,
     output_dtype: DType,
+    output: Option<&VulkanBuffer>,
     thread_id: usize,
 ) -> Result<VulkanBuffer> {
     if a.effective_dtype != b.effective_dtype {
         return Err(anyhow!("matmul accumulate expects matching dtypes"));
     }
-    let (m, k, n) = matmul_dims(a, b)?;
+    let (batch, m, k, n, out_shape) = matmul_dims(a, b)?;
     let runtime = super::runtime_from_buffers(a, Some(b))?;
     let target = spv_target_name_matmul_accumulate(a.effective_dtype, output_dtype, attrs)?;
     let entry = "main";
@@ -95,29 +149,75 @@ pub fn matmul_accumulate_generic(
         .spv_bytes_for_target(&target)
         .ok_or_else(|| anyhow!("missing SPIR-V target {} for matmul accumulate", target))?;
     let len = m.saturating_mul(n);
-    let output_size = storage_size_bytes_for_len(output_dtype, len);
-    let output_inner = runtime.create_buffer(output_size)?;
+    let total_len = batch.saturating_mul(len);
+    let output_size = storage_size_bytes_for_len(output_dtype, total_len);
+    let output_inner = match output {
+        Some(out)
+            if out.dtype == output_dtype
+                && out.effective_dtype == output_dtype
+                && out.len == total_len
+                && (out.inner.size as usize) >= output_size =>
+        {
+            out.inner.clone()
+        }
+        _ => runtime.create_buffer(output_size)?,
+    };
     let push = [len as u32, m as u32, n as u32, k as u32];
-    let duration_ns = runtime.dispatch(
-        OpKind::Matmul,
-        output_dtype,
-        &target,
-        entry,
-        spirv,
-        &a.inner,
-        &b.inner,
-        &output_inner,
-        push,
-        len,
-    )?;
-    Timer::record(thread_id, duration_ns);
-    let shape = vec![m, n];
-    let strides = compute_strides(shape.as_slice());
+    let bits = a.effective_dtype.bit_width() as usize;
+    let packed = a.effective_dtype.is_packed();
+    let a_batch_elems = m.saturating_mul(k);
+    let b_batch_elems = k.saturating_mul(n);
+    let out_batch_elems = len;
+    let (a_batch_bytes, b_batch_bytes, out_batch_bytes) = if packed {
+        let a_bits = a_batch_elems.saturating_mul(bits);
+        let b_bits = b_batch_elems.saturating_mul(bits);
+        let out_bits = out_batch_elems.saturating_mul(output_dtype.bit_width() as usize);
+        if a_bits % 8 != 0 || b_bits % 8 != 0 || out_bits % 8 != 0 {
+            return Err(anyhow!(
+                "vulkan batched matmul requires byte-aligned packed batches (dtype {:?})",
+                a.effective_dtype
+            ));
+        }
+        (a_bits / 8, b_bits / 8, out_bits / 8)
+    } else {
+        let a_elem_bytes = storage_size_bytes_for_len(a.effective_dtype, 1);
+        let b_elem_bytes = storage_size_bytes_for_len(b.effective_dtype, 1);
+        let out_elem_bytes = storage_size_bytes_for_len(output_dtype, 1);
+        (
+            a_batch_elems.saturating_mul(a_elem_bytes),
+            b_batch_elems.saturating_mul(b_elem_bytes),
+            out_batch_elems.saturating_mul(out_elem_bytes),
+        )
+    };
+    let mut total_duration = 0u128;
+    for batch_idx in 0..batch {
+        let offsets = [
+            (a_batch_bytes.saturating_mul(batch_idx)) as u64,
+            (b_batch_bytes.saturating_mul(batch_idx)) as u64,
+            (out_batch_bytes.saturating_mul(batch_idx)) as u64,
+        ];
+        let duration_ns = runtime.dispatch_with_offsets(
+            OpKind::Matmul,
+            output_dtype,
+            &target,
+            entry,
+            spirv,
+            &a.inner,
+            &b.inner,
+            &output_inner,
+            push,
+            len,
+            offsets,
+        )?;
+        total_duration = total_duration.saturating_add(duration_ns);
+    }
+    Timer::record(thread_id, total_duration);
+    let strides = compute_strides(out_shape.as_slice());
     Ok(VulkanBuffer {
         dtype: output_dtype,
         effective_dtype: output_dtype,
-        len,
-        shape,
+        len: total_len,
+        shape: out_shape,
         strides,
         shader: a.shader.clone(),
         inner: output_inner,
@@ -151,6 +251,7 @@ pub(crate) fn spv_target_name_matmul(dtype: DType, attrs: &OpAttrs) -> Result<St
         | (DType::U1, &OpAttrs::None)
         | (DType::Bool, &OpAttrs::None)
         | (DType::Bitset, &OpAttrs::None)
+        | (DType::F16, &OpAttrs::None)
         | (DType::F32, &OpAttrs::None)
         | (DType::F64, &OpAttrs::None) => {
             Ok(format!("matmul_{}", super::dtype_suffix(dtype).unwrap()))

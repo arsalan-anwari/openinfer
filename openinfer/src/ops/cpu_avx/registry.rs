@@ -10,7 +10,7 @@ pub fn lookup_kernel_cpu_avx(
     input_dtypes: &[DType],
     attrs: &OpAttrs,
 ) -> Option<KernelFn> {
-    match op {
+    let kernel = match op {
         OpKind::Add => match attrs {
             OpAttrs::Accumulate { .. } => add::registry_accumulate::lookup_kernel_cpu_avx_add_accumulate(
                 output_dtype,
@@ -57,5 +57,6 @@ pub fn lookup_kernel_cpu_avx(
         },
         OpKind::IsFinite => None,
         OpKind::Fill => None,
-    }
+    };
+    kernel.or_else(|| crate::ops::cpu::registry::lookup_kernel_cpu(op, output_dtype, input_dtypes, attrs))
 }

@@ -73,7 +73,10 @@ Slang Shader Conventions
   runtime uses `main` for pipeline creation while selecting the SPIR-V blob by
   target.
 - Packed dtypes use `ByteAddressBuffer` with shared helpers in
-  `openinfer/src/ops/vulkan/packed/packed_utils.slang`.
+  `openinfer/src/ops/vulkan/packed_utils.slang` (shim includes may exist under
+  `ops/vulkan/packed/` for older paths).
+- Low-bit float helpers live in `openinfer/src/ops/vulkan/float_utils.slang`
+  (also with shims for older include paths).
 - Push constants:
   - Layout: `uint len`, `uint flags`, `uint pad0`, `uint pad1`
   - Size: 16 bytes
@@ -129,8 +132,8 @@ Notes and Limitations
   Unsupported dtypes return an error before kernel dispatch.
 - i64/u64 require `shader_int64` support from the Vulkan device.
 - f64 requires `shader_float64` support from the Vulkan device.
-- f16 may be supported by the device (`shader_float16`) but is currently upsampled to f32.
-- f8/bf16 are always upsampled to f32 on Vulkan (no native support assumed).
+- f16 may be supported by the device (`shader_float16`) but is currently cast to f32 in shaders.
+- f8/bf16 are always cast to f32 in shaders (no native support assumed).
 - Packed integer types (i1/i2/i4/u1/u2/u4) are stored as packed bits in buffers;
   Vulkan shaders decode/operate/encode in-place using byte-addressed buffers.
 - `t1`/`t2` are not supported in Vulkan.
@@ -139,6 +142,8 @@ Notes and Limitations
   dispatch pays allocation and synchronization costs. Use
   `Simulator::with_inplace()` to allow in-place kernels when output aliases an
   input (e.g. `op add(x, w) >> x`) and compare performance.
+- If the device lacks `shader_int64` or `shader_float64`, Vulkan kernels fall
+  back to CPU with a warning instead of erroring.
 - If you add a dtype or op, update:
   - `shaders.json` (path + spv_dir)
   - op registry + kernel launcher

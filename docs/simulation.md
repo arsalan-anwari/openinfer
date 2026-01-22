@@ -21,6 +21,9 @@ measuring allocation overhead vs. the standard out-of-place behavior.
 Yield/await blocks can execute concurrently on CPU and Vulkan; trace output
 will interleave block names to make concurrency visible (see `examples/rust/yield.rs`).
 
+Note: GPU and CPU floating-point results can differ slightly. See
+`docs/gpu_drift.md` for expected drift and tolerance guidance.
+
 ## Step through nodes with logging + timing
 
 ```rust
