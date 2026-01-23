@@ -21,3 +21,4 @@ This list mirrors the Rust examples wired into `openinfer/Cargo.toml`.
 - `examples/rust/yield.rs`: Demonstrates yield/await concurrency across blocks.
 - `examples/rust/ops_accumulate_inplace.rs`: Validates CPU vs device outputs with drift-aware checks.
 - `examples/rust/ops_matrix.rs`: Matrix-focused op coverage and dtype checks.
+- `examples/rust/f16_benchmark.rs`: Compares native vs simulated f16 performance (Vulkan).

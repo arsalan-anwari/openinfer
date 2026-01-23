@@ -16,7 +16,7 @@ pub fn fill_generic(
     thread_id: usize,
 ) -> Result<VulkanBuffer> {
     let runtime = super::runtime_from_buffers(a, None)?;
-    let target = if a.effective_dtype == DType::F16 && runtime.supports_f16() {
+    let target = if a.effective_dtype == DType::F16 && runtime.use_native_f16() {
         "fill_f16_native".to_string()
     } else {
         super::spv_target_name(OpKind::Fill, a.effective_dtype, attrs)?
@@ -59,7 +59,7 @@ pub fn fill_inplace_generic(
     thread_id: usize,
 ) -> Result<VulkanBuffer> {
     let runtime = super::runtime_from_buffers(a, None)?;
-    let target = if a.effective_dtype == DType::F16 && runtime.supports_f16() {
+    let target = if a.effective_dtype == DType::F16 && runtime.use_native_f16() {
         "fill_inplace_f16_native".to_string()
     } else {
         spv_target_name_fill_inplace(a.effective_dtype, attrs)?

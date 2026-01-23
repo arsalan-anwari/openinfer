@@ -9,8 +9,10 @@ the execution path from `graph!{}` to kernel selection.
 
 The simulator does not emit trace logs or time ops by default. Enable tracing
 and timing explicitly on construction, for example
-`Simulator::new(&model, &graph, Device::Cpu)?.with_trace().with_timer()`. Trace events
-are only stored when tracing is enabled. The simulator retains the validated
+`Simulator::new(&model, &graph, Device::Cpu)?.with_trace().with_timer()`. Use
+`with_simulated_float()` to force simulated float paths (e.g. f16 emulation)
+even when native support is available. Trace events are only stored when tracing
+is enabled. The simulator retains the validated
 graph, so `make_executor()` no longer needs it as an argument.
 During construction the simulator validates the graph against the model (sizevars,
 dtype compatibility, constant mutation, scalar-only attributes, and per-op
@@ -240,7 +242,9 @@ without exceeding descriptor set limits.
 
 Low-bit float types (f8/bf16) are cast to f32 inside shaders per element and
 written back in the original dtype. f16 uses native half when `shader_float16`
-is available, otherwise it follows the same cast-to-f32 path. Packed integer
+is available, otherwise it follows the same cast-to-f32 path. Use
+`Simulator::with_simulated_float()` to force the simulated path for f16 even
+when native support is present. Packed integer
 types are decoded and encoded in-place from packed bytes using shared helpers in
 `openinfer/src/ops/vulkan/packed_utils.slang`.
 

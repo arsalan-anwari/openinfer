@@ -15,7 +15,8 @@ formats (f8/bf16/f16).
 
 The Vulkan backend always casts f8/bf16 to f32 inside shaders and writes back to the
 original dtype. For f16, shaders use native half when `shader_float16` is available
-and fall back to f32 casting otherwise. Even with careful rounding, perfectly
+and fall back to f32 casting otherwise. Use `Simulator::with_simulated_float()` to
+force the simulated f16 path for A/B comparison. Even with careful rounding, perfectly
 matching CPU is not always possible across all GPUs and drivers.
 
 ## Drift tolerance used in validation

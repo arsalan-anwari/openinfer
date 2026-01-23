@@ -119,3 +119,7 @@ path = "../examples/rust/ops_accumulate_inplace.rs"
 [[example]]
 name = "ops_broadcast_variants"
 path = "../examples/rust/ops_broadcast_variants.rs"
+
+[[example]]
+name = "f16_benchmark"
+path = "../examples/rust/f16_benchmark.rs"

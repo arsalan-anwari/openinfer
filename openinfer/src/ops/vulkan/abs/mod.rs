@@ -12,7 +12,7 @@ pub mod registry_inplace;
 
 pub fn abs_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: usize) -> Result<VulkanBuffer> {
     let runtime = super::runtime_from_buffers(a, None)?;
-    let target = if a.effective_dtype == DType::F16 && runtime.supports_f16() {
+    let target = if a.effective_dtype == DType::F16 && runtime.use_native_f16() {
         "abs_f16_native".to_string()
     } else {
         super::spv_target_name(OpKind::Abs, a.effective_dtype, attrs)?
@@ -100,7 +100,7 @@ pub fn abs_accumulate_generic(
 
 pub fn abs_inplace_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: usize) -> Result<VulkanBuffer> {
     let runtime = super::runtime_from_buffers(a, None)?;
-    let target = if a.effective_dtype == DType::F16 && runtime.supports_f16() {
+    let target = if a.effective_dtype == DType::F16 && runtime.use_native_f16() {
         "abs_inplace_f16_native".to_string()
     } else {
         spv_target_name_abs_inplace(a.effective_dtype, attrs)?

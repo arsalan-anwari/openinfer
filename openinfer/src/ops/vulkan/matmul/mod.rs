@@ -55,7 +55,7 @@ pub fn matmul_generic(
     let (batch_shape, m, k, n, out_shape) = matmul_dims(a, b)?;
     let batch = numel(&batch_shape);
     let runtime = super::runtime_from_buffers(a, Some(b))?;
-    let target = if a.effective_dtype == DType::F16 && runtime.supports_f16() {
+    let target = if a.effective_dtype == DType::F16 && runtime.use_native_f16() {
         "matmul_f16_native".to_string()
     } else {
         super::spv_target_name(OpKind::Matmul, a.effective_dtype, attrs)?

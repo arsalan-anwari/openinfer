@@ -19,7 +19,7 @@ pub fn relu_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: usize) -> Resu
         _ => return Err(anyhow!("relu op expects relu attributes")),
     };
     let runtime = super::runtime_from_buffers(a, None)?;
-    let target = if a.effective_dtype == DType::F16 && runtime.supports_f16() {
+    let target = if a.effective_dtype == DType::F16 && runtime.use_native_f16() {
         "relu_f16_native".to_string()
     } else {
         super::spv_target_name(OpKind::Relu, a.effective_dtype, attrs)?
@@ -64,7 +64,7 @@ pub fn relu_inplace_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: usize)
         _ => return Err(anyhow!("relu op expects relu attributes")),
     };
     let runtime = super::runtime_from_buffers(a, None)?;
-    let target = if a.effective_dtype == DType::F16 && runtime.supports_f16() {
+    let target = if a.effective_dtype == DType::F16 && runtime.use_native_f16() {
         "relu_f16_native".to_string()
     } else {
         super::spv_target_name(OpKind::Relu, a.effective_dtype, attrs)?

@@ -44,9 +44,10 @@ This is the minimal checklist to add a new op end-to-end.
 
 1. Add the op under `openinfer/src/ops/vulkan/<op>/`:
    - `mod.rs`, `registry.rs`, `registry_inplace.rs` (if supported).
-   - Per-dtype shaders under `shaders/{base,inplace,accumulate}/`.
-2. Add an entry to `openinfer/src/ops/vulkan/shaders.json` with `shader_dir`
-   and `spv_dir` so `build.rs` compiles and embeds SPIR-V.
+   - Consolidated shaders under `shaders/{base,inplace,accumulate}/` with
+     multiple entry points per file (or per-dtype shaders if preferred).
+2. Add an entry to `openinfer/src/ops/vulkan/shaders.json` with `shader_dir`,
+   `spv_dir`, and optional `shader_files` so `build.rs` compiles and embeds SPIR-V.
    (Broadcast is a backend-only exception.)
 3. Implement target selection in `openinfer/src/ops/vulkan/<op>/mod.rs`
    and add it to `openinfer/src/ops/vulkan/mod.rs` dispatch.
@@ -86,7 +87,10 @@ Device notes:
 
 - CPU is the reference implementation for all listed dtypes.
 - AVX/AVX2 match CPU dtype coverage; i1/u1 packed types fall back to CPU.
-- Vulkan supports all listed dtypes. f8/bf16 are cast in shaders; f16 uses native half when `shader_float16` is available and falls back to shader-side casting otherwise.
+- Vulkan supports all listed dtypes. f8/bf16 are cast in shaders; f16 uses native
+  half when `shader_float16` is available and falls back to shader-side casting
+  otherwise. Use `Simulator::with_simulated_float()` to force the simulated
+  f16 path for benchmarking or drift analysis.
 - CPU and Vulkan add/mul/matmul support packed broadcast, including inplace/accumulate.
 - Vulkan relu supports inplace execution.
 - If Vulkan lacks `shader_int64` or `shader_float64`, ops fall back to CPU with a warning.

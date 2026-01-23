@@ -23,6 +23,7 @@ pub struct VulkanRuntime {
     supports_i64: bool,
     supports_f64: bool,
     supports_f16: bool,
+    force_simulated_float: bool,
     supports_timestamps: bool,
     timestamp_period: f32,
     max_descriptor_sets: u32,
@@ -43,6 +44,10 @@ pub struct VulkanBufferInner {
 
 impl VulkanRuntime {
     pub fn new() -> Result<Self> {
+        Self::new_with_settings(false)
+    }
+
+    pub fn new_with_settings(force_simulated_float: bool) -> Result<Self> {
         let entry = unsafe { Entry::load()? };
         let trace = std::env::var("OPENINFER_VULKAN_TRACE").is_ok();
         if trace {
@@ -180,6 +185,7 @@ impl VulkanRuntime {
             supports_i64: supported.shader_int64 != 0,
             supports_f64: supported.shader_float64 != 0,
             supports_f16: float16_int8.shader_float16 != 0,
+            force_simulated_float,
             supports_timestamps: props.limits.timestamp_compute_and_graphics != 0,
             timestamp_period: props.limits.timestamp_period,
             max_descriptor_sets,
@@ -199,6 +205,11 @@ impl VulkanRuntime {
     #[allow(dead_code)]
     pub fn supports_f16(&self) -> bool {
         self.supports_f16
+    }
+
+    #[allow(dead_code)]
+    pub fn use_native_f16(&self) -> bool {
+        self.supports_f16 && !self.force_simulated_float
     }
 
 

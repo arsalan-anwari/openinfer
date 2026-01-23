@@ -97,10 +97,17 @@ pub struct VulkanBackend {
     shaders: VulkanShaderRegistry,
     runtime: Mutex<Option<Arc<VulkanRuntime>>>,
     dispatch_lock: Mutex<()>,
+    force_simulated_float: bool,
 }
 
 impl VulkanBackend {
+
+    #[allow(dead_code)]
     pub fn new() -> Self {
+        Self::new_with_settings(false)
+    }
+
+    pub fn new_with_settings(force_simulated_float: bool) -> Self {
         let shaders = VulkanShaderRegistry::load_default().unwrap_or_else(|err| {
             eprintln!("vulkan shaders: {}", err);
             VulkanShaderRegistry::default()
@@ -109,6 +116,7 @@ impl VulkanBackend {
             shaders,
             runtime: Mutex::new(None),
             dispatch_lock: Mutex::new(()),
+            force_simulated_float,
         }
     }
 
@@ -120,7 +128,7 @@ impl VulkanBackend {
         if let Some(runtime) = guard.as_ref() {
             return Ok(Arc::clone(runtime));
         }
-        let runtime = Arc::new(VulkanRuntime::new()?);
+        let runtime = Arc::new(VulkanRuntime::new_with_settings(self.force_simulated_float)?);
         *guard = Some(Arc::clone(&runtime));
         Ok(runtime)
     }

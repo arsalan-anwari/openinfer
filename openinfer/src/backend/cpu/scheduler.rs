@@ -42,6 +42,7 @@ struct WorkerJob {
     trace_enabled: bool,
     timer_enabled: bool,
     inplace_enabled: bool,
+    force_simulated_float: bool,
 }
 
 enum WorkerCommand {
@@ -169,6 +170,7 @@ impl CpuScheduler {
                 trace_enabled,
                 timer_enabled,
                 inplace_enabled,
+                force_simulated_float: false,
             };
             if self.inner.job_txs.is_empty() {
                 continue;
@@ -297,6 +299,7 @@ fn run_worker_job(job: WorkerJob, scheduler: Arc<CpuScheduler>) -> WorkerResult 
         job.trace_enabled,
         job.timer_enabled,
         job.inplace_enabled,
+        job.force_simulated_float,
         job.snapshot,
         Some(scheduler),
     )

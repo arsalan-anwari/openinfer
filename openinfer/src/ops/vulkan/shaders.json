@@ -4,6 +4,22 @@
       "shader_dir": "src/ops/vulkan/abs/shaders",
       "spv_dir": "src/ops/vulkan/abs/bin",
       "push_constants_size": 16,
+      "shader_files": [
+        "base/abs_signed_packed.slang",
+        "base/abs_signed.slang",
+        "base/abs_float_custom.slang",
+        "base/abs_float.slang",
+        "inplace/abs_signed_packed_inplace.slang",
+        "inplace/abs_signed_inplace.slang",
+        "inplace/abs_float_custom_inplace.slang",
+        "inplace/abs_float_inplace.slang",
+        "accumulate/abs_i1_accumulate.slang",
+        "accumulate/abs_i2_accumulate.slang",
+        "accumulate/abs_i4_accumulate.slang",
+        "accumulate/abs_i8_accumulate.slang",
+        "accumulate/abs_i16_accumulate.slang",
+        "accumulate/abs_i32_accumulate.slang"
+      ],
       "settings": {
         "abs_unsigned_is_identity": true
       }
@@ -11,17 +27,61 @@
     "add": {
       "shader_dir": "src/ops/vulkan/add/shaders",
       "spv_dir": "src/ops/vulkan/add/bin",
-      "push_constants_size": 16
+      "push_constants_size": 16,
+      "shader_files": [
+        "base/add_signed_packed.slang",
+        "base/add_unsigned_packed.slang",
+        "base/add_signed.slang",
+        "base/add_unsigned.slang",
+        "base/add_float_custom.slang",
+        "base/add_float.slang",
+        "inplace/add_signed_packed_inplace.slang",
+        "inplace/add_unsigned_packed_inplace.slang",
+        "inplace/add_signed_inplace.slang",
+        "inplace/add_unsigned_inplace.slang",
+        "inplace/add_float_custom_inplace.slang",
+        "inplace/add_float_inplace.slang",
+        "accumulate/add_i1_accumulate.slang",
+        "accumulate/add_i2_accumulate.slang",
+        "accumulate/add_i4_accumulate.slang",
+        "accumulate/add_u1_accumulate.slang",
+        "accumulate/add_u2_accumulate.slang",
+        "accumulate/add_u4_accumulate.slang",
+        "accumulate/add_i8_accumulate.slang",
+        "accumulate/add_u8_accumulate.slang",
+        "accumulate/add_i16_accumulate.slang",
+        "accumulate/add_u16_accumulate.slang",
+        "accumulate/add_i32_accumulate.slang",
+        "accumulate/add_u32_accumulate.slang"
+      ]
     },
     "fill": {
       "shader_dir": "src/ops/vulkan/fill/shaders",
       "spv_dir": "src/ops/vulkan/fill/bin",
-      "push_constants_size": 16
+      "push_constants_size": 16,
+      "shader_files": [
+        "base/fill_signed_packed.slang",
+        "base/fill_unsigned_packed.slang",
+        "base/fill_signed.slang",
+        "base/fill_unsigned.slang",
+        "base/fill_float_custom.slang",
+        "base/fill_float.slang",
+        "inplace/fill_signed_packed_inplace.slang",
+        "inplace/fill_unsigned_packed_inplace.slang",
+        "inplace/fill_signed_inplace.slang",
+        "inplace/fill_unsigned_inplace.slang",
+        "inplace/fill_float_custom_inplace.slang",
+        "inplace/fill_float_inplace.slang"
+      ]
     },
     "is_finite": {
       "shader_dir": "src/ops/vulkan/is_finite/shaders",
       "spv_dir": "src/ops/vulkan/is_finite/bin",
-      "push_constants_size": 16
+      "push_constants_size": 16,
+      "shader_files": [
+        "base/is_finite_scalar_float_custom.slang",
+        "base/is_finite_scalar_float.slang"
+      ]
     },
     "matmul": {
       "shader_dir": "src/ops/vulkan/matmul/shaders",
@@ -31,12 +91,44 @@
     "mul": {
       "shader_dir": "src/ops/vulkan/mul/shaders",
       "spv_dir": "src/ops/vulkan/mul/bin",
-      "push_constants_size": 16
+      "push_constants_size": 16,
+      "shader_files": [
+        "base/mul_signed_packed.slang",
+        "base/mul_unsigned_packed.slang",
+        "base/mul_signed.slang",
+        "base/mul_unsigned.slang",
+        "base/mul_float_custom.slang",
+        "base/mul_float.slang",
+        "inplace/mul_signed_packed_inplace.slang",
+        "inplace/mul_unsigned_packed_inplace.slang",
+        "inplace/mul_signed_inplace.slang",
+        "inplace/mul_unsigned_inplace.slang",
+        "inplace/mul_float_custom_inplace.slang",
+        "inplace/mul_float_inplace.slang",
+        "accumulate/mul_i1_accumulate.slang",
+        "accumulate/mul_i2_accumulate.slang",
+        "accumulate/mul_i4_accumulate.slang",
+        "accumulate/mul_u1_accumulate.slang",
+        "accumulate/mul_u2_accumulate.slang",
+        "accumulate/mul_u4_accumulate.slang",
+        "accumulate/mul_i8_accumulate.slang",
+        "accumulate/mul_u8_accumulate.slang",
+        "accumulate/mul_i16_accumulate.slang",
+        "accumulate/mul_u16_accumulate.slang",
+        "accumulate/mul_i32_accumulate.slang",
+        "accumulate/mul_u32_accumulate.slang"
+      ]
     },
     "relu": {
       "shader_dir": "src/ops/vulkan/relu/shaders",
       "spv_dir": "src/ops/vulkan/relu/bin",
-      "push_constants_size": 16
+      "push_constants_size": 16,
+      "shader_files": [
+        "base/relu_signed_packed.slang",
+        "base/relu_signed.slang",
+        "base/relu_float_custom.slang",
+        "base/relu_float.slang"
+      ]
     }
   }
 }

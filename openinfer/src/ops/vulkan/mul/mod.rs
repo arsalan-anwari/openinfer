@@ -22,7 +22,7 @@ pub fn mul_generic(attrs: &OpAttrs, a: &VulkanBuffer, b: &VulkanBuffer, thread_i
     };
     let len = numel(&out_shape);
     let runtime = super::runtime_from_buffers(a, Some(b))?;
-    let target = if a.effective_dtype == DType::F16 && runtime.supports_f16() {
+    let target = if a.effective_dtype == DType::F16 && runtime.use_native_f16() {
         "mul_f16_native".to_string()
     } else {
         super::spv_target_name(OpKind::Mul, a.effective_dtype, attrs)?
@@ -175,7 +175,7 @@ pub fn mul_inplace_generic(
     };
     let len = numel(&out_shape);
     let runtime = super::runtime_from_buffers(a, Some(b))?;
-    let target = if a.effective_dtype == DType::F16 && runtime.supports_f16() {
+    let target = if a.effective_dtype == DType::F16 && runtime.use_native_f16() {
         "mul_inplace_f16_native".to_string()
     } else {
         spv_target_name_mul_inplace(a.effective_dtype, attrs)?

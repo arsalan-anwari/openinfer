@@ -1,0 +1,62 @@
+#include "../../../op_common.slang"
+
+[[vk::push_constant]] PushConsts pc;
+
+struct AddAccBuffersInt {
+    [[vk::binding(0, 0)]] StructuredBuffer<int, Std430DataLayout> input0;
+    [[vk::binding(1, 0)]] StructuredBuffer<int, Std430DataLayout> input1;
+    [[vk::binding(2, 0)]] RWStructuredBuffer<int, Std430DataLayout> output0;
+    [[vk::binding(3, 0)]] StructuredBuffer<uint, Std430DataLayout> meta0;
+    [[vk::binding(4, 0)]] StructuredBuffer<uint, Std430DataLayout> meta1;
+};
+
+struct AddAccBuffersInt64 {
+    [[vk::binding(0, 0)]] StructuredBuffer<int, Std430DataLayout> input0;
+    [[vk::binding(1, 0)]] StructuredBuffer<int, Std430DataLayout> input1;
+    [[vk::binding(2, 0)]] RWStructuredBuffer<int64_t, Std430DataLayout> output0;
+    [[vk::binding(3, 0)]] StructuredBuffer<uint, Std430DataLayout> meta0;
+    [[vk::binding(4, 0)]] StructuredBuffer<uint, Std430DataLayout> meta1;
+};
+
+ParameterBlock<AddAccBuffersInt> gAddAcc_i8_i16;
+ParameterBlock<AddAccBuffersInt> gAddAcc_i8_i32;
+ParameterBlock<AddAccBuffersInt64> gAddAcc_i8_i64;
+
+[shader("compute")]
+[numthreads(256, 1, 1)]
+void add_i8_i16(uint3 tid : SV_DispatchThreadID, uniform PushConsts pc) {
+    uint i = tid.x;
+    if (i < pc.len) {
+        uint a_idx = broadcastOffset(i, gAddAcc_i8_i16.meta0);
+        uint b_idx = broadcastOffset(i, gAddAcc_i8_i16.meta1);
+        int a = gAddAcc_i8_i16.input0[a_idx];
+        int b = gAddAcc_i8_i16.input1[b_idx];
+        gAddAcc_i8_i16.output0[i] = a + b;
+    }
+}
+
+[shader("compute")]
+[numthreads(256, 1, 1)]
+void add_i8_i32(uint3 tid : SV_DispatchThreadID, uniform PushConsts pc) {
+    uint i = tid.x;
+    if (i < pc.len) {
+        uint a_idx = broadcastOffset(i, gAddAcc_i8_i32.meta0);
+        uint b_idx = broadcastOffset(i, gAddAcc_i8_i32.meta1);
+        int a = gAddAcc_i8_i32.input0[a_idx];
+        int b = gAddAcc_i8_i32.input1[b_idx];
+        gAddAcc_i8_i32.output0[i] = a + b;
+    }
+}
+
+[shader("compute")]
+[numthreads(256, 1, 1)]
+void add_i8_i64(uint3 tid : SV_DispatchThreadID, uniform PushConsts pc) {
+    uint i = tid.x;
+    if (i < pc.len) {
+        uint a_idx = broadcastOffset(i, gAddAcc_i8_i64.meta0);
+        uint b_idx = broadcastOffset(i, gAddAcc_i8_i64.meta1);
+        int64_t a = (int64_t)gAddAcc_i8_i64.input0[a_idx];
+        int64_t b = (int64_t)gAddAcc_i8_i64.input1[b_idx];
+        gAddAcc_i8_i64.output0[i] = a + b;
+    }
+}

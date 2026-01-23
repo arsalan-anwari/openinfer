@@ -62,11 +62,13 @@ pub(crate) trait DeviceBackend: Send + Sync {
     ) -> Result<crate::backend::TensorStorage>;
 }
 
-pub(crate) fn backend_for(device: Device) -> Result<Arc<dyn DeviceBackend>> {
+pub(crate) fn backend_for(device: Device, force_simulated_float: bool) -> Result<Arc<dyn DeviceBackend>> {
+    #[cfg(not(feature = "vulkan"))]
+    let _ = force_simulated_float;
     match device {
         Device::Cpu | Device::CpuAvx | Device::CpuAvx2 => Ok(Arc::new(CpuBackend::new(device))),
         #[cfg(feature = "vulkan")]
-        Device::Vulkan => Ok(Arc::new(VulkanBackend::new())),
+        Device::Vulkan => Ok(Arc::new(VulkanBackend::new_with_settings(force_simulated_float))),
         #[cfg(not(feature = "vulkan"))]
         Device::Vulkan => Err(anyhow!("vulkan feature not enabled for this build")),
     }
@@ -80,6 +82,7 @@ pub struct Simulator {
     trace_enabled: bool,
     timer_enabled: bool,
     inplace_enabled: bool,
+    force_simulated_float: bool,
 }
 
 impl Simulator {
@@ -95,6 +98,7 @@ impl Simulator {
             trace_enabled: false,
             timer_enabled: false,
             inplace_enabled: false,
+            force_simulated_float: false,
         })
     }
 
@@ -113,6 +117,11 @@ impl Simulator {
         self
     }
 
+    pub fn with_simulated_float(mut self) -> Self {
+        self.force_simulated_float = true;
+        self
+    }
+
     pub fn make_executor(&self) -> Result<Executor> {
         Executor::new(
             self.model.clone(),
@@ -121,6 +130,7 @@ impl Simulator {
             self.trace_enabled,
             self.timer_enabled,
             self.inplace_enabled,
+            self.force_simulated_float,
         )
     }
 }

@@ -17,6 +17,7 @@ struct VulkanShaderManifest {
 struct VulkanShaderEntry {
     shader_dir: Option<String>,
     spv_dir: String,
+    shader_files: Option<Vec<String>>,
 }
 
 const BROADCAST_OP: &str = "broadcast";
@@ -74,6 +75,7 @@ fn main() -> Result<()> {
         let broadcast_entry = VulkanShaderEntry {
             shader_dir: None,
             spv_dir: BROADCAST_SPV_DIR.to_string(),
+            shader_files: None,
         };
         compile_op(&manifest_dir, BROADCAST_OP, &broadcast_entry, &mut progress)?;
     }
@@ -333,6 +335,21 @@ fn shader_paths(
             op_name,
             shader_dir.display()
         ));
+    }
+    if let Some(shader_files) = &entry.shader_files {
+        let mut paths = Vec::with_capacity(shader_files.len());
+        for file in shader_files {
+            let path = shader_dir.join(file);
+            if !path.exists() {
+                return Err(anyhow!(
+                    "shader file does not exist for op {}: {}",
+                    op_name,
+                    path.display()
+                ));
+            }
+            paths.push(path);
+        }
+        return Ok(paths);
     }
     let mut paths = Vec::new();
     collect_slang_files(&shader_dir, &mut paths)?;

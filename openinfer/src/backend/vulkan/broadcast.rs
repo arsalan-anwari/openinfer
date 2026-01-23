@@ -14,7 +14,7 @@ pub fn broadcast_buffer(
 ) -> Result<VulkanBuffer> {
     let runtime = runtime_from_buffers(input, None)?;
     let len = numel(out_shape);
-    let target = if input.effective_dtype == DType::F16 && runtime.supports_f16() {
+    let target = if input.effective_dtype == DType::F16 && runtime.use_native_f16() {
         "broadcast_f16_native".to_string()
     } else {
         spv_target_name_broadcast(input.effective_dtype)?

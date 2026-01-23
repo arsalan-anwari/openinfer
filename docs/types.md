@@ -54,7 +54,8 @@ Inline float handling:
 - f8/bf16 are cast to f32 inside shaders per element (no intermediate f32 buffers
   on the host).
 - f16 uses native half when `shader_float16` is available; otherwise shaders cast
-  to f32 and write back.
+  to f32 and write back. Use `Simulator::with_simulated_float()` to force the
+  simulated f16 path for benchmarks or drift analysis.
 
 Packed types:
 

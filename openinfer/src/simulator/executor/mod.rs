@@ -136,9 +136,10 @@ impl Executor {
         trace_enabled: bool,
         timer_enabled: bool,
         inplace_enabled: bool,
+        force_simulated_float: bool,
     ) -> Result<Self> {
         #[cfg(feature = "vulkan")]
-        let backend = backend_for(device)?;
+        let backend = backend_for(device, force_simulated_float)?;
         #[cfg(feature = "vulkan")]
         return Self::new_with_backend(
             model,
@@ -154,7 +155,7 @@ impl Executor {
         ;
         #[cfg(not(feature = "vulkan"))]
         {
-            let backend = backend_for(device)?;
+            let backend = backend_for(device, force_simulated_float)?;
             Self::new_with_backend(
                 model,
                 device,
@@ -374,10 +375,11 @@ impl Executor {
         trace_enabled: bool,
         timer_enabled: bool,
         inplace_enabled: bool,
+        force_simulated_float: bool,
         snapshot: ExecutorSnapshot,
         scheduler: Option<Arc<crate::backend::cpu::scheduler::CpuScheduler>>,
     ) -> Result<Self> {
-        let backend = backend_for(device)?;
+        let backend = backend_for(device, force_simulated_float)?;
         let mut exec = Self::new_with_backend(
             model,
             device,
