@@ -130,7 +130,7 @@ Notes and Limitations
   Unsupported dtypes return an error before kernel dispatch.
 - i64/u64 require `shader_int64` support from the Vulkan device.
 - f64 requires `shader_float64` support from the Vulkan device.
-- f16 may be supported by the device (`shader_float16`) but is currently cast to f32 in shaders.
+- f16 uses native half when `shader_float16` is available; otherwise shaders cast to f32 and write back.
 - f8/bf16 are always cast to f32 in shaders (no native support assumed).
 - Packed integer types (i1/i2/i4/u1/u2/u4) are stored as packed bits in buffers;
   Vulkan shaders decode/operate/encode in-place using byte-addressed buffers.

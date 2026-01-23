@@ -23,7 +23,7 @@ Checklist of features described in the README and current implementation status.
 - [x] Branching and yielding across blocks
 - [x] Support for types universal and special types (see [types.md](types.md)) and upsampling
 - [x] CPU/AVX/AVX2 parity for packed types (i2/i4/u2/u4)
-- [x] Vulkan shader-side casting for low-bit floats
+- [x] Vulkan low-bit float handling (native f16 when supported, f8/bf16 casting)
 - [x] Vulkan CPU fallback for missing int64/float64 features
 - [x] N-D matmul with batched dispatch
 

@@ -238,9 +238,10 @@ them in `OUT_DIR`. During dispatch, the runtime:
 This allows ops to split float/signed/unsigned kernels into separate shaders
 without exceeding descriptor set limits.
 
-Low-bit float types (f8/bf16/f16) are cast to f32 inside shaders per element
-and written back in the original dtype. Packed integer types are decoded and
-encoded in-place from packed bytes using shared helpers in
+Low-bit float types (f8/bf16) are cast to f32 inside shaders per element and
+written back in the original dtype. f16 uses native half when `shader_float16`
+is available, otherwise it follows the same cast-to-f32 path. Packed integer
+types are decoded and encoded in-place from packed bytes using shared helpers in
 `openinfer/src/ops/vulkan/packed_utils.slang`.
 
 When a Vulkan device does not expose `shader_int64` or `shader_float64`, the

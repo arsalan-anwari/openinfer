@@ -13,9 +13,10 @@ formats (f8/bf16/f16).
 - Shader compilers may reorder or combine operations unless explicitly constrained.
 - Accumulation order can differ in parallel workloads.
 
-The Vulkan backend casts f8/bf16/f16 to f32 inside shaders and writes back to the
-original dtype. Even with careful rounding, perfectly matching CPU is not always
-possible across all GPUs and drivers.
+The Vulkan backend always casts f8/bf16 to f32 inside shaders and writes back to the
+original dtype. For f16, shaders use native half when `shader_float16` is available
+and fall back to f32 casting otherwise. Even with careful rounding, perfectly
+matching CPU is not always possible across all GPUs and drivers.
 
 ## Drift tolerance used in validation
 

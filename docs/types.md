@@ -49,11 +49,12 @@ Hardware feature checks and fallback:
 - When these features are missing, Vulkan ops fall back to CPU with a warning
   (`eprintln!`) so execution continues instead of erroring.
 
-Inline float casting:
+Inline float handling:
 
-- f8/bf16/f16 are cast to f32 inside shaders per element (no intermediate f32
-  buffers on the host).
-- Results are written back in the original low-bit format.
+- f8/bf16 are cast to f32 inside shaders per element (no intermediate f32 buffers
+  on the host).
+- f16 uses native half when `shader_float16` is available; otherwise shaders cast
+  to f32 and write back.
 
 Packed types:
 
