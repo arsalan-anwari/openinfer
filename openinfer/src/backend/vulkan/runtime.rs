@@ -100,7 +100,7 @@ impl VulkanRuntime {
 
         let descriptor_pool_sizes = [vk::DescriptorPoolSize {
             ty: vk::DescriptorType::STORAGE_BUFFER,
-            descriptor_count: 3,
+            descriptor_count: 5,
         }];
         let descriptor_pool_info = vk::DescriptorPoolCreateInfo::builder()
             .max_sets(1)
@@ -126,6 +126,18 @@ impl VulkanRuntime {
                 .build(),
             vk::DescriptorSetLayoutBinding::builder()
                 .binding(2)
+                .descriptor_type(vk::DescriptorType::STORAGE_BUFFER)
+                .descriptor_count(1)
+                .stage_flags(vk::ShaderStageFlags::COMPUTE)
+                .build(),
+            vk::DescriptorSetLayoutBinding::builder()
+                .binding(3)
+                .descriptor_type(vk::DescriptorType::STORAGE_BUFFER)
+                .descriptor_count(1)
+                .stage_flags(vk::ShaderStageFlags::COMPUTE)
+                .build(),
+            vk::DescriptorSetLayoutBinding::builder()
+                .binding(4)
                 .descriptor_type(vk::DescriptorType::STORAGE_BUFFER)
                 .descriptor_count(1)
                 .stage_flags(vk::ShaderStageFlags::COMPUTE)
@@ -399,6 +411,16 @@ impl VulkanRuntime {
                 offset: offsets[2],
                 range: output.size - offsets[2],
             },
+            vk::DescriptorBufferInfo {
+                buffer: input0.buffer,
+                offset: 0,
+                range: input0.size,
+            },
+            vk::DescriptorBufferInfo {
+                buffer: input1_buffer.buffer,
+                offset: 0,
+                range: input1_buffer.size,
+            },
         ];
         let writes = [
             vk::WriteDescriptorSet::builder()
@@ -418,6 +440,267 @@ impl VulkanRuntime {
                 .dst_binding(2)
                 .descriptor_type(vk::DescriptorType::STORAGE_BUFFER)
                 .buffer_info(std::slice::from_ref(&buffer_infos[2]))
+                .build(),
+            vk::WriteDescriptorSet::builder()
+                .dst_set(descriptor_set)
+                .dst_binding(3)
+                .descriptor_type(vk::DescriptorType::STORAGE_BUFFER)
+                .buffer_info(std::slice::from_ref(&buffer_infos[3]))
+                .build(),
+            vk::WriteDescriptorSet::builder()
+                .dst_set(descriptor_set)
+                .dst_binding(4)
+                .descriptor_type(vk::DescriptorType::STORAGE_BUFFER)
+                .buffer_info(std::slice::from_ref(&buffer_infos[4]))
+                .build(),
+        ];
+        unsafe { self.device.update_descriptor_sets(&writes, &[]) };
+
+        let command_buffer = self.allocate_command_buffer()?;
+        let begin_info = vk::CommandBufferBeginInfo::builder();
+        unsafe { self.device.begin_command_buffer(command_buffer, &begin_info)? };
+
+        unsafe {
+            let pre_barrier = vk::MemoryBarrier::builder()
+                .src_access_mask(
+                    vk::AccessFlags::HOST_WRITE | vk::AccessFlags::SHADER_WRITE,
+                )
+                .dst_access_mask(
+                    vk::AccessFlags::SHADER_READ | vk::AccessFlags::SHADER_WRITE,
+                )
+                .build();
+            if let Some(pool) = query_pool {
+                self.device.cmd_reset_query_pool(command_buffer, pool, 0, 2);
+            }
+            self.device.cmd_pipeline_barrier(
+                command_buffer,
+                vk::PipelineStageFlags::HOST | vk::PipelineStageFlags::COMPUTE_SHADER,
+                vk::PipelineStageFlags::COMPUTE_SHADER,
+                vk::DependencyFlags::empty(),
+                std::slice::from_ref(&pre_barrier),
+                &[],
+                &[],
+            );
+            self.device.cmd_bind_pipeline(command_buffer, vk::PipelineBindPoint::COMPUTE, pipeline);
+            self.device.cmd_bind_descriptor_sets(
+                command_buffer,
+                vk::PipelineBindPoint::COMPUTE,
+                self.pipeline_layout,
+                set_index,
+                std::slice::from_ref(&descriptor_set),
+                &[],
+            );
+            let push_bytes = std::slice::from_raw_parts(push.as_ptr().cast::<u8>(), 16);
+            self.device.cmd_push_constants(
+                command_buffer,
+                self.pipeline_layout,
+                vk::ShaderStageFlags::COMPUTE,
+                0,
+                push_bytes,
+            );
+            if let Some(pool) = query_pool {
+                self.device
+                    .cmd_write_timestamp(command_buffer, vk::PipelineStageFlags::COMPUTE_SHADER, pool, 0);
+            }
+            let groups = (len as u32 + 255) / 256;
+            self.device.cmd_dispatch(command_buffer, groups, 1, 1);
+            if let Some(pool) = query_pool {
+                self.device
+                    .cmd_write_timestamp(command_buffer, vk::PipelineStageFlags::COMPUTE_SHADER, pool, 1);
+            }
+            let post_barrier = vk::MemoryBarrier::builder()
+                .src_access_mask(vk::AccessFlags::SHADER_WRITE)
+                .dst_access_mask(vk::AccessFlags::HOST_READ)
+                .build();
+            self.device.cmd_pipeline_barrier(
+                command_buffer,
+                vk::PipelineStageFlags::COMPUTE_SHADER,
+                vk::PipelineStageFlags::HOST,
+                vk::DependencyFlags::empty(),
+                std::slice::from_ref(&post_barrier),
+                &[],
+                &[],
+            );
+            self.device.end_command_buffer(command_buffer)?;
+        }
+
+        let submit_info = vk::SubmitInfo::builder().command_buffers(std::slice::from_ref(&command_buffer));
+        unsafe {
+            self.device.queue_submit(self.queue, std::slice::from_ref(&submit_info), vk::Fence::null())?;
+            self.device.queue_wait_idle(self.queue)?;
+        }
+
+        let duration_ns = if let Some(pool) = query_pool {
+            let mut timestamps = [0u64; 2];
+            unsafe {
+                self.device.get_query_pool_results(
+                    pool,
+                    0,
+                    2,
+                    &mut timestamps,
+                    vk::QueryResultFlags::TYPE_64 | vk::QueryResultFlags::WAIT,
+                )?;
+            }
+            let delta = timestamps[1].saturating_sub(timestamps[0]) as f64;
+            (delta * self.timestamp_period as f64) as u128
+        } else {
+            0
+        };
+
+        unsafe {
+            self.device.free_command_buffers(self.command_pool, std::slice::from_ref(&command_buffer));
+            self.device.free_descriptor_sets(self.descriptor_pool, std::slice::from_ref(&descriptor_set))?;
+        }
+
+        Ok(duration_ns)
+    }
+
+    #[allow(unused)]
+    pub fn dispatch_with_offsets_meta(
+        &self,
+        op: OpKind,
+        dtype: DType,
+        pipeline_key: &str,
+        entry_point: &str,
+        spirv: &[u8],
+        input0: &VulkanBufferInner,
+        input1: &VulkanBufferInner,
+        output: &VulkanBufferInner,
+        meta0: &VulkanBufferInner,
+        meta1: &VulkanBufferInner,
+        push: [u32; 4],
+        len: usize,
+        offsets: [u64; 3],
+    ) -> Result<u128> {
+        if len == 0 {
+            return Ok(0);
+        }
+        let set_index = descriptor_set_index_from_spirv(spirv).unwrap_or(0);
+        if set_index >= self.max_descriptor_sets {
+            return Err(anyhow!(
+                "vulkan descriptor set index {} exceeds max {}",
+                set_index,
+                self.max_descriptor_sets
+            ));
+        }
+        if std::env::var("OPENINFER_VULKAN_TRACE").is_ok() {
+            eprintln!(
+                "vulkan dispatch op={} dtype={:?} entry={} len={} push={:?} set={}",
+                op.as_str(),
+                dtype,
+                entry_point,
+                len,
+                push,
+                set_index
+            );
+        }
+        let pipeline = self.pipeline_for_op(op, dtype, pipeline_key, entry_point, spirv)?;
+        let descriptor_set = self.allocate_descriptor_set()?;
+
+        struct QueryPoolGuard<'a> {
+            device: &'a ash::Device,
+            pool: vk::QueryPool,
+        }
+
+        impl<'a> Drop for QueryPoolGuard<'a> {
+            fn drop(&mut self) {
+                unsafe {
+                    self.device.destroy_query_pool(self.pool, None);
+                }
+            }
+        }
+
+        let query_pool = if self.supports_timestamps {
+            let info = vk::QueryPoolCreateInfo::builder()
+                .query_type(vk::QueryType::TIMESTAMP)
+                .query_count(2);
+            Some(unsafe { self.device.create_query_pool(&info, None)? })
+        } else {
+            None
+        };
+        let _query_pool_guard = query_pool.map(|pool| QueryPoolGuard {
+            device: &self.device,
+            pool,
+        });
+
+        let input1_buffer = if std::ptr::eq(input0, input1) {
+            output
+        } else {
+            input1
+        };
+        let offsets = [
+            offsets[0] as vk::DeviceSize,
+            offsets[1] as vk::DeviceSize,
+            offsets[2] as vk::DeviceSize,
+        ];
+        let sizes = [input0.size, input1_buffer.size, output.size];
+        for (idx, (offset, size)) in offsets.iter().zip(sizes.iter()).enumerate() {
+            if *offset >= *size {
+                return Err(anyhow!(
+                    "vulkan dispatch offset {} exceeds buffer size {} for slot {}",
+                    offset,
+                    size,
+                    idx
+                ));
+            }
+        }
+        let buffer_infos = [
+            vk::DescriptorBufferInfo {
+                buffer: input0.buffer,
+                offset: offsets[0],
+                range: input0.size - offsets[0],
+            },
+            vk::DescriptorBufferInfo {
+                buffer: input1_buffer.buffer,
+                offset: offsets[1],
+                range: input1_buffer.size - offsets[1],
+            },
+            vk::DescriptorBufferInfo {
+                buffer: output.buffer,
+                offset: offsets[2],
+                range: output.size - offsets[2],
+            },
+            vk::DescriptorBufferInfo {
+                buffer: meta0.buffer,
+                offset: 0,
+                range: meta0.size,
+            },
+            vk::DescriptorBufferInfo {
+                buffer: meta1.buffer,
+                offset: 0,
+                range: meta1.size,
+            },
+        ];
+        let writes = [
+            vk::WriteDescriptorSet::builder()
+                .dst_set(descriptor_set)
+                .dst_binding(0)
+                .descriptor_type(vk::DescriptorType::STORAGE_BUFFER)
+                .buffer_info(std::slice::from_ref(&buffer_infos[0]))
+                .build(),
+            vk::WriteDescriptorSet::builder()
+                .dst_set(descriptor_set)
+                .dst_binding(1)
+                .descriptor_type(vk::DescriptorType::STORAGE_BUFFER)
+                .buffer_info(std::slice::from_ref(&buffer_infos[1]))
+                .build(),
+            vk::WriteDescriptorSet::builder()
+                .dst_set(descriptor_set)
+                .dst_binding(2)
+                .descriptor_type(vk::DescriptorType::STORAGE_BUFFER)
+                .buffer_info(std::slice::from_ref(&buffer_infos[2]))
+                .build(),
+            vk::WriteDescriptorSet::builder()
+                .dst_set(descriptor_set)
+                .dst_binding(3)
+                .descriptor_type(vk::DescriptorType::STORAGE_BUFFER)
+                .buffer_info(std::slice::from_ref(&buffer_infos[3]))
+                .build(),
+            vk::WriteDescriptorSet::builder()
+                .dst_set(descriptor_set)
+                .dst_binding(4)
+                .descriptor_type(vk::DescriptorType::STORAGE_BUFFER)
+                .buffer_info(std::slice::from_ref(&buffer_infos[4]))
                 .build(),
         ];
         unsafe { self.device.update_descriptor_sets(&writes, &[]) };

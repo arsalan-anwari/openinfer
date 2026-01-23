@@ -14,7 +14,8 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "openinfer-oinf"))
 
-from dataclass_to_oinf import TensorSpec, write_oinf  # noqa: E402
+# pyright: ignore[reportMissingImports]
+from dataclass_to_oinf import TensorSpec, write_oinf  # noqa: E402 
 
 
 @dataclass

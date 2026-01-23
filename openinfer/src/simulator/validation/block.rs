@@ -8,7 +8,7 @@ use crate::graph::{
 use crate::ops::{broadcast_enabled, lookup_kernel};
 use crate::simulator::Device;
 use crate::simulator::executor::prefix::{parse_prefix_access, resolve_prefix_name};
-use crate::tensor::DType;
+use crate::tensor::{broadcast_shapes, DType};
 use crate::types::MemoryKind;
 
 use super::attrs::validate_op_attrs;
@@ -272,32 +272,23 @@ fn validate_op(
                         b_shape
                     ));
                 }
-                if a_shape.len() != b_shape.len() {
-                    return Err(anyhow!(
-                        "op matmul expects matching ranks, got {:?} and {:?}",
-                        a_shape,
-                        b_shape
-                    ));
-                }
-                let rank = a_shape.len();
-                if rank > 2 && a_shape[..rank - 2] != b_shape[..rank - 2] {
-                    return Err(anyhow!(
-                        "op matmul expects matching batch dims, got {:?} and {:?}",
-                        a_shape,
-                        b_shape
-                    ));
-                }
-                if a_shape[rank - 1] != b_shape[rank - 2] {
+                let rank = a_shape.len().max(b_shape.len());
+                let mut a_aligned = vec![1; rank - a_shape.len()];
+                a_aligned.extend_from_slice(a_shape);
+                let mut b_aligned = vec![1; rank - b_shape.len()];
+                b_aligned.extend_from_slice(b_shape);
+                if a_aligned[rank - 1] != b_aligned[rank - 2] {
                     return Err(anyhow!(
                         "op matmul inner dims must match, got {:?} and {:?}",
                         a_shape,
                         b_shape
                     ));
                 }
-                let expected_shape: Vec<usize> = a_shape[..rank - 2]
+                let batch_shape = broadcast_shapes(&a_aligned[..rank - 2], &b_aligned[..rank - 2])?;
+                let expected_shape: Vec<usize> = batch_shape
                     .iter()
                     .cloned()
-                    .chain([a_shape[rank - 2], b_shape[rank - 1]])
+                    .chain([a_aligned[rank - 2], b_aligned[rank - 1]])
                     .collect();
                 if output_shape != expected_shape {
                     return Err(anyhow!(

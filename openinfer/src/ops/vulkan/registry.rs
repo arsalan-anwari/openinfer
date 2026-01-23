@@ -65,6 +65,11 @@ pub fn lookup_kernel_vulkan_inplace(
             input_dtypes,
             attrs,
         ),
-        OpKind::Relu | OpKind::IsFinite => None,
+        OpKind::Relu => relu::registry_inplace::lookup_kernel_vulkan_relu_inplace(
+            output_dtype,
+            input_dtypes,
+            attrs,
+        ),
+        OpKind::IsFinite => None,
     }
 }

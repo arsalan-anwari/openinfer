@@ -579,6 +579,55 @@ pub fn broadcast_shapes(a: &[usize], b: &[usize]) -> Result<Vec<usize>> {
     Ok(out)
 }
 
+pub fn broadcast_strides(
+    in_shape: &[usize],
+    in_strides: &[usize],
+    out_shape: &[usize],
+) -> Result<Vec<usize>> {
+    if in_shape.len() != in_strides.len() {
+        return Err(anyhow!(
+            "shape/stride mismatch: {} dims vs {} strides",
+            in_shape.len(),
+            in_strides.len()
+        ));
+    }
+    if in_shape == out_shape {
+        return Ok(in_strides.to_vec());
+    }
+    let rank_out = out_shape.len();
+    let rank_in = in_shape.len();
+    if rank_in > rank_out {
+        return Err(anyhow!(
+            "broadcast shape mismatch for {:?} and {:?}",
+            in_shape,
+            out_shape
+        ));
+    }
+    let mut aligned_shape = vec![1; rank_out - rank_in];
+    aligned_shape.extend_from_slice(in_shape);
+    let mut aligned_strides = vec![0; rank_out - rank_in];
+    aligned_strides.extend_from_slice(in_strides);
+    let mut out_strides = Vec::with_capacity(rank_out);
+    for ((in_dim, in_stride), out_dim) in aligned_shape
+        .iter()
+        .zip(aligned_strides.iter())
+        .zip(out_shape.iter())
+    {
+        if in_dim == out_dim {
+            out_strides.push(*in_stride);
+        } else if *in_dim == 1 {
+            out_strides.push(0);
+        } else {
+            return Err(anyhow!(
+                "broadcast shape mismatch for {:?} and {:?}",
+                in_shape,
+                out_shape
+            ));
+        }
+    }
+    Ok(out_strides)
+}
+
 pub fn broadcast_to_vec<T: Clone>(tensor: &Tensor<T>, out_shape: &[usize]) -> Result<Vec<T>> {
     if tensor.shape == out_shape {
         return Ok(tensor.data.clone());

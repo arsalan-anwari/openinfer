@@ -28,6 +28,13 @@ pub fn broadcast_enabled(op: OpKind, device: Device) -> bool {
     }
 }
 
+pub fn broadcast_requires_materialize(op: OpKind) -> bool {
+    match op {
+        OpKind::Add | OpKind::Mul => false,
+        _ => true,
+    }
+}
+
 pub type HostKernel = Box<
     dyn Fn(&OpAttrs, &[TensorValue], Option<&mut TensorValue>, usize) -> Result<Option<TensorValue>>
         + Send

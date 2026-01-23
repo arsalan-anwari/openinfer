@@ -3,13 +3,16 @@ use anyhow::{anyhow, Result};
 use crate::backend::vulkan::storage_size_bytes_for_len;
 use crate::backend::VulkanBuffer;
 use crate::graph::{OpAttrs, OpKind};
-use crate::tensor::{compute_strides, DType};
+use crate::tensor::{compute_strides, numel, DType};
 use crate::timer::Timer;
 
 pub mod registry;
 pub mod registry_inplace;
 
-fn matmul_dims(a: &VulkanBuffer, b: &VulkanBuffer) -> Result<(usize, usize, usize, usize, Vec<usize>)> {
+fn matmul_dims(
+    a: &VulkanBuffer,
+    b: &VulkanBuffer,
+) -> Result<(Vec<usize>, usize, usize, usize, Vec<usize>)> {
     if a.shape.len() < 2 || b.shape.len() < 2 {
         return Err(anyhow!(
             "matmul expects >=2D inputs, got {:?} and {:?}",
@@ -17,25 +20,15 @@ fn matmul_dims(a: &VulkanBuffer, b: &VulkanBuffer) -> Result<(usize, usize, usiz
             b.shape
         ));
     }
-    if a.shape.len() != b.shape.len() {
-        return Err(anyhow!(
-            "matmul expects matching ranks, got {:?} and {:?}",
-            a.shape,
-            b.shape
-        ));
-    }
-    let rank = a.shape.len();
-    if rank > 2 && a.shape[..rank - 2] != b.shape[..rank - 2] {
-        return Err(anyhow!(
-            "matmul expects matching batch dims, got {:?} and {:?}",
-            a.shape,
-            b.shape
-        ));
-    }
-    let m = a.shape[rank - 2];
-    let k = a.shape[rank - 1];
-    let k2 = b.shape[rank - 2];
-    let n = b.shape[rank - 1];
+    let rank = a.shape.len().max(b.shape.len());
+    let mut a_aligned = vec![1; rank - a.shape.len()];
+    a_aligned.extend_from_slice(&a.shape);
+    let mut b_aligned = vec![1; rank - b.shape.len()];
+    b_aligned.extend_from_slice(&b.shape);
+    let m = a_aligned[rank - 2];
+    let k = a_aligned[rank - 1];
+    let k2 = b_aligned[rank - 2];
+    let n = b_aligned[rank - 1];
     if k != k2 {
         return Err(anyhow!(
             "matmul inner dims must match, got {:?} and {:?}",
@@ -43,11 +36,11 @@ fn matmul_dims(a: &VulkanBuffer, b: &VulkanBuffer) -> Result<(usize, usize, usiz
             b.shape
         ));
     }
-    let batch = a.shape[..rank - 2].iter().product();
-    let mut out_shape = a.shape[..rank - 2].to_vec();
+    let batch_shape = crate::tensor::broadcast_shapes(&a_aligned[..rank - 2], &b_aligned[..rank - 2])?;
+    let mut out_shape = batch_shape.clone();
     out_shape.push(m);
     out_shape.push(n);
-    Ok((batch, m, k, n, out_shape))
+    Ok((batch_shape, m, k, n, out_shape))
 }
 
 pub fn matmul_generic(
@@ -59,7 +52,8 @@ pub fn matmul_generic(
     if a.effective_dtype != b.effective_dtype {
         return Err(anyhow!("matmul op expects matching dtypes"));
     }
-    let (batch, m, k, n, out_shape) = matmul_dims(a, b)?;
+    let (batch_shape, m, k, n, out_shape) = matmul_dims(a, b)?;
+    let batch = numel(&batch_shape);
     let runtime = super::runtime_from_buffers(a, Some(b))?;
     let target = super::spv_target_name(OpKind::Matmul, a.effective_dtype, attrs)?;
     let entry = "main";
@@ -76,7 +70,7 @@ pub fn matmul_generic(
     let a_batch_elems = m.saturating_mul(k);
     let b_batch_elems = k.saturating_mul(n);
     let out_batch_elems = len;
-    let (a_batch_bytes, b_batch_bytes, out_batch_bytes) = if packed {
+    let (_a_batch_bytes, _b_batch_bytes, out_batch_bytes) = if packed {
         let a_bits = a_batch_elems.saturating_mul(bits);
         let b_bits = b_batch_elems.saturating_mul(bits);
         let out_bits = out_batch_elems.saturating_mul(bits);
@@ -95,13 +89,42 @@ pub fn matmul_generic(
             out_batch_elems.saturating_mul(elem_bytes),
         )
     };
+    let elem_bytes = storage_size_bytes_for_len(a.effective_dtype, 1);
+    let rank = batch_shape.len() + 2;
+    let mut a_strides = vec![0usize; rank - a.strides.len()];
+    a_strides.extend_from_slice(&a.strides);
+    let mut b_strides = vec![0usize; rank - b.strides.len()];
+    b_strides.extend_from_slice(&b.strides);
+    let mut batch_coords = vec![0usize; batch_shape.len()];
     let mut total_duration = 0u128;
     for batch_idx in 0..batch {
-        let offsets = [
-            (a_batch_bytes.saturating_mul(batch_idx)) as u64,
-            (b_batch_bytes.saturating_mul(batch_idx)) as u64,
-            (out_batch_bytes.saturating_mul(batch_idx)) as u64,
-        ];
+        let mut a_batch_offset = 0usize;
+        let mut b_batch_offset = 0usize;
+        for (dim, coord) in batch_coords.iter().enumerate() {
+            a_batch_offset = a_batch_offset.saturating_add(coord.saturating_mul(a_strides[dim]));
+            b_batch_offset = b_batch_offset.saturating_add(coord.saturating_mul(b_strides[dim]));
+        }
+        let offsets = if packed {
+            let a_bits_offset = a_batch_offset.saturating_mul(bits);
+            let b_bits_offset = b_batch_offset.saturating_mul(bits);
+            if a_bits_offset % 8 != 0 || b_bits_offset % 8 != 0 {
+                return Err(anyhow!(
+                    "vulkan matmul packed broadcast requires byte-aligned batch offsets (dtype {:?})",
+                    a.effective_dtype
+                ));
+            }
+            [
+                (a_bits_offset / 8) as u64,
+                (b_bits_offset / 8) as u64,
+                (out_batch_bytes.saturating_mul(batch_idx)) as u64,
+            ]
+        } else {
+            [
+                (a_batch_offset.saturating_mul(elem_bytes)) as u64,
+                (b_batch_offset.saturating_mul(elem_bytes)) as u64,
+                (out_batch_bytes.saturating_mul(batch_idx)) as u64,
+            ]
+        };
         let duration_ns = runtime.dispatch_with_offsets(
             OpKind::Matmul,
             a.effective_dtype,
@@ -116,6 +139,13 @@ pub fn matmul_generic(
             offsets,
         )?;
         total_duration = total_duration.saturating_add(duration_ns);
+        for dim in (0..batch_shape.len()).rev() {
+            batch_coords[dim] += 1;
+            if batch_coords[dim] < batch_shape[dim] {
+                break;
+            }
+            batch_coords[dim] = 0;
+        }
     }
     Timer::record(thread_id, total_duration);
     let strides = compute_strides(out_shape.as_slice());
@@ -141,7 +171,8 @@ pub fn matmul_accumulate_generic(
     if a.effective_dtype != b.effective_dtype {
         return Err(anyhow!("matmul accumulate expects matching dtypes"));
     }
-    let (batch, m, k, n, out_shape) = matmul_dims(a, b)?;
+    let (batch_shape, m, k, n, out_shape) = matmul_dims(a, b)?;
+    let batch = numel(&batch_shape);
     let runtime = super::runtime_from_buffers(a, Some(b))?;
     let target = spv_target_name_matmul_accumulate(a.effective_dtype, output_dtype, attrs)?;
     let entry = "main";
@@ -168,7 +199,7 @@ pub fn matmul_accumulate_generic(
     let a_batch_elems = m.saturating_mul(k);
     let b_batch_elems = k.saturating_mul(n);
     let out_batch_elems = len;
-    let (a_batch_bytes, b_batch_bytes, out_batch_bytes) = if packed {
+    let (_a_batch_bytes, _b_batch_bytes, out_batch_bytes) = if packed {
         let a_bits = a_batch_elems.saturating_mul(bits);
         let b_bits = b_batch_elems.saturating_mul(bits);
         let out_bits = out_batch_elems.saturating_mul(output_dtype.bit_width() as usize);
@@ -189,13 +220,43 @@ pub fn matmul_accumulate_generic(
             out_batch_elems.saturating_mul(out_elem_bytes),
         )
     };
+    let a_elem_bytes = storage_size_bytes_for_len(a.effective_dtype, 1);
+    let b_elem_bytes = storage_size_bytes_for_len(b.effective_dtype, 1);
+    let rank = batch_shape.len() + 2;
+    let mut a_strides = vec![0usize; rank - a.strides.len()];
+    a_strides.extend_from_slice(&a.strides);
+    let mut b_strides = vec![0usize; rank - b.strides.len()];
+    b_strides.extend_from_slice(&b.strides);
+    let mut batch_coords = vec![0usize; batch_shape.len()];
     let mut total_duration = 0u128;
     for batch_idx in 0..batch {
-        let offsets = [
-            (a_batch_bytes.saturating_mul(batch_idx)) as u64,
-            (b_batch_bytes.saturating_mul(batch_idx)) as u64,
-            (out_batch_bytes.saturating_mul(batch_idx)) as u64,
-        ];
+        let mut a_batch_offset = 0usize;
+        let mut b_batch_offset = 0usize;
+        for (dim, coord) in batch_coords.iter().enumerate() {
+            a_batch_offset = a_batch_offset.saturating_add(coord.saturating_mul(a_strides[dim]));
+            b_batch_offset = b_batch_offset.saturating_add(coord.saturating_mul(b_strides[dim]));
+        }
+        let offsets = if packed {
+            let a_bits_offset = a_batch_offset.saturating_mul(bits);
+            let b_bits_offset = b_batch_offset.saturating_mul(bits);
+            if a_bits_offset % 8 != 0 || b_bits_offset % 8 != 0 {
+                return Err(anyhow!(
+                    "vulkan matmul packed broadcast requires byte-aligned batch offsets (dtype {:?})",
+                    a.effective_dtype
+                ));
+            }
+            [
+                (a_bits_offset / 8) as u64,
+                (b_bits_offset / 8) as u64,
+                (out_batch_bytes.saturating_mul(batch_idx)) as u64,
+            ]
+        } else {
+            [
+                (a_batch_offset.saturating_mul(a_elem_bytes)) as u64,
+                (b_batch_offset.saturating_mul(b_elem_bytes)) as u64,
+                (out_batch_bytes.saturating_mul(batch_idx)) as u64,
+            ]
+        };
         let duration_ns = runtime.dispatch_with_offsets(
             OpKind::Matmul,
             output_dtype,
@@ -210,6 +271,13 @@ pub fn matmul_accumulate_generic(
             offsets,
         )?;
         total_duration = total_duration.saturating_add(duration_ns);
+        for dim in (0..batch_shape.len()).rev() {
+            batch_coords[dim] += 1;
+            if batch_coords[dim] < batch_shape[dim] {
+                break;
+            }
+            batch_coords[dim] = 0;
+        }
     }
     Timer::record(thread_id, total_duration);
     let strides = compute_strides(out_shape.as_slice());

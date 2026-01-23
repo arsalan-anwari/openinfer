@@ -1,11 +1,41 @@
 use openinfer::{
-    fetch_executor, graph, insert_executor, 
-    ModelLoader, Simulator, Tensor, TensorOptions
+    fetch_executor, graph, insert_executor, FormatValue, ModelLoader, Simulator, Tensor,
+    TensorOptions,
 };
 use std::path::Path;
 
 mod util;
 use util::select_device;
+
+fn format_head_tail<T: FormatValue>(data: &[T], head: usize, tail: usize) -> String {
+    let len = data.len();
+    if len == 0 {
+        return "{}".to_string();
+    }
+    if len <= head + tail {
+        let joined = data
+            .iter()
+            .map(FormatValue::format_value)
+            .collect::<Vec<_>>()
+            .join(", ");
+        return format!("{{{}}}", joined);
+    }
+    let head_vals = data[..head]
+        .iter()
+        .map(FormatValue::format_value)
+        .collect::<Vec<_>>()
+        .join(", ");
+    let tail_vals = data[len - tail..]
+        .iter()
+        .map(FormatValue::format_value)
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!("{{{} ... {}}}", head_vals, tail_vals)
+}
+
+fn print_head_tail<T: FormatValue>(label: &str, data: &[T]) {
+    println!("{label} = {}", format_head_tail(data, 5, 5));
+}
 
 fn main() -> anyhow::Result<()> {
     let model_path =
@@ -65,15 +95,16 @@ fn main() -> anyhow::Result<()> {
         },
     )?;
 
+    print_head_tail("x", &x.to_vec());
+    print_head_tail("y", &y.to_vec());
+    print_head_tail("z", &z.to_vec());
+
     insert_executor!(exec, { x: x, y: y, z: z });
     exec.step()?;
 
     fetch_executor!(exec, { out: Tensor<f32> });
     println!("out shape = {:?}", out.shape());
-    println!("out[] = {:?}", out.to_vec());
-    println!("out[0] = {:?}", out[[0]].to_vec());
-    println!("out[1] = {:?}", out[[1]].to_vec());
-    println!("out[1,3] = {:?}", out[[1, 3]].to_vec());
+    print_head_tail("out", &out.to_vec());
 
     Ok(())
 }

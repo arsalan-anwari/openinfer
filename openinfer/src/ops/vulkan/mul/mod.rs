@@ -4,26 +4,23 @@ use crate::backend::vulkan::storage_size_bytes_for_len;
 use crate::backend::VulkanBuffer;
 use crate::graph::OpAttrs;
 use crate::graph::OpKind;
-use crate::tensor::{compute_strides, DType};
+use crate::tensor::{broadcast_shapes, compute_strides, numel, DType};
 use crate::timer::Timer;
 
 pub mod registry;
 pub mod registry_inplace;
 
 pub fn mul_generic(attrs: &OpAttrs, a: &VulkanBuffer, b: &VulkanBuffer, thread_id: usize) -> Result<VulkanBuffer> {
-    let strict_shapes = a.shader_setting_bool("strict_shapes").unwrap_or(true);
-    if strict_shapes && a.len != b.len {
-        return Err(anyhow!("mul op shape mismatch"));
-    }
     let allow_mixed = a.shader_setting_bool("allow_mixed_dtypes").unwrap_or(false);
     if !allow_mixed && a.effective_dtype != b.effective_dtype {
         return Err(anyhow!("mul op expects matching dtypes"));
     }
-    let len = if strict_shapes {
-        a.len
+    let out_shape = if a.shape == b.shape {
+        a.shape.clone()
     } else {
-        a.len.min(b.len)
+        broadcast_shapes(&a.shape, &b.shape)?
     };
+    let len = numel(&out_shape);
     let runtime = super::runtime_from_buffers(a, Some(b))?;
     let target = super::spv_target_name(OpKind::Mul, a.effective_dtype, attrs)?;
     let entry = "main";
@@ -32,8 +29,24 @@ pub fn mul_generic(attrs: &OpAttrs, a: &VulkanBuffer, b: &VulkanBuffer, thread_i
         .ok_or_else(|| anyhow!("missing SPIR-V target {} for mul op", target))?;
     let output_size = storage_size_bytes_for_len(a.effective_dtype, len);
     let output_inner = runtime.create_buffer(output_size)?;
+    let meta_a = crate::backend::vulkan::broadcast::build_metadata(
+        a.shape.as_slice(),
+        a.strides.as_slice(),
+        out_shape.as_slice(),
+    )?;
+    let meta_b = crate::backend::vulkan::broadcast::build_metadata(
+        b.shape.as_slice(),
+        b.strides.as_slice(),
+        out_shape.as_slice(),
+    )?;
+    let meta_a_bytes: Vec<u8> = meta_a.iter().flat_map(|v| v.to_le_bytes()).collect();
+    let meta_b_bytes: Vec<u8> = meta_b.iter().flat_map(|v| v.to_le_bytes()).collect();
+    let meta_a_inner = runtime.create_buffer(meta_a_bytes.len())?;
+    let meta_b_inner = runtime.create_buffer(meta_b_bytes.len())?;
+    runtime.write_buffer(&meta_a_inner, &meta_a_bytes)?;
+    runtime.write_buffer(&meta_b_inner, &meta_b_bytes)?;
     let push = [len as u32, 0, 0, 0];
-    let duration_ns = runtime.dispatch(
+    let duration_ns = runtime.dispatch_with_offsets_meta(
         OpKind::Mul,
         a.effective_dtype,
         &target,
@@ -42,17 +55,19 @@ pub fn mul_generic(attrs: &OpAttrs, a: &VulkanBuffer, b: &VulkanBuffer, thread_i
         &a.inner,
         &b.inner,
         &output_inner,
+        &meta_a_inner,
+        &meta_b_inner,
         push,
         len,
+        [0, 0, 0],
     )?;
     Timer::record(thread_id, duration_ns);
-    let shape = if len == a.len { a.shape.clone() } else { vec![len] };
-    let strides = compute_strides(shape.as_slice());
+    let strides = compute_strides(out_shape.as_slice());
     Ok(VulkanBuffer {
         dtype: a.dtype,
         effective_dtype: a.effective_dtype,
         len,
-        shape,
+        shape: out_shape,
         strides,
         shader: a.shader.clone(),
         inner: output_inner,
@@ -67,14 +82,15 @@ pub fn mul_accumulate_generic(
     output: Option<&VulkanBuffer>,
     thread_id: usize,
 ) -> Result<VulkanBuffer> {
-    let strict_shapes = a.shader_setting_bool("strict_shapes").unwrap_or(true);
-    if strict_shapes && a.len != b.len {
-        return Err(anyhow!("mul accumulate shape mismatch"));
-    }
     if a.effective_dtype != b.effective_dtype {
         return Err(anyhow!("mul accumulate expects matching input dtypes"));
     }
-    let len = if strict_shapes { a.len } else { a.len.min(b.len) };
+    let out_shape = if a.shape == b.shape {
+        a.shape.clone()
+    } else {
+        broadcast_shapes(&a.shape, &b.shape)?
+    };
+    let len = numel(&out_shape);
     let runtime = super::runtime_from_buffers(a, Some(b))?;
     let target = spv_target_name_mul_accumulate(a.effective_dtype, output_dtype, attrs)?;
     let entry = "main";
@@ -93,8 +109,24 @@ pub fn mul_accumulate_generic(
         }
         _ => runtime.create_buffer(output_size)?,
     };
+    let meta_a = crate::backend::vulkan::broadcast::build_metadata(
+        a.shape.as_slice(),
+        a.strides.as_slice(),
+        out_shape.as_slice(),
+    )?;
+    let meta_b = crate::backend::vulkan::broadcast::build_metadata(
+        b.shape.as_slice(),
+        b.strides.as_slice(),
+        out_shape.as_slice(),
+    )?;
+    let meta_a_bytes: Vec<u8> = meta_a.iter().flat_map(|v| v.to_le_bytes()).collect();
+    let meta_b_bytes: Vec<u8> = meta_b.iter().flat_map(|v| v.to_le_bytes()).collect();
+    let meta_a_inner = runtime.create_buffer(meta_a_bytes.len())?;
+    let meta_b_inner = runtime.create_buffer(meta_b_bytes.len())?;
+    runtime.write_buffer(&meta_a_inner, &meta_a_bytes)?;
+    runtime.write_buffer(&meta_b_inner, &meta_b_bytes)?;
     let push = [len as u32, 0, 0, 0];
-    let duration_ns = runtime.dispatch(
+    let duration_ns = runtime.dispatch_with_offsets_meta(
         OpKind::Mul,
         output_dtype,
         &target,
@@ -103,17 +135,19 @@ pub fn mul_accumulate_generic(
         &a.inner,
         &b.inner,
         &output_inner,
+        &meta_a_inner,
+        &meta_b_inner,
         push,
         len,
+        [0, 0, 0],
     )?;
     Timer::record(thread_id, duration_ns);
-    let shape = if len == a.len { a.shape.clone() } else { vec![len] };
-    let strides = compute_strides(shape.as_slice());
+    let strides = compute_strides(out_shape.as_slice());
     Ok(VulkanBuffer {
         dtype: output_dtype,
         effective_dtype: output_dtype,
         len,
-        shape,
+        shape: out_shape,
         strides,
         shader: a.shader.clone(),
         inner: output_inner,
@@ -126,15 +160,16 @@ pub fn mul_inplace_generic(
     b: &VulkanBuffer,
     thread_id: usize,
 ) -> Result<VulkanBuffer> {
-    let strict_shapes = a.shader_setting_bool("strict_shapes").unwrap_or(true);
-    if strict_shapes && a.len != b.len {
-        return Err(anyhow!("mul inplace shape mismatch"));
-    }
     let allow_mixed = a.shader_setting_bool("allow_mixed_dtypes").unwrap_or(false);
     if !allow_mixed && a.effective_dtype != b.effective_dtype {
         return Err(anyhow!("mul inplace expects matching dtypes"));
     }
-    let len = if strict_shapes { a.len } else { a.len.min(b.len) };
+    let out_shape = if a.shape == b.shape {
+        a.shape.clone()
+    } else {
+        broadcast_shapes(&a.shape, &b.shape)?
+    };
+    let len = numel(&out_shape);
     let runtime = super::runtime_from_buffers(a, Some(b))?;
     let target = spv_target_name_mul_inplace(a.effective_dtype, attrs)?;
     let entry = "main";
@@ -145,8 +180,24 @@ pub fn mul_inplace_generic(
     if output_size > a.inner.size as usize {
         return Err(anyhow!("mul inplace output buffer too small"));
     }
+    let meta_a = crate::backend::vulkan::broadcast::build_metadata(
+        a.shape.as_slice(),
+        a.strides.as_slice(),
+        out_shape.as_slice(),
+    )?;
+    let meta_b = crate::backend::vulkan::broadcast::build_metadata(
+        b.shape.as_slice(),
+        b.strides.as_slice(),
+        out_shape.as_slice(),
+    )?;
+    let meta_a_bytes: Vec<u8> = meta_a.iter().flat_map(|v| v.to_le_bytes()).collect();
+    let meta_b_bytes: Vec<u8> = meta_b.iter().flat_map(|v| v.to_le_bytes()).collect();
+    let meta_a_inner = runtime.create_buffer(meta_a_bytes.len())?;
+    let meta_b_inner = runtime.create_buffer(meta_b_bytes.len())?;
+    runtime.write_buffer(&meta_a_inner, &meta_a_bytes)?;
+    runtime.write_buffer(&meta_b_inner, &meta_b_bytes)?;
     let push = [len as u32, 0, 0, 0];
-    let duration_ns = runtime.dispatch(
+    let duration_ns = runtime.dispatch_with_offsets_meta(
         OpKind::Mul,
         a.effective_dtype,
         &target,
@@ -155,16 +206,19 @@ pub fn mul_inplace_generic(
         &a.inner,
         &b.inner,
         &a.inner,
+        &meta_a_inner,
+        &meta_b_inner,
         push,
         len,
+        [0, 0, 0],
     )?;
     Timer::record(thread_id, duration_ns);
     Ok(VulkanBuffer {
         dtype: a.dtype,
         effective_dtype: a.effective_dtype,
         len,
-        shape: a.shape.clone(),
-        strides: compute_strides(a.shape.as_slice()),
+        shape: out_shape.clone(),
+        strides: compute_strides(out_shape.as_slice()),
         shader: a.shader.clone(),
         inner: a.inner.clone(),
     })

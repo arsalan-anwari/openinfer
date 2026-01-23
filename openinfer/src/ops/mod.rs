@@ -15,6 +15,7 @@ mod adapter;
 pub use registry::{
     broadcast_enabled,
     broadcast_policy,
+    broadcast_requires_materialize,
     lookup_kernel,
     lookup_kernel_inplace,
     BroadcastPolicy,

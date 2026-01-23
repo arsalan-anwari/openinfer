@@ -30,12 +30,10 @@ macro_rules! acc_matmul_kernel {
             )?;
             match out {
                 Some(out) => {
-                    let (_, m, _, n) = matmul_dims(a.shape(), b.shape())?;
-                    let shape: Vec<usize> = a.shape()[..a.shape().len() - 2]
-                        .iter()
-                        .cloned()
-                        .chain([m, n])
-                        .collect();
+                    let (batch_shape, m, _, n) = matmul_dims(a.shape(), b.shape())?;
+                    let mut shape = batch_shape;
+                    shape.push(m);
+                    shape.push(n);
                     let tensor = Tensor::from_vec_with_opts(out, TensorOptions {
                         shape: Some(shape),
                         ..TensorOptions::default()

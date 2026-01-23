@@ -4,7 +4,7 @@ use anyhow::{anyhow, Result};
 use crate::backend::DeviceTensor;
 use crate::backend::TensorStorage;
 use crate::graph::{OpAttrs, OpKind};
-use crate::ops::{broadcast_enabled, lookup_kernel, KernelFn};
+use crate::ops::{broadcast_enabled, broadcast_requires_materialize, lookup_kernel, KernelFn};
 use crate::ops::registry::lookup_kernel_inplace;
 use crate::simulator::{Device, DeviceBackend};
 use crate::tensor::{broadcast_shapes, DType, TensorValue};
@@ -63,20 +63,43 @@ impl DeviceBackend for CpuBackend {
                 to_effective_tensor(value, effective)
             })
             .collect::<Result<Vec<_>>>()?;
-        if host.len() > 1 {
-            if broadcast_enabled(op, self.device) {
-                let mut out_shape = host[0].shape().to_vec();
-                for value in host.iter().skip(1) {
-                    out_shape = broadcast_shapes(&out_shape, value.shape())?;
-                }
-                host = host
-                    .iter()
-                    .map(|value| broadcast::broadcast_value_to_shape(value, &out_shape))
-                    .collect::<Result<Vec<_>>>()?;
+        let force_broadcast_materialize = matches!(attrs, OpAttrs::Accumulate { .. })
+            && matches!(op, OpKind::Add | OpKind::Mul);
+        if host.len() > 1
+            && broadcast_enabled(op, self.device)
+            && (broadcast_requires_materialize(op) || force_broadcast_materialize)
+        {
+            let mut out_shape = host[0].shape().to_vec();
+            for value in host.iter().skip(1) {
+                out_shape = broadcast_shapes(&out_shape, value.shape())?;
             }
+            host = host
+                .iter()
+                .map(|value| broadcast::broadcast_value_to_shape(value, &out_shape))
+                .collect::<Result<Vec<_>>>()?;
         }
         let input_dtypes: Vec<DType> = host.iter().map(|t| t.dtype()).collect();
-        let kernel = lookup_kernel(self.device, op, output_effective, &input_dtypes, attrs)
+        let mut lookup_device = self.device;
+        if matches!(self.device, Device::CpuAvx | Device::CpuAvx2) {
+            let needs_broadcast_fallback = match op {
+                OpKind::Add | OpKind::Mul => host
+                    .iter()
+                    .skip(1)
+                    .any(|value| value.shape() != host[0].shape()),
+                OpKind::Matmul => {
+                    if host.len() >= 2 {
+                        host[0].shape() != host[1].shape()
+                    } else {
+                        false
+                    }
+                }
+                _ => false,
+            };
+            if needs_broadcast_fallback {
+                lookup_device = Device::Cpu;
+            }
+        }
+        let kernel = lookup_kernel(lookup_device, op, output_effective, &input_dtypes, attrs)
             .ok_or_else(|| anyhow!("unsupported op {}", op.as_str()))?;
         match kernel {
             KernelFn::Host(func) => {

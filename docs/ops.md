@@ -76,7 +76,7 @@ device-specific notes.
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | add | [f8, bf16, f16, f32, f64]<br>[i1, i2, i4, i8, i16, i32, i64]<br>[u1, u2, u4, u8, u16, u32, u64]<br>[bool, bitset] | a: Tensor[T], b: Tensor[T] | y: Tensor[T] |  | Yes | Yes | Elementwise add with broadcasting. Accumulate is integer-only and widens output dtype. |
 | mul | [f8, bf16, f16, f32, f64]<br>[i1, i2, i4, i8, i16, i32, i64]<br>[u1, u2, u4, u8, u16, u32, u64]<br>[bool, bitset] | a: Tensor[T], b: Tensor[T] | y: Tensor[T] |  | Yes | Yes | Elementwise multiply with broadcasting. Accumulate is integer-only and widens output dtype. |
-| matmul | [f8, bf16, f16, f32, f64]<br>[i1, i2, i4, i8, i16, i32, i64]<br>[u1, u2, u4, u8, u16, u32, u64]<br>[bool, bitset] | a: Tensor[T], b: Tensor[T] | y: Tensor[T] |  | Yes | Yes | N-D matmul with batched dispatch. Accumulate is integer-only and widens output dtype. |
+| matmul | [f8, bf16, f16, f32, f64]<br>[i1, i2, i4, i8, i16, i32, i64]<br>[u1, u2, u4, u8, u16, u32, u64]<br>[bool, bitset] | a: Tensor[T], b: Tensor[T] | y: Tensor[T] |  | Yes | Yes | N-D matmul with batch-dim broadcasting. Accumulate is integer-only and widens output dtype. |
 | abs | [f8, bf16, f16, f32, f64]<br>[i1, i2, i4, i8, i16, i32, i64] | a: Tensor[T] | y: Tensor[T] |  | Yes | Yes | Elementwise absolute value. Accumulate is integer-only and widens output dtype. |
 | relu | [f8, bf16, f16, f32, f64]<br>[i4, i8, i16, i32, i64] | a: Tensor[T] | y: Tensor[T] | negative_slope, clamp_max | Yes | No | Leaky ReLU with clamp. |
 | is_finite | [f8, bf16, f16, f32, f64] | a: Tensor[T] | y: bool (scalar) | None | No | No | True if all elements are finite. |
@@ -87,6 +87,8 @@ Device notes:
 - CPU is the reference implementation for all listed dtypes.
 - AVX/AVX2 match CPU dtype coverage; i1/u1 packed types fall back to CPU.
 - Vulkan supports all listed dtypes with shader-side casting for f8/bf16/f16.
+- Vulkan add/mul/matmul support packed broadcast, including inplace/accumulate.
+- Vulkan relu supports inplace execution.
 - If Vulkan lacks `shader_int64` or `shader_float64`, ops fall back to CPU with a warning.
 
 ## CPU Fallback Coverage (Non-CPU Backends)

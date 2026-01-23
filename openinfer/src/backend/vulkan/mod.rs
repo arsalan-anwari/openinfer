@@ -9,7 +9,7 @@ use serde_json::Value;
 use crate::backend::{DeviceTensor, OpShaderInfo, ShaderRegistry, TensorStorage, VulkanBuffer};
 use crate::backend::cpu::CpuBackend;
 use crate::graph::{OpAttrs, OpKind};
-use crate::ops::{broadcast_enabled, lookup_kernel, KernelFn};
+use crate::ops::{broadcast_enabled, broadcast_requires_materialize, lookup_kernel, KernelFn};
 use crate::ops::registry::lookup_kernel_inplace;
 use crate::simulator::{Device, DeviceBackend};
 use crate::tensor::{broadcast_shapes, BF16, Bitset, DType, F16, F8E5M2, I1, I2, I4, T1, T2, U1, U2, U4, TensorValue};
@@ -402,15 +402,13 @@ impl DeviceBackend for VulkanBackend {
             return self.exec_op_cpu_fallback(op, attrs, output_dtype, tensors, output, thread_id);
         }
         let mut broadcast_shape = None;
-        if buffers.len() > 1 {
-            if broadcast_enabled(op, self.device()) {
-                let mut out_shape = buffers[0].shape.clone();
-                for buffer in buffers.iter().skip(1) {
-                    out_shape = broadcast_shapes(&out_shape, buffer.shape.as_slice())?;
-                }
-                if buffers.iter().any(|buffer| buffer.shape != out_shape) {
-                    broadcast_shape = Some(out_shape);
-                }
+        if buffers.len() > 1 && broadcast_enabled(op, self.device()) && broadcast_requires_materialize(op) {
+            let mut out_shape = buffers[0].shape.clone();
+            for buffer in buffers.iter().skip(1) {
+                out_shape = broadcast_shapes(&out_shape, buffer.shape.as_slice())?;
+            }
+            if buffers.iter().any(|buffer| buffer.shape != out_shape) {
+                broadcast_shape = Some(out_shape);
             }
         }
         let _guard = self
@@ -526,25 +524,27 @@ impl DeviceBackend for VulkanBackend {
                     }
                 }
                 if buffers.iter().skip(1).any(|buffer| buffer.shape != out_shape) {
-                    let _guard = self
-                        .dispatch_lock
-                        .lock()
-                        .map_err(|_| anyhow!("vulkan dispatch lock poisoned"))?;
-                    buffers = buffers
-                        .into_iter()
-                        .enumerate()
-                        .map(|(idx, buffer)| {
-                            if idx == 0 || buffer.shape == out_shape {
-                                Ok(buffer)
-                            } else {
-                                crate::backend::vulkan::broadcast::broadcast_buffer(
-                                    &buffer,
-                                    out_shape.as_slice(),
-                                    thread_id,
-                                )
-                            }
-                        })
-                        .collect::<Result<Vec<_>>>()?;
+                    if !matches!(op, OpKind::Add | OpKind::Mul) {
+                        let _guard = self
+                            .dispatch_lock
+                            .lock()
+                            .map_err(|_| anyhow!("vulkan dispatch lock poisoned"))?;
+                        buffers = buffers
+                            .into_iter()
+                            .enumerate()
+                            .map(|(idx, buffer)| {
+                                if idx == 0 || buffer.shape == out_shape {
+                                    Ok(buffer)
+                                } else {
+                                    crate::backend::vulkan::broadcast::broadcast_buffer(
+                                        &buffer,
+                                        out_shape.as_slice(),
+                                        thread_id,
+                                    )
+                                }
+                            })
+                            .collect::<Result<Vec<_>>>()?;
+                    }
                 }
             } else {
                 let first = buffers[0].shape.clone();

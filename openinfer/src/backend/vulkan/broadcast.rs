@@ -93,7 +93,7 @@ fn dtype_suffix(dtype: DType) -> Option<&'static str> {
     }
 }
 
-fn build_metadata(
+pub(crate) fn build_metadata(
     in_shape: &[usize],
     in_strides: &[usize],
     out_shape: &[usize],

@@ -30,8 +30,8 @@ class MultiDimModel:
 
 def build_model() -> MultiDimModel:
     rng = np.random.default_rng(42)
-    A = 2
-    B = 4
+    A = 1024
+    B = 128
     x = rng.normal(size=(A, B)).astype(np.float32)
     y = rng.normal(size=(B,)).astype(np.float32)
     z = rng.normal(size=(A, 1)).astype(np.float32)

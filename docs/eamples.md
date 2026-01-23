@@ -8,7 +8,7 @@ This list mirrors the Rust examples wired into `openinfer/Cargo.toml`.
 - `examples/rust/serialize.rs`: Serializes a graph to JSON.
 - `examples/rust/deserialize.rs`: Deserializes a graph from JSON.
 - `examples/rust/relu.rs`: Runs a small graph with Relu op.
-- `examples/rust/multidim_broadcast.rs`: Exercises broadcasting behavior.
+- `examples/rust/multidim_broadcast.rs`: Exercises broadcasting behavior with head/tail output formatting.
 - `examples/rust/reference.rs`: Demonstrates model variable reference and lookup.
 - `examples/rust/prefix_table.rs`: Uses prefix table access in non-persistent memory.
 - `examples/rust/loop.rs`: Uses the DSL `loop` node to repeat ops.
