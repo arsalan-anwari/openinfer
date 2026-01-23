@@ -5,9 +5,9 @@ import sys
 import numpy as np
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(REPO_ROOT / "openinfer-oinf"))
 
-from scripts.dataclass_to_oinf import TensorSpec, write_oinf  # noqa: E402
+from dataclass_to_oinf import TensorSpec, write_oinf  # noqa: E402
 
 
 @dataclass
@@ -68,4 +68,4 @@ def build_model() -> DtypesModel:
 
 
 if __name__ == "__main__":
-    write_oinf(build_model(), "res/dtypes_model.oinf")
+    write_oinf(build_model(), "res/models/dtypes_model.oinf")

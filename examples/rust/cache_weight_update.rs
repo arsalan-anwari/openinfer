@@ -8,7 +8,7 @@ use util::select_device;
 
 fn main() -> anyhow::Result<()> {
     let model_path =
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../res/cache_weight_update_model.oinf");
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../res/models/cache_weight_update_model.oinf");
     let model = ModelLoader::open(model_path)?;
 
     let g = graph! {

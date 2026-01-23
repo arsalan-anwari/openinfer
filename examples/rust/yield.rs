@@ -9,7 +9,7 @@ use util::select_device;
 
 fn main() -> anyhow::Result<()> {
     let model_path = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../res/yield_model.oinf");
+        .join("../res/models/yield_model.oinf");
     let model = ModelLoader::open(model_path)?;
 
     let g = graph! {

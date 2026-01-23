@@ -10,9 +10,9 @@ from pathlib import Path
 import sys
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "openinfer-oinf"))
 
-from scripts.dataclass_to_oinf import write_oinf  # noqa: E402
+from dataclass_to_oinf import write_oinf  # noqa: E402
 
 
 @dataclass
@@ -29,8 +29,8 @@ def build_ops_matrix() -> OpsMatrixModel:
 
 def main() -> None:
     model = build_ops_matrix()
-    output_cpu = ROOT / "res/ops_matrix_model.oinf"
-    output_vulkan = ROOT / "res/ops_matrix_model_vulkan.oinf"
+    output_cpu = ROOT / "res/models/ops_matrix_model.oinf"
+    output_vulkan = ROOT / "res/models/ops_matrix_model_vulkan.oinf"
     write_oinf(model, str(output_cpu))
     write_oinf(model, str(output_vulkan))
     print(f"Wrote {output_cpu}")

@@ -937,7 +937,8 @@ fn populate_exec(
 
 fn main() -> anyhow::Result<()> {
     let device = select_device()?;
-    let model_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../res/ops_accumulate_inplace_model.oinf");
+    let model_path =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../res/models/ops_accumulate_inplace_model.oinf");
     let model = ModelLoader::open(model_path)?;
 
     let g = graph! {

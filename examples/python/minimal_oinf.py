@@ -12,9 +12,9 @@ import sys
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "openinfer-oinf"))
 
-from scripts.dataclass_to_oinf import TensorSpec, write_oinf  # noqa: E402
+from dataclass_to_oinf import TensorSpec, write_oinf  # noqa: E402
 
 
 @dataclass
@@ -32,7 +32,7 @@ def build_minimal() -> MinimalModel:
 
 def main() -> None:
     model = build_minimal()
-    output = ROOT / "res/minimal_model.oinf"
+    output = ROOT / "res/models/minimal_model.oinf"
     write_oinf(model, str(output))
     print(f"Wrote {output}")
 

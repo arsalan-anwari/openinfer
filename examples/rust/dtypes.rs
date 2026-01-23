@@ -154,7 +154,7 @@ fn print_tensor(model: &ModelLoader, name: &str) -> anyhow::Result<()> {
 }
 
 fn main() -> anyhow::Result<()> {
-    let model_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../res/dtypes_model.oinf");
+    let model_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../res/models/dtypes_model.oinf");
     let model = ModelLoader::open(model_path)?;
 
     let graph_universal = graph! {

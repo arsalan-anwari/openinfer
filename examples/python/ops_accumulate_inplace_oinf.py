@@ -10,9 +10,9 @@ from pathlib import Path
 import sys
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "openinfer-oinf"))
 
-from scripts.dataclass_to_oinf import write_oinf  # noqa: E402
+from dataclass_to_oinf import write_oinf  # noqa: E402
 
 
 @dataclass
@@ -30,7 +30,7 @@ def build_model() -> OpsFullChangesModel:
 
 def main() -> None:
     model = build_model()
-    output = ROOT / "res/ops_accumulate_inplace_model.oinf"
+    output = ROOT / "res/models/ops_accumulate_inplace_model.oinf"
     write_oinf(model, str(output))
     print(f"Wrote {output}")
 

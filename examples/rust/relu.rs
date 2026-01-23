@@ -7,7 +7,7 @@ mod util;
 use util::select_device;
 
 fn main() -> anyhow::Result<()> {
-    let model_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../res/relu_model.oinf");
+    let model_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../res/models/relu_model.oinf");
     let model = ModelLoader::open(model_path)?;
 
     let g = graph! {

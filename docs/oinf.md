@@ -166,9 +166,9 @@ kernel: u8[D, D] = { ... }
 
 Two helper scripts live at the repository root:
 
-* `scripts/dataclass_to_oinf.py` converts a Python dataclass instance into a deterministic
+* `openinfer-oinf/dataclass_to_oinf.py` converts a Python dataclass instance into a deterministic
   `.oinf` file (sizevars, metadata, and tensors are inferred from fields).
-* `scripts/verify_oinf.py` validates the binary layout and prints a human-readable view,
+* `openinfer-oinf/verify_oinf.py` validates the binary layout and prints a human-readable view,
   including summary statistics and histograms for tensors with data.
 
 Typical usage:
@@ -176,13 +176,13 @@ Typical usage:
 ```bash
 python examples/python/simple_oinf.py
 python examples/python/minimal_oinf.py
-python scripts/verify_oinf.py res/simple_model.oinf
-python scripts/verify_oinf.py res/minimal_model.oinf
+python openinfer-oinf/verify_oinf.py res/simple_model.oinf
+python openinfer-oinf/verify_oinf.py res/minimal_model.oinf
 ```
 
 ### Create a Binary from a Dataclass
 
-`scripts/dataclass_to_oinf.py` can serialize any Python dataclass instance into an OINF
+`openinfer-oinf/dataclass_to_oinf.py` can serialize any Python dataclass instance into an OINF
 file. You can pass a module path to a dataclass and optionally provide JSON data
 for its fields.
 If you need a scalar tensor (not metadata), wrap the value with `TensorSpec`
@@ -194,7 +194,13 @@ Minimal example (matches `examples/python/minimal_oinf.py`):
 from dataclasses import dataclass
 import numpy as np
 
-from scripts.dataclass_to_oinf import TensorSpec, write_oinf
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "openinfer-oinf"))
+
+from dataclass_to_oinf import TensorSpec, write_oinf
 
 @dataclass
 class MinimalModel:
@@ -216,7 +222,13 @@ Simple example (matches `examples/python/simple_oinf.py`):
 from dataclasses import dataclass
 import numpy as np
 
-from scripts.dataclass_to_oinf import TensorSpec, UninitializedTensor, write_oinf
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "openinfer-oinf"))
+
+from dataclass_to_oinf import TensorSpec, UninitializedTensor, write_oinf
 
 @dataclass
 class ExampleModel:
@@ -254,8 +266,8 @@ write_oinf(build_example(), "simple_model.oinf")
 CLI example (module path + JSON payload):
 
 ```bash
-python scripts/dataclass_to_oinf.py --input examples.python.simple_oinf:ExampleModel --output model.oinf
-python scripts/dataclass_to_oinf.py --input my_pkg.my_model:MyModel --json data.json --output model.oinf
+python openinfer-oinf/dataclass_to_oinf.py --input examples.python.simple_oinf:ExampleModel --output model.oinf
+python openinfer-oinf/dataclass_to_oinf.py --input my_pkg.my_model:MyModel --json data.json --output model.oinf
 ```
 
 ## Verifier Output Examples
@@ -290,9 +302,7 @@ W.0: f32[128] = { 0.48424, 1.61435, -0.782165, -0.0947963, 1.15624, ..., -0.6467
 
 a: f16[1024] = { 0.125732, -0.13208, 0.640625, 0.104919, -0.535645, ..., 1.37988, -1.17969, 0.509766, -1.0752, -0.334229 }
 - [nbytes: 2048, min: -3.90039, max: 3.06641, mean: -0.0491846, median: -0.0691223, std: 0.971848]
-- hist:
-    [-3.90039,-3.20371):2
-    ...
+- hist: {([-3.90039, -3.20371], 2), ...}
 
 kernel: u8[128, 128] = {
 { 163, 255, 148, 186, 142, ..., 208, 23, 236, 196, 15 } ,
@@ -300,9 +310,7 @@ kernel: u8[128, 128] = {
 ...
 }
 - [nbytes: 16384, min: 0, max: 255, mean: 127.408, median: 128, std: 74.2236]
-- hist:
-    [0,25.5):1710
-    ...
+- hist: {([0, 25.5], 1710), ...}
 
 x: f32 = 10.35
 
@@ -311,7 +319,7 @@ y: i16[] -- uninitialized
 
 ## Verification and Printing
 
-`scripts/verify_oinf.py` performs structural validation before printing:
+`openinfer-oinf/verify_oinf.py` performs structural validation before printing:
 
 * checks magic/version, offsets, alignment, and file bounds
 * validates string character set

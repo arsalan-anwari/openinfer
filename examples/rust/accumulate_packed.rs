@@ -58,7 +58,7 @@ const OUTPUTS: &[&str] = &[
 
 fn main() -> anyhow::Result<()> {
     let model_path =
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../res/accumulate_packed_model.oinf");
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../res/models/accumulate_packed_model.oinf");
     let model = ModelLoader::open(model_path)?;
 
     let g = graph! {

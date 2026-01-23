@@ -10,9 +10,9 @@ from pathlib import Path
 import sys
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "openinfer-oinf"))
 
-from scripts.dataclass_to_oinf import write_oinf  # noqa: E402
+from dataclass_to_oinf import write_oinf  # noqa: E402
 
 
 @dataclass
@@ -22,7 +22,7 @@ class CacheTableModel:
 
 def main() -> None:
     model = CacheTableModel(D=4)
-    output = ROOT / "res/cache_table_model.oinf"
+    output = ROOT / "res/models/cache_table_model.oinf"
     write_oinf(model, str(output))
     print(f"Wrote {output}")
 

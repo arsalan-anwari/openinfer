@@ -216,9 +216,9 @@ fn main() -> anyhow::Result<()> {
     let device = select_device()?;
     let is_vulkan = matches!(device, Device::Vulkan);
     let model_path = if is_vulkan {
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../res/ops_matrix_model_vulkan.oinf")
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../res/models/ops_matrix_model_vulkan.oinf")
     } else {
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../res/ops_matrix_model.oinf")
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../res/models/ops_matrix_model.oinf")
     };
     let model = ModelLoader::open(model_path)?;
 

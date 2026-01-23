@@ -10,9 +10,9 @@ from pathlib import Path
 import sys
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "openinfer-oinf"))
 
-from scripts.dataclass_to_oinf import write_oinf  # noqa: E402
+from dataclass_to_oinf import write_oinf  # noqa: E402
 
 
 @dataclass
@@ -23,7 +23,7 @@ class CacheAutoDimModel:
 
 def main() -> None:
     model = CacheAutoDimModel(D=2, H=2)
-    output = ROOT / "res/cache_auto_dim_model.oinf"
+    output = ROOT / "res/models/cache_auto_dim_model.oinf"
     write_oinf(model, str(output))
     print(f"Wrote {output}")
 

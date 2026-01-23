@@ -12,9 +12,9 @@ import sys
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "openinfer-oinf"))
 
-from scripts.dataclass_to_oinf import TensorSpec, UninitializedTensor, write_oinf  # noqa: E402
+from dataclass_to_oinf import TensorSpec, UninitializedTensor, write_oinf  # noqa: E402
 
 
 @dataclass
@@ -52,7 +52,7 @@ def build_example() -> ExampleModel:
 
 def main() -> None:
     model = build_example()
-    output = ROOT / "res/simple_model.oinf"
+    output = ROOT / "res/models/simple_model.oinf"
     write_oinf(model, str(output))
     print(f"Wrote {output}")
 

@@ -12,9 +12,9 @@ import sys
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "openinfer-oinf"))
 
-from scripts.dataclass_to_oinf import TensorSpec, write_oinf  # noqa: E402
+from dataclass_to_oinf import TensorSpec, write_oinf  # noqa: E402
 
 
 @dataclass
@@ -38,7 +38,7 @@ def build_prefix_table() -> PrefixTableModel:
 
 def main() -> None:
     model = build_prefix_table()
-    output = ROOT / "res/prefix_table_model.oinf"
+    output = ROOT / "res/models/prefix_table_model.oinf"
     write_oinf(model, str(output))
     print(f"Wrote {output}")
 

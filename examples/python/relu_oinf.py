@@ -12,9 +12,9 @@ import sys
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "openinfer-oinf"))
 
-from scripts.dataclass_to_oinf import TensorSpec, write_oinf  # noqa: E402
+from dataclass_to_oinf import TensorSpec, write_oinf  # noqa: E402
 
 
 @dataclass
@@ -37,7 +37,7 @@ def build_relu() -> ReluModel:
 
 def main() -> None:
     model = build_relu()
-    output = ROOT / "res/relu_model.oinf"
+    output = ROOT / "res/models/relu_model.oinf"
     write_oinf(model, str(output))
     print(f"Wrote {output}")
 
