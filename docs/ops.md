@@ -6,7 +6,7 @@ This document lists currently supported ops and their backend coverage.
 
 - **CPU:** scalar Rust kernels.
 - **CPU (AVX/AVX2):** SIMD kernels for x86_64 when enabled.
-- **Vulkan:** compute kernels compiled from Slang with shader-side casting.
+- **Vulkan:** compute kernels compiled from Slang; low-bit floats may be native or cast depending on device features.
 
 ## Adding custom ops
 
@@ -86,8 +86,8 @@ Device notes:
 
 - CPU is the reference implementation for all listed dtypes.
 - AVX/AVX2 match CPU dtype coverage; i1/u1 packed types fall back to CPU.
-- Vulkan supports all listed dtypes with shader-side casting for f8/bf16/f16.
-- Vulkan add/mul/matmul support packed broadcast, including inplace/accumulate.
+- Vulkan supports all listed dtypes. f8/bf16 are cast in shaders; f16 uses native half when `shader_float16` is available and falls back to shader-side casting otherwise.
+- CPU and Vulkan add/mul/matmul support packed broadcast, including inplace/accumulate.
 - Vulkan relu supports inplace execution.
 - If Vulkan lacks `shader_int64` or `shader_float64`, ops fall back to CPU with a warning.
 

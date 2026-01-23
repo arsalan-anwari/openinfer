@@ -14,6 +14,7 @@ mod adapter;
 #[allow(unused_imports)]
 pub use registry::{
     broadcast_enabled,
+    broadcast_is_elementwise,
     broadcast_policy,
     broadcast_requires_materialize,
     lookup_kernel,

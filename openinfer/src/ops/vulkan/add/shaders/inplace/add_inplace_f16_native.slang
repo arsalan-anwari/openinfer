@@ -1,4 +1,3 @@
-#include "../../../packed_utils.slang"
 struct PushConsts {
     uint len;
     uint flags;
@@ -33,25 +32,25 @@ uint broadcastOffset(uint index, StructuredBuffer<uint, Std430DataLayout> meta) 
     return offset;
 }
 
-struct AddAccBuffers {
-    [[vk::binding(0, 0)]] ByteAddressBuffer input0;
-    [[vk::binding(1, 0)]] ByteAddressBuffer input1;
-    [[vk::binding(2, 0)]] RWStructuredBuffer<uint, Std430DataLayout> output0;
+struct AddBuffers {
+    [[vk::binding(0, 0)]] StructuredBuffer<half, Std430DataLayout> input0;
+    [[vk::binding(1, 0)]] StructuredBuffer<half, Std430DataLayout> input1;
+    [[vk::binding(2, 0)]] RWStructuredBuffer<half, Std430DataLayout> output0;
     [[vk::binding(3, 0)]] StructuredBuffer<uint, Std430DataLayout> meta0;
     [[vk::binding(4, 0)]] StructuredBuffer<uint, Std430DataLayout> meta1;
 };
 
-ParameterBlock<AddAccBuffers> gAddAcc;
+ParameterBlock<AddBuffers> gAdd;
 
 [shader("compute")]
 [numthreads(256, 1, 1)]
-void add_u2_u8(uint3 tid : SV_DispatchThreadID, uniform PushConsts pc) {
+void add_inplace_f16_native(uint3 tid : SV_DispatchThreadID, uniform PushConsts pc) {
 uint i = tid.x;
 if (i < pc.len) {
-    uint a_idx = broadcastOffset(i, gAddAcc.meta0);
-    uint b_idx = broadcastOffset(i, gAddAcc.meta1);
-    uint a = packed_read_unsigned(gAddAcc.input0, a_idx, 2);
-    uint b = packed_read_unsigned(gAddAcc.input1, b_idx, 2);
-    gAddAcc.output0[i] = (uint)(uint)(a + b);
+    uint a_idx = broadcastOffset(i, gAdd.meta0);
+    uint b_idx = broadcastOffset(i, gAdd.meta1);
+    half a = gAdd.input0[a_idx];
+    half b = gAdd.input1[b_idx];
+    gAdd.output0[i] = a + b;
 }
 }

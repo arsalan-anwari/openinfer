@@ -22,7 +22,11 @@ pub fn add_generic(attrs: &OpAttrs, a: &VulkanBuffer, b: &VulkanBuffer, thread_i
     };
     let len = numel(&out_shape);
     let runtime = super::runtime_from_buffers(a, Some(b))?;
-    let target = super::spv_target_name(OpKind::Add, a.effective_dtype, attrs)?;
+    let target = if a.effective_dtype == DType::F16 && runtime.supports_f16() {
+        "add_f16_native".to_string()
+    } else {
+        super::spv_target_name(OpKind::Add, a.effective_dtype, attrs)?
+    };
     let entry = "main";
     let spirv = a
         .spv_bytes_for_target(&target)
@@ -171,7 +175,11 @@ pub fn add_inplace_generic(
     };
     let len = numel(&out_shape);
     let runtime = super::runtime_from_buffers(a, Some(b))?;
-    let target = spv_target_name_add_inplace(a.effective_dtype, attrs)?;
+    let target = if a.effective_dtype == DType::F16 && runtime.supports_f16() {
+        "add_inplace_f16_native".to_string()
+    } else {
+        spv_target_name_add_inplace(a.effective_dtype, attrs)?
+    };
     let entry = "main";
     let spirv = a
         .spv_bytes_for_target(&target)

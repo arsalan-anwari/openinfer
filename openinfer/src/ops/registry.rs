@@ -10,12 +10,14 @@ pub enum BroadcastPolicy {
     None,
     CpuOnly,
     AllDevices,
+    BatchOnly,
 }
 
 pub fn broadcast_policy(op: OpKind) -> BroadcastPolicy {
     // Central switch: add ops here to enable broadcasting across devices.
     match op {
         OpKind::Add | OpKind::Mul => BroadcastPolicy::AllDevices,
+        OpKind::Matmul => BroadcastPolicy::BatchOnly,
         _ => BroadcastPolicy::None,
     }
 }
@@ -24,8 +26,15 @@ pub fn broadcast_enabled(op: OpKind, device: Device) -> bool {
     match broadcast_policy(op) {
         BroadcastPolicy::None => false,
         BroadcastPolicy::CpuOnly => matches!(device, Device::Cpu | Device::CpuAvx | Device::CpuAvx2),
-        BroadcastPolicy::AllDevices => true,
+        BroadcastPolicy::AllDevices | BroadcastPolicy::BatchOnly => true,
     }
+}
+
+pub fn broadcast_is_elementwise(op: OpKind) -> bool {
+    matches!(
+        broadcast_policy(op),
+        BroadcastPolicy::AllDevices | BroadcastPolicy::CpuOnly
+    )
 }
 
 pub fn broadcast_requires_materialize(op: OpKind) -> bool {

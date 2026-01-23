@@ -1,0 +1,114 @@
+warning: function `format_scalar` is never used
+   --> openinfer/../examples/rust/ops_broadcast_variants.rs:139:4
+    |
+139 | fn format_scalar<T: FormatValue + Copy>(value: T) -> String {
+    |    ^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `collect_scalar_ref` is never used
+   --> openinfer/../examples/rust/ops_broadcast_variants.rs:257:4
+    |
+257 | fn collect_scalar_ref<T: FormatValue + Copy + Fetchable>(
+    |    ^^^^^^^^^^^^^^^^^^
+
+warning: function `validate_scalar` is never used
+   --> openinfer/../examples/rust/ops_broadcast_variants.rs:300:4
+    |
+300 | fn validate_scalar<T: FormatValue + Copy + Fetchable>(
+    |    ^^^^^^^^^^^^^^^
+
+warning: `openinfer` (example "ops_broadcast_variants") generated 3 warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.04s
+     Running `target/debug/examples/ops_broadcast_variants --target=cpu`
+
+thread 'main' (44275) panicked at openinfer/src/ops/cpu/matmul/matmul_accumulate.rs:160:1:
+index out of bounds: the len is 9 but the index is 9
+stack backtrace:
+   0:     0x564956243a02 - std::backtrace_rs::backtrace::libunwind::trace::hd57362190422746d
+                               at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/std/src/../../backtrace/src/backtrace/libunwind.rs:117:9
+   1:     0x564956243a02 - std::backtrace_rs::backtrace::trace_unsynchronized::he61be86f5e8dfc7b
+                               at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/std/src/../../backtrace/src/backtrace/mod.rs:66:14
+   2:     0x564956243a02 - std::sys::backtrace::_print_fmt::hd233ea33e70c29e2
+                               at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/std/src/sys/backtrace.rs:66:9
+   3:     0x564956243a02 - <std::sys::backtrace::BacktraceLock::print::DisplayBacktrace as core::fmt::Display>::fmt::h718e2d17a1928e63
+                               at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/std/src/sys/backtrace.rs:39:26
+   4:     0x5649562550ff - core::fmt::rt::Argument::fmt::hdeda3281325c4830
+                               at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/core/src/fmt/rt.rs:173:76
+   5:     0x5649562550ff - core::fmt::write::h1d2246b072ea91eb
+                               at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/core/src/fmt/mod.rs:1469:25
+   6:     0x56495621d5a3 - std::io::default_write_fmt::h4ebfe695aebd90ac
+                               at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/std/src/io/mod.rs:639:11
+   7:     0x56495621d5a3 - std::io::Write::write_fmt::haf55272405c09d9b
+                               at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/std/src/io/mod.rs:1954:13
+   8:     0x564956223c42 - std::sys::backtrace::BacktraceLock::print::h61c3bd81a9458a03
+                               at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/std/src/sys/backtrace.rs:42:9
+   9:     0x564956226f3f - std::panicking::default_hook::{{closure}}::haf1ffb5d1e33a97f
+                               at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/std/src/panicking.rs:301:27
+  10:     0x564956226d99 - std::panicking::default_hook::hc32245deb6eaa988
+                               at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/std/src/panicking.rs:328:9
+  11:     0x564956227515 - std::panicking::panic_with_hook::h43adc00fd0e494cb
+                               at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/std/src/panicking.rs:834:13
+  12:     0x5649562273aa - std::panicking::panic_handler::{{closure}}::h44391079756da3e7
+                               at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/std/src/panicking.rs:707:13
+  13:     0x564956223d79 - std::sys::backtrace::__rust_end_short_backtrace::h934e1568393e5b8f
+                               at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/std/src/sys/backtrace.rs:174:18
+  14:     0x56495621168d - __rustc[d9b87f19e823c0ef]::rust_begin_unwind
+                               at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/std/src/panicking.rs:698:5
+  15:     0x56495625cca0 - core::panicking::panic_fmt::h62031895f6e012da
+                               at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/core/src/panicking.rs:80:14
+  16:     0x56495625c9a2 - core::panicking::panic_bounds_check::h91fb439f93b2e326
+                               at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/core/src/panicking.rs:276:5
+  17:     0x56495611fe10 - <usize as core::slice::index::SliceIndex<[T]>>::index::h3039bc0bcba81565
+                               at /home/arsalan/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/slice/index.rs:267:10
+  18:     0x5649561a6a96 - core::slice::index::<impl core::ops::index::Index<I> for [T]>::index::h0adedc868afccfa0
+                               at /home/arsalan/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/slice/index.rs:18:15
+  19:     0x5649561a6a96 - <alloc::vec::Vec<T,A> as core::ops::index::Index<I>>::index::h6fe5c37114245793
+                               at /home/arsalan/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/vec/mod.rs:3628:9
+  20:     0x5649560e5fef - openinfer::ops::cpu::matmul::matmul_accumulate::matmul_i8_i16::h30593ce627a5fca6
+                               at /home/arsalan/Workspace/open-infer/openinfer/src/ops/cpu/matmul/matmul_accumulate.rs:60:57
+  21:     0x5649560dbe54 - openinfer::ops::cpu::matmul::registry_accumulate::lookup_kernel_cpu_matmul_accumulate::{{closure}}::h1d4951d21ff9be25
+                               at /home/arsalan/Workspace/open-infer/openinfer/src/ops/cpu/matmul/registry_accumulate.rs:25:23
+  22:     0x56495608ce33 - <alloc::boxed::Box<F,A> as core::ops::function::Fn<Args>>::call::h18906e2a9877246d
+                               at /home/arsalan/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/boxed.rs:2019:9
+  23:     0x56495608bbff - <openinfer::backend::cpu::CpuBackend as openinfer::simulator::DeviceBackend>::exec_op::h2c227f03f66be78d
+                               at /home/arsalan/Workspace/open-infer/openinfer/src/backend/cpu/mod.rs:121:43
+  24:     0x56495618780f - openinfer::simulator::executor::dispatch::<impl openinfer::simulator::executor::Executor>::exec_op::hece3fb91a423e036
+                               at /home/arsalan/Workspace/open-infer/openinfer/src/simulator/executor/dispatch.rs:417:18
+  25:     0x564956189b70 - openinfer::simulator::executor::dispatch::<impl openinfer::simulator::executor::Executor>::next_node::h8c4ea074baa4165a
+                               at /home/arsalan/Workspace/open-infer/openinfer/src/simulator/executor/dispatch.rs:70:26
+  26:     0x56495618335e - openinfer::simulator::executor::Executor::step::h66f5810f94c9d8a4
+                               at /home/arsalan/Workspace/open-infer/openinfer/src/simulator/executor/mod.rs:548:30
+  27:     0x564955ef2a4e - ops_broadcast_variants::main::h0d20db78fceaa15b
+                               at /home/arsalan/Workspace/open-infer/openinfer/../examples/rust/ops_broadcast_variants.rs:1781:14
+  28:     0x564955f31dfb - core::ops::function::FnOnce::call_once::h558a0e450241a046
+                               at /home/arsalan/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/ops/function.rs:250:5
+  29:     0x564955f1087d - std::sys::backtrace::__rust_begin_short_backtrace::h9ebf9d9128d8fb5c
+                               at /home/arsalan/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/sys/backtrace.rs:158:18
+  30:     0x564955f10851 - std::rt::lang_start::{{closure}}::hbcce33177a15942a
+                               at /home/arsalan/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/rt.rs:206:18
+  31:     0x56495621ec50 - core::ops::function::impls::<impl core::ops::function::FnOnce<A> for &F>::call_once::hef272b0bbce060cb
+                               at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/core/src/ops/function.rs:287:21
+  32:     0x56495621ec50 - std::panicking::catch_unwind::do_call::hb8c4cc43eed9a08c
+                               at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/std/src/panicking.rs:590:40
+  33:     0x56495621ec50 - std::panicking::catch_unwind::h2729a121c7344441
+                               at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/std/src/panicking.rs:553:19
+  34:     0x56495621ec50 - std::panic::catch_unwind::h8930b2483deb2063
+                               at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/std/src/panic.rs:359:14
+  35:     0x56495621ec50 - std::rt::lang_start_internal::{{closure}}::hada379c5dd834c6b
+                               at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/std/src/rt.rs:175:24
+  36:     0x56495621ec50 - std::panicking::catch_unwind::do_call::hc3ea95eb90ebfdc8
+                               at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/std/src/panicking.rs:590:40
+  37:     0x56495621ec50 - std::panicking::catch_unwind::h0b97aa6eb277c112
+                               at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/std/src/panicking.rs:553:19
+  38:     0x56495621ec50 - std::panic::catch_unwind::h2db34aa2a1d62ae5
+                               at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/std/src/panic.rs:359:14
+  39:     0x56495621ec50 - std::rt::lang_start_internal::h00c7908c7c2f92b8
+                               at /rustc/ded5c06cf21d2b93bffd5d884aa6e96934ee4234/library/std/src/rt.rs:171:5
+  40:     0x564955f10837 - std::rt::lang_start::hbac74035d23c0521
+                               at /home/arsalan/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/rt.rs:205:5
+  41:     0x564955f03d3e - main
+  42:     0x7f3a9aa27675 - <unknown>
+  43:     0x7f3a9aa27729 - __libc_start_main
+  44:     0x564955e020b5 - _start
+  45:                0x0 - <unknown>

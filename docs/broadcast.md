@@ -9,8 +9,9 @@ slices and do not need shape-aware logic.
 Set the policy in `openinfer/src/ops/registry.rs`:
 
 - `BroadcastPolicy::None`: broadcasting disabled (default)
-- `BroadcastPolicy::CpuOnly`: broadcast on CPU, require identical shapes on Vulkan
-- `BroadcastPolicy::AllDevices`: broadcast on CPU and Vulkan
+- `BroadcastPolicy::CpuOnly`: elementwise broadcast on CPU, require identical shapes on Vulkan
+- `BroadcastPolicy::AllDevices`: elementwise broadcast on CPU and Vulkan
+- `BroadcastPolicy::BatchOnly`: batch-dim broadcast for matmul-like ops (all devices)
 
 The switch lives in `broadcast_policy(op: OpKind)`.
 
@@ -44,7 +45,7 @@ Timer notes:
 ## Limits and Notes
 
 - Broadcasting only applies to multi-input ops.
-- Packed dtypes (`i1`, `i2`, `i4`, `u1`, `u2`, `u4`) support Vulkan broadcast for add/mul/matmul, including inplace and accumulate variants.
+- Packed dtypes (`i1`, `i2`, `i4`, `u1`, `u2`, `u4`) support broadcast on CPU and Vulkan for add/mul/matmul, including inplace and accumulate variants.
 - Batch broadcast for `matmul` is supported for packed and non-packed dtypes (including inplace and accumulate variants), with packed offsets requiring byte-aligned batch strides.
 - Vulkan broadcast metadata is encoded as `u32`, so shapes and strides must fit
   in `u32` values.

@@ -37,10 +37,24 @@ where
     ensure_output_shape(a, &batch_shape, m, n)?;
     let batch = numel(&batch_shape);
     let rank = batch_shape.len() + 2;
+    let mut a_aligned = vec![1; rank - a.shape().len()];
+    a_aligned.extend_from_slice(a.shape());
+    let mut b_aligned = vec![1; rank - b.shape().len()];
+    b_aligned.extend_from_slice(b.shape());
     let mut a_strides = vec![0; rank - a.strides().len()];
     a_strides.extend_from_slice(a.strides());
     let mut b_strides = vec![0; rank - b.strides().len()];
     b_strides.extend_from_slice(b.strides());
+    let a_batch_strides = crate::tensor::broadcast_strides(
+        &a_aligned[..rank - 2],
+        &a_strides[..rank - 2],
+        &batch_shape,
+    )?;
+    let b_batch_strides = crate::tensor::broadcast_strides(
+        &b_aligned[..rank - 2],
+        &b_strides[..rank - 2],
+        &batch_shape,
+    )?;
     let a_stride_m = a_strides[rank - 2];
     let a_stride_k = a_strides[rank - 1];
     let b_stride_k = b_strides[rank - 2];
@@ -52,8 +66,10 @@ where
         let mut a_batch_offset = 0usize;
         let mut b_batch_offset = 0usize;
         for (dim, coord) in batch_coords.iter().enumerate() {
-            a_batch_offset = a_batch_offset.saturating_add(coord.saturating_mul(a_strides[dim]));
-            b_batch_offset = b_batch_offset.saturating_add(coord.saturating_mul(b_strides[dim]));
+            a_batch_offset =
+                a_batch_offset.saturating_add(coord.saturating_mul(a_batch_strides[dim]));
+            b_batch_offset =
+                b_batch_offset.saturating_add(coord.saturating_mul(b_batch_strides[dim]));
         }
         let out_base = batch_idx * m * n;
         for i in 0..m {

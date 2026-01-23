@@ -25,6 +25,7 @@ ParameterBlock<BroadcastBuffers<uint>> gBroadcast_u32;
 ParameterBlock<BroadcastBuffers<uint>> gBroadcast_bool;
 ParameterBlock<BroadcastBuffers<int64_t>> gBroadcast_i64;
 ParameterBlock<BroadcastBuffers<uint64_t>> gBroadcast_u64;
+ParameterBlock<BroadcastBuffers<half>> gBroadcast_f16_native;
 
 struct BroadcastBuffersBytes {
     [[vk::binding(0, 0)]] ByteAddressBuffer input0;
@@ -150,6 +151,12 @@ void broadcast_i64(uint3 tid : SV_DispatchThreadID, uniform PushConsts pc) {
 [numthreads(256, 1, 1)]
 void broadcast_u64(uint3 tid : SV_DispatchThreadID, uniform PushConsts pc) {
     broadcastImpl<uint64_t, 256>(tid, gBroadcast_u64, pc);
+}
+
+[shader("compute")]
+[numthreads(256, 1, 1)]
+void broadcast_f16_native(uint3 tid : SV_DispatchThreadID, uniform PushConsts pc) {
+    broadcastImpl<half, 256>(tid, gBroadcast_f16_native, pc);
 }
 
 [shader("compute")]

@@ -4,7 +4,13 @@ use anyhow::{anyhow, Result};
 use crate::backend::DeviceTensor;
 use crate::backend::TensorStorage;
 use crate::graph::{OpAttrs, OpKind};
-use crate::ops::{broadcast_enabled, broadcast_requires_materialize, lookup_kernel, KernelFn};
+use crate::ops::{
+    broadcast_enabled,
+    broadcast_is_elementwise,
+    broadcast_requires_materialize,
+    lookup_kernel,
+    KernelFn,
+};
 use crate::ops::registry::lookup_kernel_inplace;
 use crate::simulator::{Device, DeviceBackend};
 use crate::tensor::{broadcast_shapes, DType, TensorValue};
@@ -63,20 +69,25 @@ impl DeviceBackend for CpuBackend {
                 to_effective_tensor(value, effective)
             })
             .collect::<Result<Vec<_>>>()?;
-        let force_broadcast_materialize = matches!(attrs, OpAttrs::Accumulate { .. })
-            && matches!(op, OpKind::Add | OpKind::Mul);
-        if host.len() > 1
-            && broadcast_enabled(op, self.device)
-            && (broadcast_requires_materialize(op) || force_broadcast_materialize)
-        {
+        let force_broadcast_materialize =
+            matches!(attrs, OpAttrs::Accumulate { .. }) && matches!(op, OpKind::Add | OpKind::Mul);
+        if host.len() > 1 && broadcast_enabled(op, self.device) && broadcast_is_elementwise(op) {
             let mut out_shape = host[0].shape().to_vec();
             for value in host.iter().skip(1) {
                 out_shape = broadcast_shapes(&out_shape, value.shape())?;
             }
-            host = host
+            let needs_packed_materialize = host
                 .iter()
-                .map(|value| broadcast::broadcast_value_to_shape(value, &out_shape))
-                .collect::<Result<Vec<_>>>()?;
+                .any(|value| value.dtype().is_packed() && value.shape() != out_shape);
+            if broadcast_requires_materialize(op)
+                || force_broadcast_materialize
+                || needs_packed_materialize
+            {
+                host = host
+                    .iter()
+                    .map(|value| broadcast::broadcast_value_to_shape(value, &out_shape))
+                    .collect::<Result<Vec<_>>>()?;
+            }
         }
         let input_dtypes: Vec<DType> = host.iter().map(|t| t.dtype()).collect();
         let mut lookup_device = self.device;
@@ -148,10 +159,52 @@ impl DeviceBackend for CpuBackend {
             .chain(host.iter())
             .map(|t| t.dtype())
             .collect();
-        let kernel = lookup_kernel_inplace(self.device, op, output_effective, &input_dtypes, attrs)
+        let mut lookup_device = self.device;
+        if matches!(self.device, Device::CpuAvx | Device::CpuAvx2) {
+            let needs_broadcast_fallback = match op {
+                OpKind::Add | OpKind::Mul => host
+                    .iter()
+                    .any(|value| value.shape() != output.shape()),
+                OpKind::Matmul => {
+                    if host.len() >= 1 {
+                        output.shape() != host[0].shape()
+                    } else {
+                        false
+                    }
+                }
+                _ => false,
+            };
+            if needs_broadcast_fallback {
+                lookup_device = Device::Cpu;
+            }
+        }
+        let kernel = lookup_kernel_inplace(lookup_device, op, output_effective, &input_dtypes, attrs)
             .ok_or_else(|| anyhow!("unsupported inplace op {}", op.as_str()))?;
         match kernel {
             crate::ops::registry::InplaceKernelFn::Host(func) => {
+                if !host.is_empty()
+                    && broadcast_enabled(op, lookup_device)
+                    && broadcast_is_elementwise(op)
+                {
+                    let out_shape = output.shape().to_vec();
+                    for value in host.iter() {
+                        let merged = broadcast_shapes(&out_shape, value.shape())?;
+                        if merged != out_shape {
+                            return Err(anyhow!(
+                                "inplace op {} requires output shape {:?}, got broadcast {:?}",
+                                op.as_str(),
+                                out_shape,
+                                merged
+                            ));
+                        }
+                    }
+                    if host.iter().any(|value| value.shape() != out_shape) {
+                        host = host
+                            .iter()
+                            .map(|value| broadcast::broadcast_value_to_shape(value, &out_shape))
+                            .collect::<Result<Vec<_>>>()?;
+                    }
+                }
                 (func)(attrs, &mut output, &host, thread_id)?;
                 let output = from_effective_tensor(output, output_dtype)?;
                 Ok(TensorStorage::Host(output))

@@ -3,7 +3,7 @@ use anyhow::{anyhow, Result};
 use crate::backend::vulkan::storage_size_bytes_for_len;
 use crate::backend::VulkanBuffer;
 use crate::graph::{OpAttrs, OpKind};
-use crate::tensor::{compute_strides, numel, DType};
+use crate::tensor::{broadcast_strides, compute_strides, numel, DType};
 use crate::timer::Timer;
 
 pub mod registry;
@@ -55,7 +55,11 @@ pub fn matmul_generic(
     let (batch_shape, m, k, n, out_shape) = matmul_dims(a, b)?;
     let batch = numel(&batch_shape);
     let runtime = super::runtime_from_buffers(a, Some(b))?;
-    let target = super::spv_target_name(OpKind::Matmul, a.effective_dtype, attrs)?;
+    let target = if a.effective_dtype == DType::F16 && runtime.supports_f16() {
+        "matmul_f16_native".to_string()
+    } else {
+        super::spv_target_name(OpKind::Matmul, a.effective_dtype, attrs)?
+    };
     let entry = "main";
     let spirv = a
         .spv_bytes_for_target(&target)
@@ -91,18 +95,34 @@ pub fn matmul_generic(
     };
     let elem_bytes = storage_size_bytes_for_len(a.effective_dtype, 1);
     let rank = batch_shape.len() + 2;
+    let mut a_aligned = vec![1; rank - a.shape.len()];
+    a_aligned.extend_from_slice(&a.shape);
+    let mut b_aligned = vec![1; rank - b.shape.len()];
+    b_aligned.extend_from_slice(&b.shape);
     let mut a_strides = vec![0usize; rank - a.strides.len()];
     a_strides.extend_from_slice(&a.strides);
     let mut b_strides = vec![0usize; rank - b.strides.len()];
     b_strides.extend_from_slice(&b.strides);
+    let a_batch_strides = broadcast_strides(
+        &a_aligned[..rank - 2],
+        &a_strides[..rank - 2],
+        &batch_shape,
+    )?;
+    let b_batch_strides = broadcast_strides(
+        &b_aligned[..rank - 2],
+        &b_strides[..rank - 2],
+        &batch_shape,
+    )?;
     let mut batch_coords = vec![0usize; batch_shape.len()];
     let mut total_duration = 0u128;
     for batch_idx in 0..batch {
         let mut a_batch_offset = 0usize;
         let mut b_batch_offset = 0usize;
         for (dim, coord) in batch_coords.iter().enumerate() {
-            a_batch_offset = a_batch_offset.saturating_add(coord.saturating_mul(a_strides[dim]));
-            b_batch_offset = b_batch_offset.saturating_add(coord.saturating_mul(b_strides[dim]));
+            a_batch_offset =
+                a_batch_offset.saturating_add(coord.saturating_mul(a_batch_strides[dim]));
+            b_batch_offset =
+                b_batch_offset.saturating_add(coord.saturating_mul(b_batch_strides[dim]));
         }
         let offsets = if packed {
             let a_bits_offset = a_batch_offset.saturating_mul(bits);
@@ -223,18 +243,34 @@ pub fn matmul_accumulate_generic(
     let a_elem_bytes = storage_size_bytes_for_len(a.effective_dtype, 1);
     let b_elem_bytes = storage_size_bytes_for_len(b.effective_dtype, 1);
     let rank = batch_shape.len() + 2;
+    let mut a_aligned = vec![1; rank - a.shape.len()];
+    a_aligned.extend_from_slice(&a.shape);
+    let mut b_aligned = vec![1; rank - b.shape.len()];
+    b_aligned.extend_from_slice(&b.shape);
     let mut a_strides = vec![0usize; rank - a.strides.len()];
     a_strides.extend_from_slice(&a.strides);
     let mut b_strides = vec![0usize; rank - b.strides.len()];
     b_strides.extend_from_slice(&b.strides);
+    let a_batch_strides = broadcast_strides(
+        &a_aligned[..rank - 2],
+        &a_strides[..rank - 2],
+        &batch_shape,
+    )?;
+    let b_batch_strides = broadcast_strides(
+        &b_aligned[..rank - 2],
+        &b_strides[..rank - 2],
+        &batch_shape,
+    )?;
     let mut batch_coords = vec![0usize; batch_shape.len()];
     let mut total_duration = 0u128;
     for batch_idx in 0..batch {
         let mut a_batch_offset = 0usize;
         let mut b_batch_offset = 0usize;
         for (dim, coord) in batch_coords.iter().enumerate() {
-            a_batch_offset = a_batch_offset.saturating_add(coord.saturating_mul(a_strides[dim]));
-            b_batch_offset = b_batch_offset.saturating_add(coord.saturating_mul(b_strides[dim]));
+            a_batch_offset =
+                a_batch_offset.saturating_add(coord.saturating_mul(a_batch_strides[dim]));
+            b_batch_offset =
+                b_batch_offset.saturating_add(coord.saturating_mul(b_batch_strides[dim]));
         }
         let offsets = if packed {
             let a_bits_offset = a_batch_offset.saturating_mul(bits);
