@@ -40,10 +40,10 @@ fn main() -> anyhow::Result<()> {
     insert_executor!(exec, { bias: 1.0f32 });
     match exec.step() {
         Ok(()) => {
-            println!("Unexpected success: cache access should exceed @fixed limits.");
+            log::info!("Unexpected success: cache access should exceed @fixed limits.");
         }
         Err(err) => {
-            println!("Expected cache limit error: {err}");
+            log::info!("Expected cache limit error: {err}");
         }
     }
 

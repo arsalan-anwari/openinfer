@@ -24,14 +24,14 @@ fn print_line<T: std::fmt::Debug>(label: &str, data: &[T], cpu_ref: &str) {
     let n = 4.min(data.len());
     let actual = format!("{:?}", &data[..n]);
     let ok = if actual == cpu_ref { "[✅]" } else { "[❌]" };
-    println!("{ok} {label}[0..{n}] = {actual} -- CPUref: {cpu_ref}");
+    log::info!("{ok} {label}[0..{n}] = {actual} -- CPUref: {cpu_ref}");
 }
 
 fn print_row_line<T: std::fmt::Debug>(label: &str, data: &[T], row_len: usize, cpu_ref: &str) {
     let n = row_len.min(data.len());
     let actual = format!("{:?}", &data[..n]);
     let ok = if actual == cpu_ref { "[✅]" } else { "[❌]" };
-    println!("{ok} {label}[0..{n}] = {actual} -- CPUref: {cpu_ref}");
+    log::info!("{ok} {label}[0..{n}] = {actual} -- CPUref: {cpu_ref}");
 }
 
 struct CpuRefs {
@@ -189,7 +189,7 @@ fn print_group<T: TensorElement + std::fmt::Debug>(
     let fill: Tensor<T> = exec.fetch(&format!("fill_{}", tag))?;
     let mm: Tensor<T> = exec.fetch(&format!("mm_{}", tag))?;
 
-    println!("=== {} ===", tag);
+    log::info!("=== {} ===", tag);
     print_line("add", &add.data, refs.add);
     print_line("mul", &mul.data, refs.mul);
     if has_abs {
@@ -205,10 +205,10 @@ fn print_group<T: TensorElement + std::fmt::Debug>(
         let finite: bool = exec.fetch(&format!("finite_{}", tag))?;
         let actual = format!("{}", finite);
         let ok = if actual == refs.finite { "[✅]" } else { "[❌]" };
-        println!("{ok} finite = {actual} -- CPUref: {}", refs.finite);
+        log::info!("{ok} finite = {actual} -- CPUref: {}", refs.finite);
     }
     print_row_line("mm", &mm.data, row_len, refs.mm);
-    println!();
+    log::info!("");
     Ok(())
 }
 
@@ -827,7 +827,7 @@ fn main() -> anyhow::Result<()> {
         print_group::<Bitset>(&mut exec, "bitset", n, false, false, false)?;
     }
 
-    println!("ops_matrix completed");
+    log::info!("ops_matrix completed");
 
     Ok(())
 }

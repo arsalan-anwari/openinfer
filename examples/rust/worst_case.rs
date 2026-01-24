@@ -48,7 +48,7 @@ fn main() -> anyhow::Result<()> {
     exec.step()?;
 
     fetch_executor!(exec, { x: Tensor<f32> });
-    println!("x.len() = {}", x.len());
-    println!("x[0..100] = {:?}", &x.data[..100.min(x.len())]);
+    log::info!("x.len() = {}", x.len());
+    log::info!("x[0..100] = {:?}", &x.data[..100.min(x.len())]);
     Ok(())
 }

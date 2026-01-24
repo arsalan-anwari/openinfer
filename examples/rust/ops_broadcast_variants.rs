@@ -258,7 +258,7 @@ fn validate_tensor<T: TensorElement + FormatValue>(
     let formatted = format_tensor::<T>(exec, name)?;
     let ref_val = refs.get(name).cloned().unwrap_or_else(|| "<missing>".to_string());
     let status = if formatted == ref_val { "✅" } else { "❌" };
-    println!("[{}] {} = {} -- ref = {}", status, name, formatted, ref_val);
+    log::info!("[{}] {} = {} -- ref = {}", status, name, formatted, ref_val);
     Ok(())
 }
 
@@ -279,7 +279,7 @@ fn validate_tensor_float<T: TensorElement + FormatValue + Copy + ToF64>(
         }
         None => "❌",
     };
-    println!("[{}] {} = {} -- ref = {}", status, name, formatted, ref_val);
+    log::info!("[{}] {} = {} -- ref = {}", status, name, formatted, ref_val);
     Ok(())
 }
 
@@ -1782,7 +1782,7 @@ fn main() -> Result<()> {
     populate_exec(&mut exec, v, s, m, k, n, b)?;
     exec.step()?;
 
-    println!("⚠️ == Pass but drift. ✅ == Pass with no drift. ❌ == Fail");
+    log::info!("⚠️ == Pass but drift. ✅ == Pass with no drift. ❌ == Fail");
 
     validate_named::<i8>(&refs, &mut exec, I8_OUTPUTS)?;
     validate_named::<i16>(&refs, &mut exec, I16_OUTPUTS)?;
@@ -1806,7 +1806,7 @@ fn main() -> Result<()> {
     validate_named_float::<f32>(&refs, &float_refs, &mut exec, F32_OUTPUTS, FloatTol::f32())?;
     validate_named_float::<f64>(&refs, &float_refs, &mut exec, F64_OUTPUTS, FloatTol::f64())?;
 
-    println!("ops_broadcast_variants completed on {:?}", device);
+    log::info!("ops_broadcast_variants completed on {:?}", device);
 
     Ok(())
 }

@@ -49,9 +49,9 @@ fn main() -> anyhow::Result<()> {
     exec.step()?;
 
     fetch_executor!(exec, { out_full: Tensor<f32>, out_slice: Tensor<f32>, out_reset: Tensor<f32> });
-    println!("out_full shape = {:?}", out_full.shape());
-    println!("out_slice shape = {:?}", out_slice.shape());
-    println!(
+    log::info!("out_full shape = {:?}", out_full.shape());
+    log::info!("out_slice shape = {:?}", out_slice.shape());
+    log::info!(
         "out_reset[0..8] = {:?}",
         &out_reset.data[..8.min(out_reset.len())]
     );

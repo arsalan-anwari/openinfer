@@ -12,3 +12,11 @@ ROOT="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 
 alias dataclass_to_oinf="python \"$ROOT/openinfer-oinf/dataclass_to_oinf.py\""
 alias verify_oinf="python \"$ROOT/openinfer-oinf/verify_oinf.py\""
+
+for script in "$ROOT"/scripts/*; do
+  if [ -f "$script" ]; then
+    base="$(basename "$script")"
+    name="${base%.*}"
+    alias "$name"="\"$script\""
+  fi
+done

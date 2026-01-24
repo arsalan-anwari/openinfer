@@ -33,6 +33,18 @@ pub(crate) fn embedded_spirv_for_op(op: &str) -> HashMap<String, &'static [u8]> 
     embedded_spirv::embedded_spirv_for_op(op)
 }
 
+fn warn_enabled() -> bool {
+    std::env::var("OPENINFER_TRACE").is_ok()
+}
+
+macro_rules! trace_warn {
+    ($($arg:tt)*) => {
+        if warn_enabled() {
+            log::warn!($($arg)*);
+        }
+    };
+}
+
 #[derive(Debug, Default)]
 pub struct VulkanShaderRegistry {
     ops: HashMap<String, Arc<OpShaderInfo>>,
@@ -109,7 +121,7 @@ impl VulkanBackend {
 
     pub fn new_with_settings(force_simulated_float: bool) -> Self {
         let shaders = VulkanShaderRegistry::load_default().unwrap_or_else(|err| {
-            eprintln!("vulkan shaders: {}", err);
+            trace_warn!("vulkan shaders: {}", err);
             VulkanShaderRegistry::default()
         });
         Self {
@@ -202,14 +214,14 @@ impl VulkanBackend {
         match output {
             TensorStorage::Host(value) => match self.effective_dtype(output_dtype) {
                 Ok(_) => {
-                    eprintln!(
+                    trace_warn!(
                         "vulkan fallback: running {} on CPU and uploading output",
                         op.as_str()
                     );
                     self.upload(value)
                 }
                 Err(err) => {
-                    eprintln!(
+                    trace_warn!(
                         "vulkan fallback: running {} on CPU ({}), keeping host output",
                         op.as_str(),
                         err
@@ -244,14 +256,14 @@ impl VulkanBackend {
         match output {
             TensorStorage::Host(value) => match self.effective_dtype(output_dtype) {
                 Ok(_) => {
-                    eprintln!(
+                    trace_warn!(
                         "vulkan fallback: running {} inplace on CPU and uploading output",
                         op.as_str()
                     );
                     self.upload(value)
                 }
                 Err(err) => {
-                    eprintln!(
+                    trace_warn!(
                         "vulkan fallback: running {} inplace on CPU ({}), keeping host output",
                         op.as_str(),
                         err
@@ -278,7 +290,7 @@ impl DeviceBackend for VulkanBackend {
         let effective_dtype = match self.effective_dtype(dtype) {
             Ok(dtype) => dtype,
             Err(err) => {
-                eprintln!("vulkan fallback: alloc {:?} on CPU ({})", dtype, err);
+                trace_warn!("vulkan fallback: alloc {:?} on CPU ({})", dtype, err);
                 return Ok(TensorStorage::Host(TensorValue::zeros(dtype, shape)));
             }
         };
@@ -307,7 +319,7 @@ impl DeviceBackend for VulkanBackend {
         let effective_dtype = match self.effective_dtype(dtype) {
             Ok(dtype) => dtype,
             Err(err) => {
-                eprintln!("vulkan fallback: upload {:?} on CPU ({})", dtype, err);
+                trace_warn!("vulkan fallback: upload {:?} on CPU ({})", dtype, err);
                 return Ok(TensorStorage::Host(value));
             }
         };
@@ -366,7 +378,7 @@ impl DeviceBackend for VulkanBackend {
         let output_effective = match self.effective_dtype(output_dtype) {
             Ok(dtype) => dtype,
             Err(err) => {
-                eprintln!(
+                trace_warn!(
                     "vulkan fallback: op {} output {:?} unsupported ({})",
                     op.as_str(),
                     output_dtype,
@@ -377,7 +389,7 @@ impl DeviceBackend for VulkanBackend {
         };
         let shader = self.shaders.shader_for_op(op);
         if shader.is_none() {
-            eprintln!("vulkan shaders: missing entry for op {}", op.as_str());
+            trace_warn!("vulkan shaders: missing entry for op {}", op.as_str());
         }
         let mut buffers = to_vulkan_buffers(tensors, shader.clone())?;
         let input_dtypes: Vec<DType> = buffers.iter().map(|b| b.effective_dtype).collect();
@@ -394,7 +406,7 @@ impl DeviceBackend for VulkanBackend {
             match lookup_kernel(self.device(), op, output_effective, &input_dtypes, attrs) {
                 Some(kernel) => Some(kernel),
                 None => {
-                    eprintln!(
+                    trace_warn!(
                         "vulkan fallback: no kernel for {} {:?}->{:?}",
                         op.as_str(),
                         input_dtypes,
@@ -412,7 +424,7 @@ impl DeviceBackend for VulkanBackend {
             }
         };
         if let Some(KernelFn::Host(_)) = kernel {
-            eprintln!("vulkan fallback: host kernel for {}", op.as_str());
+            trace_warn!("vulkan fallback: host kernel for {}", op.as_str());
             return self.exec_op_cpu_fallback(op, attrs, output_dtype, tensors, output, thread_id);
         }
         let mut broadcast_shape = None;
@@ -510,7 +522,7 @@ impl DeviceBackend for VulkanBackend {
         let output_effective = match self.effective_dtype(output_dtype) {
             Ok(dtype) => dtype,
             Err(err) => {
-                eprintln!(
+                trace_warn!(
                     "vulkan fallback: inplace op {} output {:?} unsupported ({})",
                     op.as_str(),
                     output_dtype,
@@ -521,10 +533,7 @@ impl DeviceBackend for VulkanBackend {
         };
         let shader = self.shaders.shader_for_op(op);
         if shader.is_none() {
-            eprintln!(
-                "vulkan shaders: missing entry for op {}",
-                op.as_str()
-            );
+            trace_warn!("vulkan shaders: missing entry for op {}", op.as_str());
             return self.exec_op_inplace_cpu_fallback(op, attrs, output_dtype, tensors, thread_id);
         }
         let mut buffers = to_vulkan_buffers(tensors, shader)?;
@@ -581,7 +590,7 @@ impl DeviceBackend for VulkanBackend {
         let kernel = match lookup_kernel_inplace(self.device(), op, output_effective, &input_dtypes, attrs) {
             Some(kernel) => kernel,
             None => {
-                eprintln!(
+                trace_warn!(
                     "vulkan fallback: no inplace kernel for {} {:?}->{:?}",
                     op.as_str(),
                     input_dtypes,
@@ -592,7 +601,7 @@ impl DeviceBackend for VulkanBackend {
         };
         match kernel {
             crate::ops::registry::InplaceKernelFn::Host(_) => {
-                eprintln!("vulkan fallback: host inplace kernel for {}", op.as_str());
+                trace_warn!("vulkan fallback: host inplace kernel for {}", op.as_str());
                 self.exec_op_inplace_cpu_fallback(op, attrs, output_dtype, tensors, thread_id)
             }
             crate::ops::registry::InplaceKernelFn::Vulkan(func) => {

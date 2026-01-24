@@ -30,11 +30,11 @@ fn main() -> anyhow::Result<()> {
 
     exec.step()?;
     fetch_executor!(exec, { out_step: i32 });
-    println!("step 0 read = {}", out_step);
+    log::info!("step 0 read = {}", out_step);
 
     exec.step()?;
     fetch_executor!(exec, { out_step: i32 });
-    println!("step 1 read = {}", out_step);
+    log::info!("step 1 read = {}", out_step);
 
     Ok(())
 }

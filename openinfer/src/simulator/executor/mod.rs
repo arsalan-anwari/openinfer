@@ -549,7 +549,7 @@ impl Executor {
         while self.is_running() {
             let event = self.next_node()?;
             if self.trace_enabled {
-                println!("{}", format_step_line(&event));
+                log::info!("{}", format_step_line(&event));
             }
         }
         Ok(())
@@ -569,7 +569,7 @@ impl Executor {
         while self.is_running() {
             let event = self.next_node()?;
             if self.trace_enabled {
-                println!("{}", format_step_line(&event));
+                log::info!("{}", format_step_line(&event));
             }
             match event.kind {
                 TraceEventKind::Yield => {

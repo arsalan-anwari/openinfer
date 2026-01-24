@@ -51,7 +51,7 @@ impl VulkanRuntime {
         let entry = unsafe { Entry::load()? };
         let trace = std::env::var("OPENINFER_VULKAN_TRACE").is_ok();
         if trace {
-            eprintln!("vulkan init: creating instance");
+            log::info!("vulkan init: creating instance");
         }
         let app_name = CString::new("openinfer").unwrap_or_else(|_| CString::new("openinfer").expect("static"));
         let app_info = vk::ApplicationInfo::builder()
@@ -65,7 +65,7 @@ impl VulkanRuntime {
         let instance = unsafe { entry.create_instance(&instance_info, None)? };
 
         if trace {
-            eprintln!("vulkan init: enumerate physical devices");
+            log::info!("vulkan init: enumerate physical devices");
         }
         let physical_devices = unsafe { instance.enumerate_physical_devices()? };
         let (physical_device, queue_family_index) = physical_devices
@@ -74,7 +74,7 @@ impl VulkanRuntime {
             .ok_or_else(|| anyhow!("no Vulkan compute queue found"))?;
 
         if trace {
-            eprintln!("vulkan init: create device");
+            log::info!("vulkan init: create device");
         }
         let priorities = [1.0f32];
         let queue_info = vk::DeviceQueueCreateInfo::builder()
@@ -100,7 +100,7 @@ impl VulkanRuntime {
             .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER);
         let command_pool = unsafe { device.create_command_pool(&command_pool_info, None)? };
         if trace {
-            eprintln!("vulkan init: create command pool");
+            log::info!("vulkan init: create command pool");
         }
 
         let descriptor_pool_sizes = [vk::DescriptorPoolSize {
@@ -113,7 +113,7 @@ impl VulkanRuntime {
             .flags(vk::DescriptorPoolCreateFlags::FREE_DESCRIPTOR_SET);
         let descriptor_pool = unsafe { device.create_descriptor_pool(&descriptor_pool_info, None)? };
         if trace {
-            eprintln!("vulkan init: create descriptor pool");
+            log::info!("vulkan init: create descriptor pool");
         }
 
         let bindings = [
@@ -151,7 +151,7 @@ impl VulkanRuntime {
         let set_layout_info = vk::DescriptorSetLayoutCreateInfo::builder().bindings(&bindings);
         let descriptor_set_layout = unsafe { device.create_descriptor_set_layout(&set_layout_info, None)? };
         if trace {
-            eprintln!("vulkan init: create descriptor set layout");
+            log::info!("vulkan init: create descriptor set layout");
         }
 
         let push_constant_range = vk::PushConstantRange::builder()
@@ -165,7 +165,7 @@ impl VulkanRuntime {
             .push_constant_ranges(std::slice::from_ref(&push_constant_range));
         let pipeline_layout = unsafe { device.create_pipeline_layout(&pipeline_layout_info, None)? };
         if trace {
-            eprintln!(
+            log::info!(
                 "vulkan init: create pipeline layout (set_layouts={})",
                 set_layouts.len()
             );
@@ -346,7 +346,7 @@ impl VulkanRuntime {
             ));
         }
         if std::env::var("OPENINFER_VULKAN_TRACE").is_ok() {
-            eprintln!(
+            log::info!(
                 "vulkan dispatch op={} dtype={:?} entry={} len={} push={:?} set={}",
                 op.as_str(),
                 dtype,
@@ -601,7 +601,7 @@ impl VulkanRuntime {
             ));
         }
         if std::env::var("OPENINFER_VULKAN_TRACE").is_ok() {
-            eprintln!(
+            log::info!(
                 "vulkan dispatch op={} dtype={:?} entry={} len={} push={:?} set={}",
                 op.as_str(),
                 dtype,
