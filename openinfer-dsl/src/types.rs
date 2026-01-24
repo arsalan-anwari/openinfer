@@ -136,8 +136,10 @@ pub(crate) struct OpSetting {
 }
 
 #[derive(Clone)]
+#[allow(dead_code)]
 pub(crate) enum OpAttrValue {
     Float(f32),
+    Double(f64),
     Int(i64),
     Bool(bool),
     Var(Ident),

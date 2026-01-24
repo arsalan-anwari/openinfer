@@ -95,6 +95,18 @@ fn attr_value_expr(value: &OpAttrValue) -> TokenStream {
                 quote! { ::openinfer::AttrValue::Float(#lit) }
             }
         }
+        OpAttrValue::Double(val) => {
+            if val.is_infinite() {
+                if val.is_sign_negative() {
+                    quote! { ::openinfer::AttrValue::Double(::std::f64::NEG_INFINITY) }
+                } else {
+                    quote! { ::openinfer::AttrValue::Double(::std::f64::INFINITY) }
+                }
+            } else {
+                let lit = proc_macro2::Literal::f64_unsuffixed(*val);
+                quote! { ::openinfer::AttrValue::Double(#lit) }
+            }
+        }
         OpAttrValue::Int(val) => {
             let lit = proc_macro2::Literal::i64_unsuffixed(*val);
             quote! { ::openinfer::AttrValue::Int(#lit) }

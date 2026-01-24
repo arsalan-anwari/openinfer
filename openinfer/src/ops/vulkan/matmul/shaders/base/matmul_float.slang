@@ -1,4 +1,4 @@
-// Matmul kernel (float32 only).
+// Matmul kernel (native float types).
 struct PushConsts {
     uint len;
     uint m;
@@ -14,7 +14,9 @@ struct MatmulBuffers<T> {
     [[vk::binding(2, 0)]] RWStructuredBuffer<T, Std430DataLayout> output0;
 };
 
+ParameterBlock<MatmulBuffers<half>> gMatmul_f16_native;
 ParameterBlock<MatmulBuffers<float>> gMatmul_f32;
+ParameterBlock<MatmulBuffers<double>> gMatmul_f64;
 
 __generic<typename T, let BLOCK_SIZE : int>
 void matmulImpl(uint3 tid, MatmulBuffers<T> bufs, PushConsts pc)
@@ -35,6 +37,18 @@ void matmulImpl(uint3 tid, MatmulBuffers<T> bufs, PushConsts pc)
 
 [shader("compute")]
 [numthreads(256, 1, 1)]
+void matmul_f16_native(uint3 tid : SV_DispatchThreadID, uniform PushConsts pc) {
+    matmulImpl<half, 256>(tid, gMatmul_f16_native, pc);
+}
+
+[shader("compute")]
+[numthreads(256, 1, 1)]
 void matmul_f32(uint3 tid : SV_DispatchThreadID, uniform PushConsts pc) {
     matmulImpl<float, 256>(tid, gMatmul_f32, pc);
+}
+
+[shader("compute")]
+[numthreads(256, 1, 1)]
+void matmul_f64(uint3 tid : SV_DispatchThreadID, uniform PushConsts pc) {
+    matmulImpl<double, 256>(tid, gMatmul_f64, pc);
 }

@@ -33,7 +33,7 @@ pub fn abs_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: usize) -> Resul
         &a.inner,
         &a.inner,
         &output_inner,
-        push,
+        &push,
         a.len,
     )?;
     Timer::record(thread_id, duration_ns);
@@ -83,7 +83,7 @@ pub fn abs_accumulate_generic(
         &a.inner,
         &a.inner,
         &output_inner,
-        push,
+        &push,
         a.len,
     )?;
     Timer::record(thread_id, duration_ns);
@@ -123,7 +123,7 @@ pub fn abs_inplace_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: usize) 
         &a.inner,
         &a.inner,
         &a.inner,
-        push,
+        &push,
         a.len,
     )?;
     Timer::record(thread_id, duration_ns);

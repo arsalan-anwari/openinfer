@@ -10,11 +10,8 @@ use crate::ops::cpu_avx::packed::{get_i4_value, set_i4_value};
 use crate::tensor::I4;
 
 pub fn relu_f32(attrs: &OpAttrs, a: &[f32], thread_id: usize) -> Result<Vec<f32>> {
-    let (negative_slope, clamp_max) = match attrs {
-        OpAttrs::Relu {
-            negative_slope,
-            clamp_max,
-        } => (attr_value_f32(negative_slope)?, attr_value_f32(clamp_max)?),
+    let (alpha, clamp_max) = match attrs {
+        OpAttrs::Relu { alpha, clamp_max } => (attr_value_f32(alpha)?, attr_value_f32(clamp_max)?),
         _ => return Err(anyhow!("relu op expects relu attributes")),
     };
     let len = a.len();
@@ -24,7 +21,7 @@ pub fn relu_f32(attrs: &OpAttrs, a: &[f32], thread_id: usize) -> Result<Vec<f32>
         let mut i = 0usize;
         let out_ptr = out.as_mut_ptr();
         let zero = _mm256_set1_ps(0.0);
-        let slope = _mm256_set1_ps(negative_slope);
+        let slope = _mm256_set1_ps(alpha);
         let clamp = _mm256_set1_ps(clamp_max);
         while i + 8 <= len {
             let va = _mm256_loadu_ps(a.as_ptr().add(i));
@@ -38,7 +35,7 @@ pub fn relu_f32(attrs: &OpAttrs, a: &[f32], thread_id: usize) -> Result<Vec<f32>
         }
         while i < len {
             let x = a[i];
-            let mut y = if x >= 0.0 { x } else { x * negative_slope };
+            let mut y = if x >= 0.0 { x } else { x * alpha };
             if y > clamp_max {
                 y = clamp_max;
             }
@@ -51,9 +48,9 @@ pub fn relu_f32(attrs: &OpAttrs, a: &[f32], thread_id: usize) -> Result<Vec<f32>
 }
 
 pub fn relu_i4(attrs: &OpAttrs, a: &[I4], logical_len: usize, thread_id: usize) -> Result<Vec<I4>> {
-    let (negative_slope, clamp_max) = match attrs {
-        OpAttrs::Relu { negative_slope, clamp_max } => {
-            (attr_value_f32(negative_slope)?, attr_value_f32(clamp_max)?)
+    let (alpha, clamp_max) = match attrs {
+        OpAttrs::Relu { alpha, clamp_max } => {
+            (attr_value_f32(alpha)?, attr_value_f32(clamp_max)?)
         }
         _ => return Err(anyhow!("relu op expects relu attributes")),
     };
@@ -62,7 +59,7 @@ pub fn relu_i4(attrs: &OpAttrs, a: &[I4], logical_len: usize, thread_id: usize) 
     Timer::start(thread_id);
     for idx in 0..logical_len {
         let x = get_i4_value(a, idx) as f32;
-        let mut y = if x >= 0.0 { x } else { x * negative_slope };
+        let mut y = if x >= 0.0 { x } else { x * alpha };
         if y > clamp_max {
             y = clamp_max;
         }
@@ -81,6 +78,12 @@ pub fn relu_i4(attrs: &OpAttrs, a: &[I4], logical_len: usize, thread_id: usize) 
 fn attr_value_f32(value: &AttrValue) -> Result<f32> {
     match value {
         AttrValue::Float(val) => Ok(*val),
+        AttrValue::Double(val) => {
+            if val.is_finite() && val.abs() > f32::MAX as f64 {
+                return Err(anyhow!("relu op attr {} is out of range for f32", val));
+            }
+            Ok(*val as f32)
+        }
         AttrValue::Int(val) => Ok(*val as f32),
         AttrValue::UInt(val) => Ok(*val as f32),
         AttrValue::Bool(_) => Err(anyhow!("relu op attrs must be numeric")),

@@ -325,28 +325,28 @@ fn main() -> anyhow::Result<()> {
                 op add(a_i8, b_i8) >> add_i8;
                 op mul(a_i8, b_i8) >> mul_i8;
                 op abs(a_i8) >> abs_i8;
-                op relu(a_i8, negative_slope=0.1, clamp_max=2.0) >> relu_i8;
+                op relu(a_i8, alpha=0.1, clamp_max=2.0) >> relu_i8;
                 op fill(a_i8, value=1) >> fill_i8;
                 op matmul(ma_i8, mb_i8) >> mm_i8;
 
                 op add(a_i16, b_i16) >> add_i16;
                 op mul(a_i16, b_i16) >> mul_i16;
                 op abs(a_i16) >> abs_i16;
-                op relu(a_i16, negative_slope=0.1, clamp_max=2.0) >> relu_i16;
+                op relu(a_i16, alpha=0.1, clamp_max=2.0) >> relu_i16;
                 op fill(a_i16, value=1) >> fill_i16;
                 op matmul(ma_i16, mb_i16) >> mm_i16;
 
                 op add(a_i32, b_i32) >> add_i32;
                 op mul(a_i32, b_i32) >> mul_i32;
                 op abs(a_i32) >> abs_i32;
-                op relu(a_i32, negative_slope=0.1, clamp_max=2.0) >> relu_i32;
+                op relu(a_i32, alpha=0.1, clamp_max=2.0) >> relu_i32;
                 op fill(a_i32, value=1) >> fill_i32;
                 op matmul(ma_i32, mb_i32) >> mm_i32;
 
                 op add(a_i64, b_i64) >> add_i64;
                 op mul(a_i64, b_i64) >> mul_i64;
                 op abs(a_i64) >> abs_i64;
-                op relu(a_i64, negative_slope=0.1, clamp_max=2.0) >> relu_i64;
+                op relu(a_i64, alpha=0.1, clamp_max=2.0) >> relu_i64;
                 op fill(a_i64, value=1) >> fill_i64;
                 op matmul(ma_i64, mb_i64) >> mm_i64;
 
@@ -373,7 +373,7 @@ fn main() -> anyhow::Result<()> {
                 op add(a_f32, b_f32) >> add_f32;
                 op mul(a_f32, b_f32) >> mul_f32;
                 op abs(a_f32) >> abs_f32;
-                op relu(a_f32, negative_slope=0.1, clamp_max=2.0) >> relu_f32;
+                op relu(a_f32, alpha=0.1, clamp_max=2.0) >> relu_f32;
                 op fill(a_f32, value=1.0) >> fill_f32;
                 op is_finite(a_f32) >> finite_f32;
                 op matmul(ma_f32, mb_f32) >> mm_f32;
@@ -518,28 +518,28 @@ fn main() -> anyhow::Result<()> {
                 op add(a_i8, b_i8) >> add_i8;
                 op mul(a_i8, b_i8) >> mul_i8;
                 op abs(a_i8) >> abs_i8;
-                op relu(a_i8, negative_slope=0.1, clamp_max=2.0) >> relu_i8;
+                op relu(a_i8, alpha=0.1, clamp_max=2.0) >> relu_i8;
                 op fill(a_i8, value=1) >> fill_i8;
                 op matmul(ma_i8, mb_i8) >> mm_i8;
 
                 op add(a_i16, b_i16) >> add_i16;
                 op mul(a_i16, b_i16) >> mul_i16;
                 op abs(a_i16) >> abs_i16;
-                op relu(a_i16, negative_slope=0.1, clamp_max=2.0) >> relu_i16;
+                op relu(a_i16, alpha=0.1, clamp_max=2.0) >> relu_i16;
                 op fill(a_i16, value=1) >> fill_i16;
                 op matmul(ma_i16, mb_i16) >> mm_i16;
 
                 op add(a_i32, b_i32) >> add_i32;
                 op mul(a_i32, b_i32) >> mul_i32;
                 op abs(a_i32) >> abs_i32;
-                op relu(a_i32, negative_slope=0.1, clamp_max=2.0) >> relu_i32;
+                op relu(a_i32, alpha=0.1, clamp_max=2.0) >> relu_i32;
                 op fill(a_i32, value=1) >> fill_i32;
                 op matmul(ma_i32, mb_i32) >> mm_i32;
 
                 op add(a_i64, b_i64) >> add_i64;
                 op mul(a_i64, b_i64) >> mul_i64;
                 op abs(a_i64) >> abs_i64;
-                op relu(a_i64, negative_slope=0.1, clamp_max=2.0) >> relu_i64;
+                op relu(a_i64, alpha=0.1, clamp_max=2.0) >> relu_i64;
                 op fill(a_i64, value=1) >> fill_i64;
                 op matmul(ma_i64, mb_i64) >> mm_i64;
 
@@ -566,7 +566,7 @@ fn main() -> anyhow::Result<()> {
                 op add(a_f16, b_f16) >> add_f16;
                 op mul(a_f16, b_f16) >> mul_f16;
                 op abs(a_f16) >> abs_f16;
-                op relu(a_f16, negative_slope=0.1, clamp_max=2.0) >> relu_f16;
+                op relu(a_f16, alpha=0.1, clamp_max=2.0) >> relu_f16;
                 op fill(a_f16, value=1.0) >> fill_f16;
                 op is_finite(a_f16) >> finite_f16;
                 op matmul(ma_f16, mb_f16) >> mm_f16;
@@ -574,7 +574,7 @@ fn main() -> anyhow::Result<()> {
                 op add(a_f32, b_f32) >> add_f32;
                 op mul(a_f32, b_f32) >> mul_f32;
                 op abs(a_f32) >> abs_f32;
-                op relu(a_f32, negative_slope=0.1, clamp_max=2.0) >> relu_f32;
+                op relu(a_f32, alpha=0.1, clamp_max=2.0) >> relu_f32;
                 op fill(a_f32, value=1.0) >> fill_f32;
                 op is_finite(a_f32) >> finite_f32;
                 op matmul(ma_f32, mb_f32) >> mm_f32;
@@ -582,7 +582,7 @@ fn main() -> anyhow::Result<()> {
                 op add(a_f64, b_f64) >> add_f64;
                 op mul(a_f64, b_f64) >> mul_f64;
                 op abs(a_f64) >> abs_f64;
-                op relu(a_f64, negative_slope=0.1, clamp_max=2.0) >> relu_f64;
+                op relu(a_f64, alpha=0.1, clamp_max=2.0) >> relu_f64;
                 op fill(a_f64, value=1.0) >> fill_f64;
                 op is_finite(a_f64) >> finite_f64;
                 op matmul(ma_f64, mb_f64) >> mm_f64;

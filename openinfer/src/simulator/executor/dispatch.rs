@@ -430,11 +430,8 @@ impl Executor {
         match attrs {
             OpAttrs::None => Ok(OpAttrs::None),
             OpAttrs::Accumulate { dtype } => Ok(OpAttrs::Accumulate { dtype: *dtype }),
-            OpAttrs::Relu {
-                negative_slope,
-                clamp_max,
-            } => Ok(OpAttrs::Relu {
-                negative_slope: AttrValue::Float(self.resolve_attr_value_f32(negative_slope)?),
+            OpAttrs::Relu { alpha, clamp_max } => Ok(OpAttrs::Relu {
+                alpha: AttrValue::Float(self.resolve_attr_value_f32(alpha)?),
                 clamp_max: AttrValue::Float(self.resolve_attr_value_f32(clamp_max)?),
             }),
             OpAttrs::Fill { value } => Ok(OpAttrs::Fill {
@@ -446,6 +443,12 @@ impl Executor {
     pub(super) fn resolve_attr_value_f32(&mut self, value: &AttrValue) -> Result<f32> {
         match value {
             AttrValue::Float(val) => Ok(*val),
+            AttrValue::Double(val) => {
+                if val.is_finite() && val.abs() > f32::MAX as f64 {
+                    return Err(anyhow!("op attr {} is out of range for f32", val));
+                }
+                Ok(*val as f32)
+            },
             AttrValue::Int(val) => Ok(*val as f32),
             AttrValue::UInt(val) => Ok(*val as f32),
             AttrValue::Bool(_) => Err(anyhow!("relu op attrs must be numeric")),

@@ -32,7 +32,7 @@ fn main() -> anyhow::Result<()> {
         }
 
         block ok {
-            op relu(h, negative_slope=0.0) >> h;
+            op relu(h, alpha=0.0) >> h;
             return;
         }
 

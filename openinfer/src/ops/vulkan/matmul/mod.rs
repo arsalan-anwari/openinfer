@@ -43,11 +43,12 @@ fn matmul_dims(
     Ok((batch_shape, m, k, n, out_shape))
 }
 
-pub fn matmul_generic(
-    attrs: &OpAttrs,
+fn matmul_dispatch(
+    _attrs: &OpAttrs,
     a: &VulkanBuffer,
     b: &VulkanBuffer,
     thread_id: usize,
+    target: String,
 ) -> Result<VulkanBuffer> {
     if a.effective_dtype != b.effective_dtype {
         return Err(anyhow!("matmul op expects matching dtypes"));
@@ -55,11 +56,6 @@ pub fn matmul_generic(
     let (batch_shape, m, k, n, out_shape) = matmul_dims(a, b)?;
     let batch = numel(&batch_shape);
     let runtime = super::runtime_from_buffers(a, Some(b))?;
-    let target = if a.effective_dtype == DType::F16 && runtime.use_native_f16() {
-        "matmul_f16_native".to_string()
-    } else {
-        super::spv_target_name(OpKind::Matmul, a.effective_dtype, attrs)?
-    };
     let entry = "main";
     let spirv = a
         .spv_bytes_for_target(&target)
@@ -154,7 +150,7 @@ pub fn matmul_generic(
             &a.inner,
             &b.inner,
             &output_inner,
-            push,
+            &push,
             len,
             offsets,
         )?;
@@ -178,6 +174,21 @@ pub fn matmul_generic(
         shader: a.shader.clone(),
         inner: output_inner,
     })
+}
+
+pub fn matmul_generic(
+    attrs: &OpAttrs,
+    a: &VulkanBuffer,
+    b: &VulkanBuffer,
+    thread_id: usize,
+) -> Result<VulkanBuffer> {
+    let runtime = super::runtime_from_buffers(a, Some(b))?;
+    let target = if a.effective_dtype == DType::F16 && runtime.use_native_f16() {
+        "matmul_f16_native".to_string()
+    } else {
+        super::spv_target_name(OpKind::Matmul, a.effective_dtype, attrs)?
+    };
+    matmul_dispatch(attrs, a, b, thread_id, target)
 }
 
 pub fn matmul_accumulate_generic(
@@ -302,7 +313,7 @@ pub fn matmul_accumulate_generic(
             &a.inner,
             &b.inner,
             &output_inner,
-            push,
+            &push,
             len,
             offsets,
         )?;
@@ -334,7 +345,13 @@ pub fn matmul_inplace_generic(
     b: &VulkanBuffer,
     thread_id: usize,
 ) -> Result<VulkanBuffer> {
-    matmul_generic(attrs, a, b, thread_id)
+    let runtime = super::runtime_from_buffers(a, Some(b))?;
+    let target = if a.effective_dtype == DType::F16 && runtime.use_native_f16() {
+        "matmul_inplace_f16_native".to_string()
+    } else {
+        spv_target_name_matmul_inplace(a.effective_dtype, attrs)?
+    };
+    matmul_dispatch(attrs, a, b, thread_id, target)
 }
 
 pub(crate) fn spv_target_name_matmul(dtype: DType, attrs: &OpAttrs) -> Result<String> {
@@ -362,6 +379,38 @@ pub(crate) fn spv_target_name_matmul(dtype: DType, attrs: &OpAttrs) -> Result<St
         }
         _ => Err(anyhow!(
             "no Vulkan SPIR-V target for matmul dtype {:?}, attrs {:?}",
+            dtype,
+            attrs
+        )),
+    }
+}
+
+pub(crate) fn spv_target_name_matmul_inplace(dtype: DType, attrs: &OpAttrs) -> Result<String> {
+    match (dtype, attrs) {
+        (DType::I8, &OpAttrs::None)
+        | (DType::I16, &OpAttrs::None)
+        | (DType::I32, &OpAttrs::None)
+        | (DType::I64, &OpAttrs::None)
+        | (DType::U8, &OpAttrs::None)
+        | (DType::U16, &OpAttrs::None)
+        | (DType::U32, &OpAttrs::None)
+        | (DType::U64, &OpAttrs::None)
+        | (DType::I4, &OpAttrs::None)
+        | (DType::I2, &OpAttrs::None)
+        | (DType::I1, &OpAttrs::None)
+        | (DType::U4, &OpAttrs::None)
+        | (DType::U2, &OpAttrs::None)
+        | (DType::U1, &OpAttrs::None)
+        | (DType::Bool, &OpAttrs::None)
+        | (DType::Bitset, &OpAttrs::None)
+        | (DType::F16, &OpAttrs::None)
+        | (DType::F32, &OpAttrs::None)
+        | (DType::F64, &OpAttrs::None) => Ok(format!(
+            "matmul_inplace_{}",
+            super::dtype_suffix(dtype).unwrap()
+        )),
+        _ => Err(anyhow!(
+            "no Vulkan SPIR-V target for matmul inplace dtype {:?}, attrs {:?}",
             dtype,
             attrs
         )),

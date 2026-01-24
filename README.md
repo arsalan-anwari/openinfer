@@ -68,7 +68,7 @@ fn main() -> anyhow::Result<()> {
             assign cond: bool[];
 
             op matmul(x, W[0]) >> h;
-            op relu(h, negative_slope=0.01, clamp_max=6.0) >> h;
+            op relu(h, alpha=0.01, clamp_max=6.0) >> h;
             barrier;
 
             loop layers (l in 0..num_layers) {

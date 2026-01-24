@@ -27,8 +27,9 @@ pub fn fill_generic(
         .ok_or_else(|| anyhow!("missing SPIR-V target {} for fill op", target))?;
     let output_size = storage_size_bytes_for_len(a.effective_dtype, a.len);
     let output_inner = runtime.create_buffer(output_size)?;
-    let value_bits = fill_value_bits(a.effective_dtype, attrs)?;
-    let push = [a.len as u32, value_bits, 0, 0];
+    let (value_bits_lo, value_bits_hi, use_f64_bits) =
+        fill_value_payload(a.effective_dtype, attrs)?;
+    let push = [a.len as u32, value_bits_lo, value_bits_hi, use_f64_bits];
     let duration_ns = runtime.dispatch(
         OpKind::Fill,
         a.effective_dtype,
@@ -38,7 +39,7 @@ pub fn fill_generic(
         &a.inner,
         &a.inner,
         &output_inner,
-        push,
+        &push,
         a.len,
     )?;
     Timer::record(thread_id, duration_ns);
@@ -72,8 +73,9 @@ pub fn fill_inplace_generic(
     if output_size > a.inner.size as usize {
         return Err(anyhow!("fill inplace output buffer too small"));
     }
-    let value_bits = fill_value_bits(a.effective_dtype, attrs)?;
-    let push = [a.len as u32, value_bits, 0, 0];
+    let (value_bits_lo, value_bits_hi, use_f64_bits) =
+        fill_value_payload(a.effective_dtype, attrs)?;
+    let push = [a.len as u32, value_bits_lo, value_bits_hi, use_f64_bits];
     let duration_ns = runtime.dispatch(
         OpKind::Fill,
         a.effective_dtype,
@@ -83,7 +85,7 @@ pub fn fill_inplace_generic(
         &a.inner,
         &a.inner,
         &a.inner,
-        push,
+        &push,
         a.len,
     )?;
     Timer::record(thread_id, duration_ns);
@@ -98,13 +100,20 @@ pub fn fill_inplace_generic(
     })
 }
 
-fn fill_value_bits(dtype: DType, attrs: &OpAttrs) -> Result<u32> {
+fn fill_value_payload(dtype: DType, attrs: &OpAttrs) -> Result<(u32, u32, u32)> {
     let value = match attrs {
         OpAttrs::Fill { value } => value,
         _ => return Err(anyhow!("fill expects value attribute")),
     };
-    let value = match (dtype, value) {
-        (DType::F16 | DType::BF16 | DType::F8E5M2 | DType::F32 | DType::F64, crate::graph::AttrValue::Float(val)) => *val,
+    let (value_f64, from_double) = match (dtype, value) {
+        (
+            DType::F16 | DType::BF16 | DType::F8E5M2 | DType::F32 | DType::F64,
+            crate::graph::AttrValue::Float(val),
+        ) => (*val as f64, false),
+        (
+            DType::F16 | DType::BF16 | DType::F8E5M2 | DType::F32 | DType::F64,
+            crate::graph::AttrValue::Double(val),
+        ) => (*val, true),
         (
             DType::I8
             | DType::I16
@@ -114,7 +123,7 @@ fn fill_value_bits(dtype: DType, attrs: &OpAttrs) -> Result<u32> {
             | DType::I2
             | DType::I1,
             crate::graph::AttrValue::Int(val),
-        ) => *val as f32,
+        ) => (*val as f64, false),
         (
             DType::U8
             | DType::U16
@@ -125,7 +134,7 @@ fn fill_value_bits(dtype: DType, attrs: &OpAttrs) -> Result<u32> {
             | DType::U1
             | DType::Bitset,
             crate::graph::AttrValue::UInt(val),
-        ) => *val as f32,
+        ) => (*val as f64, false),
         (
             DType::U8
             | DType::U16
@@ -140,10 +149,10 @@ fn fill_value_bits(dtype: DType, attrs: &OpAttrs) -> Result<u32> {
             if *val < 0 {
                 return Err(anyhow!("fill expects unsigned value"));
             }
-            *val as f32
+            (*val as f64, false)
         }
         (DType::Bool, crate::graph::AttrValue::Bool(val)) => {
-            if *val { 1.0 } else { 0.0 }
+            (if *val { 1.0 } else { 0.0 }, false)
         }
         (_, crate::graph::AttrValue::Var(_)) => {
             return Err(anyhow!("fill expects resolved value"));
@@ -155,7 +164,29 @@ fn fill_value_bits(dtype: DType, attrs: &OpAttrs) -> Result<u32> {
             ))
         }
     };
-    Ok(value.to_bits())
+    match dtype {
+        DType::F64 if from_double => {
+            if value_f64.is_finite() && value_f64.abs() <= f32::MAX as f64 {
+                let lo = (value_f64 as f32).to_bits();
+                Ok((lo, 0, 0))
+            } else {
+                let bits = value_f64.to_bits();
+                Ok((bits as u32, (bits >> 32) as u32, 1))
+            }
+        }
+        DType::F64 => {
+            let lo = (value_f64 as f32).to_bits();
+            Ok((lo, 0, 0))
+        }
+        DType::F16 | DType::BF16 | DType::F8E5M2 | DType::F32 => {
+            let lo = (value_f64 as f32).to_bits();
+            Ok((lo, 0, 0))
+        }
+        _ => {
+            let lo = (value_f64 as f32).to_bits();
+            Ok((lo, 0, 0))
+        }
+    }
 }
 
 pub(crate) fn spv_target_name_fill(dtype: DType, attrs: &OpAttrs) -> Result<String> {

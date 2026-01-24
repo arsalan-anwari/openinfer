@@ -51,7 +51,7 @@ pub(super) fn tensor_scalar_to_attr_value(value: &TensorValue, name: &str) -> Re
     ensure_scalar_len(value, name)?;
     match value {
         TensorValue::F32(tensor) => Ok(AttrValue::Float(tensor.data[0])),
-        TensorValue::F64(tensor) => Ok(AttrValue::Float(tensor.data[0] as f32)),
+        TensorValue::F64(tensor) => Ok(AttrValue::Double(tensor.data[0])),
         TensorValue::F16(tensor) => Ok(AttrValue::Float(tensor.data[0].to_f32())),
         TensorValue::BF16(tensor) => Ok(AttrValue::Float(tensor.data[0].to_f32())),
         TensorValue::F8E5M2(tensor) => Ok(AttrValue::Float(tensor.data[0].to_f32())),

@@ -157,7 +157,7 @@ impl VulkanRuntime {
         let push_constant_range = vk::PushConstantRange::builder()
             .stage_flags(vk::ShaderStageFlags::COMPUTE)
             .offset(0)
-            .size(16)
+            .size(24)
             .build();
         let set_layouts = vec![descriptor_set_layout; max_descriptor_sets as usize];
         let pipeline_layout_info = vk::PipelineLayoutCreateInfo::builder()
@@ -302,7 +302,7 @@ impl VulkanRuntime {
         input0: &VulkanBufferInner,
         input1: &VulkanBufferInner,
         output: &VulkanBufferInner,
-        push: [u32; 4],
+        push: &[u32],
         len: usize,
     ) -> Result<u128> {
         self.dispatch_with_offsets(
@@ -330,7 +330,7 @@ impl VulkanRuntime {
         input0: &VulkanBufferInner,
         input1: &VulkanBufferInner,
         output: &VulkanBufferInner,
-        push: [u32; 4],
+        push: &[u32],
         len: usize,
         offsets: [u64; 3],
     ) -> Result<u128> {
@@ -501,7 +501,13 @@ impl VulkanRuntime {
                 std::slice::from_ref(&descriptor_set),
                 &[],
             );
-            let push_bytes = std::slice::from_raw_parts(push.as_ptr().cast::<u8>(), 16);
+            if push.len() * 4 > 24 {
+                return Err(anyhow!("push constant payload too large: {}", push.len() * 4));
+            }
+            let push_bytes = std::slice::from_raw_parts(
+                push.as_ptr().cast::<u8>(),
+                push.len() * 4,
+            );
             self.device.cmd_push_constants(
                 command_buffer,
                 self.pipeline_layout,
@@ -750,7 +756,13 @@ impl VulkanRuntime {
                 std::slice::from_ref(&descriptor_set),
                 &[],
             );
-            let push_bytes = std::slice::from_raw_parts(push.as_ptr().cast::<u8>(), 16);
+            if push.len() * 4 > 24 {
+                return Err(anyhow!("push constant payload too large: {}", push.len() * 4));
+            }
+            let push_bytes = std::slice::from_raw_parts(
+                push.as_ptr().cast::<u8>(),
+                push.len() * 4,
+            );
             self.device.cmd_push_constants(
                 command_buffer,
                 self.pipeline_layout,

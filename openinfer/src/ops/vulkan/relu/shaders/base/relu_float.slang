@@ -1,14 +1,24 @@
 struct PushConsts {
     uint len;
-    uint neg_bits;
-    uint clamp_bits;
-    uint pad1;
+    uint alpha_lo;
+    uint alpha_hi;
+    uint clamp_lo;
+    uint clamp_hi;
+    uint flags;
 };
 
 [[vk::push_constant]] PushConsts pc;
 
-float relu_float(float x, float negative_slope, float clamp_max) {
-    float y = x >= 0.0f ? x : x * negative_slope;
+float relu_float(float x, float alpha, float clamp_max) {
+    float y = x >= 0.0f ? x : x * alpha;
+    if (y > clamp_max) {
+        y = clamp_max;
+    }
+    return y;
+}
+
+double relu_double(double x, double alpha, double clamp_max) {
+    double y = x >= 0.0 ? x : x * alpha;
     if (y > clamp_max) {
         y = clamp_max;
     }
@@ -30,7 +40,7 @@ void relu_f16_native(uint3 tid : SV_DispatchThreadID, uniform PushConsts pc) {
     uint i = tid.x;
     if (i < pc.len) {
         half x = gRelu_f16_native.input0[i];
-        float y = relu_float((float)x, asfloat(pc.neg_bits), asfloat(pc.clamp_bits));
+        float y = relu_float((float)x, asfloat(pc.alpha_lo), asfloat(pc.clamp_lo));
         gRelu_f16_native.output0[i] = (half)y;
     }
 }
@@ -41,7 +51,7 @@ void relu_f32(uint3 tid : SV_DispatchThreadID, uniform PushConsts pc) {
     uint i = tid.x;
     if (i < pc.len) {
         float x = gRelu_f32.input0[i];
-        float y = relu_float(x, asfloat(pc.neg_bits), asfloat(pc.clamp_bits));
+        float y = relu_float(x, asfloat(pc.alpha_lo), asfloat(pc.clamp_lo));
         gRelu_f32.output0[i] = y;
     }
 }
@@ -52,7 +62,14 @@ void relu_f64(uint3 tid : SV_DispatchThreadID, uniform PushConsts pc) {
     uint i = tid.x;
     if (i < pc.len) {
         double x = gRelu_f64.input0[i];
-        float y = relu_float((float)x, asfloat(pc.neg_bits), asfloat(pc.clamp_bits));
-        gRelu_f64.output0[i] = (double)y;
+        double alpha = (double)asfloat(pc.alpha_lo);
+        double clamp_max = (double)asfloat(pc.clamp_lo);
+        if ((pc.flags & 1u) != 0u) {
+            alpha = asdouble(pc.alpha_lo, pc.alpha_hi);
+        }
+        if ((pc.flags & 2u) != 0u) {
+            clamp_max = asdouble(pc.clamp_lo, pc.clamp_hi);
+        }
+        gRelu_f64.output0[i] = relu_double(x, alpha, clamp_max);
     }
 }

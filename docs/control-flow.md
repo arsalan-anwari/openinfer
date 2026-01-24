@@ -100,7 +100,7 @@ block entry {
   dep after(matmul) before(cache.write);
   cache.write h >> K[0, step];
 
-  op relu(h, negative_slope=0.0) >> h;
+  op relu(h, alpha=0.0) >> h;
   return;
 }
 ```
@@ -133,7 +133,7 @@ block entry {
 }
 
 block ok {
-  op relu(h, negative_slope=0.0) >> h;
+  op relu(h, alpha=0.0) >> h;
   return;
 }
 
@@ -170,7 +170,7 @@ block entry {
   yield x; //x not available anymore to entry
 
   // These ops are executed in parallel
-  op relu(h, negative_slope=0.0, clamp_max=6.0) >> h;
+  op relu(h, alpha=0.0, clamp_max=6.0) >> h;
 
   // Waiting for all consumers to be done.
   await x;
@@ -189,7 +189,7 @@ block consumer_1 {
 
 block consumer_2 {
   await x;
-  op relu(x, negative_slope=0.0, clamp_max=6.0) >> h2;
+  op relu(x, alpha=0.0, clamp_max=6.0) >> h2;
   yield x;
 }
 

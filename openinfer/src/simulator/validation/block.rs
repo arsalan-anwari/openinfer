@@ -403,6 +403,7 @@ fn validate_fill_value(
 
     match value {
         AttrValue::Float(val) => validate_fill_float(input_dtype, *val),
+        AttrValue::Double(val) => validate_fill_double(input_dtype, *val),
         AttrValue::Int(val) => validate_fill_int(input_dtype, *val),
         AttrValue::UInt(val) => validate_fill_uint(input_dtype, *val),
         AttrValue::Bool(val) => validate_fill_bool(input_dtype, *val),
@@ -528,6 +529,26 @@ fn integer_signedness(dtype: DType) -> Option<IntSignedness> {
 fn validate_fill_float(input_dtype: DType, value: f32) -> Result<()> {
     match input_dtype {
         DType::F8E5M2 | DType::BF16 | DType::F16 | DType::F32 | DType::F64 => Ok(()),
+        _ => Err(anyhow!(
+            "fill value {} does not match input dtype {:?}",
+            value,
+            input_dtype
+        )),
+    }
+}
+
+fn validate_fill_double(input_dtype: DType, value: f64) -> Result<()> {
+    match input_dtype {
+        DType::F64 => Ok(()),
+        DType::F8E5M2 | DType::BF16 | DType::F16 | DType::F32 => {
+            if value.is_finite() && value.abs() > f32::MAX as f64 {
+                return Err(anyhow!(
+                    "fill value {} is out of range for f32",
+                    value
+                ));
+            }
+            Ok(())
+        }
         _ => Err(anyhow!(
             "fill value {} does not match input dtype {:?}",
             value,

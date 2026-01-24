@@ -89,20 +89,40 @@ pub fn lookup_kernel_cpu_fill_inplace(
                 out.data.fill(val);
                 Ok(())
             }
+            (TensorValue::F32(out), AttrValue::Double(val)) => {
+                out.data.fill(val as f32);
+                Ok(())
+            }
             (TensorValue::F64(out), AttrValue::Float(val)) => {
                 out.data.fill(val as f64);
+                Ok(())
+            }
+            (TensorValue::F64(out), AttrValue::Double(val)) => {
+                out.data.fill(val);
                 Ok(())
             }
             (TensorValue::F16(out), AttrValue::Float(val)) => {
                 out.data.fill(F16::from_f32(val));
                 Ok(())
             }
+            (TensorValue::F16(out), AttrValue::Double(val)) => {
+                out.data.fill(F16::from_f32(val as f32));
+                Ok(())
+            }
             (TensorValue::BF16(out), AttrValue::Float(val)) => {
                 out.data.fill(BF16::from_f32(val));
                 Ok(())
             }
+            (TensorValue::BF16(out), AttrValue::Double(val)) => {
+                out.data.fill(BF16::from_f32(val as f32));
+                Ok(())
+            }
             (TensorValue::F8E5M2(out), AttrValue::Float(val)) => {
                 out.data.fill(F8E5M2::from_f32(val));
+                Ok(())
+            }
+            (TensorValue::F8E5M2(out), AttrValue::Double(val)) => {
+                out.data.fill(F8E5M2::from_f32(val as f32));
                 Ok(())
             }
             (TensorValue::Bool(out), AttrValue::Bool(val)) => {

@@ -1,4 +1,4 @@
-// Matmul kernel (unsigned integers and bool).
+// Matmul kernel (unsigned integers).
 struct PushConsts {
     uint len;
     uint m;
@@ -18,7 +18,6 @@ ParameterBlock<MatmulBuffers<uint>> gMatmul_u8;
 ParameterBlock<MatmulBuffers<uint>> gMatmul_u16;
 ParameterBlock<MatmulBuffers<uint>> gMatmul_u32;
 ParameterBlock<MatmulBuffers<uint64_t>> gMatmul_u64;
-ParameterBlock<MatmulBuffers<uint>> gMatmul_bool;
 
 __generic<typename T, let BLOCK_SIZE : int>
 void matmulImpl(uint3 tid, MatmulBuffers<T> bufs, PushConsts pc)
@@ -32,25 +31,6 @@ void matmulImpl(uint3 tid, MatmulBuffers<T> bufs, PushConsts pc)
         T acc = (T)0;
         for (uint kk = 0; kk < pc.k; ++kk) {
             acc = acc + (bufs.input0[a_row + kk] * bufs.input1[kk * pc.n + col]);
-        }
-        bufs.output0[idx] = acc;
-    }
-}
-
-void matmulBoolImpl(uint3 tid, MatmulBuffers<uint> bufs, PushConsts pc) {
-    uint idx = tid.x;
-    if (idx < pc.len) {
-        uint row = idx / pc.n;
-        uint col = idx - row * pc.n;
-        uint a_row = row * pc.k;
-        uint acc = 0;
-        for (uint kk = 0; kk < pc.k; ++kk) {
-            uint a = bufs.input0[a_row + kk];
-            uint b = bufs.input1[kk * pc.n + col];
-            if (a != 0 && b != 0) {
-                acc = 1;
-                break;
-            }
         }
         bufs.output0[idx] = acc;
     }
@@ -80,8 +60,3 @@ void matmul_u64(uint3 tid : SV_DispatchThreadID, uniform PushConsts pc) {
     matmulImpl<uint64_t, 256>(tid, gMatmul_u64, pc);
 }
 
-[shader("compute")]
-[numthreads(256, 1, 1)]
-void matmul_bool(uint3 tid : SV_DispatchThreadID, uniform PushConsts pc) {
-    matmulBoolImpl(tid, gMatmul_bool, pc);
-}

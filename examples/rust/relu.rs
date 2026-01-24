@@ -20,12 +20,12 @@ fn main() -> anyhow::Result<()> {
         }
 
         constant {
-            negative_slope: f32;
+            alpha: f32;
             clamp_max: f32;
         }
 
         block entry {
-            op relu(x, negative_slope=negative_slope, clamp_max=clamp_max) >> y;
+            op relu(x, alpha=alpha, clamp_max=clamp_max) >> y;
             return;
         }
     };
@@ -39,10 +39,10 @@ fn main() -> anyhow::Result<()> {
     insert_executor!(exec, { x: input });
     exec.step()?;
 
-    fetch_executor!(exec, { y: Tensor<f32>, negative_slope: f32, clamp_max: f32 });
+    fetch_executor!(exec, { y: Tensor<f32>, alpha: f32, clamp_max: f32 });
     println!(
-        "relu settings: negative_slope={}, clamp_max={}",
-        negative_slope, clamp_max
+        "relu settings: alpha={}, clamp_max={}",
+        alpha, clamp_max
     );
     println!("y[0..100] = {:?}", &y.data[..100.min(y.len())]);
 

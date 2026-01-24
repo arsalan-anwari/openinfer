@@ -31,11 +31,11 @@ pub(crate) fn parse_op_attr_value(input: ParseStream) -> Result<OpAttrValue> {
 
     if input.peek(syn::LitFloat) {
         let lit: syn::LitFloat = input.parse()?;
-        let mut value: f32 = lit.base10_parse()?;
+        let mut value: f64 = lit.base10_parse()?;
         if negative {
             value = -value;
         }
-        return Ok(OpAttrValue::Float(value));
+        return Ok(OpAttrValue::Double(value));
     }
     if input.peek(syn::LitBool) {
         let lit: syn::LitBool = input.parse()?;
@@ -65,7 +65,7 @@ pub(crate) fn parse_op_attr_value(input: ParseStream) -> Result<OpAttrValue> {
             return Ok(OpAttrValue::Bool(false));
         }
         if name == "inf" {
-            return Ok(OpAttrValue::Float(f32::INFINITY));
+            return Ok(OpAttrValue::Double(f64::INFINITY));
         }
         return Ok(OpAttrValue::Var(ident));
     }

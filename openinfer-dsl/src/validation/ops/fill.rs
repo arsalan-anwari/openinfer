@@ -11,7 +11,7 @@ pub(crate) fn build_attrs(op: &Ident, settings: &[OpSetting]) -> syn::Result<Tok
 
     let value = settings
         .take_value("value")
-        .unwrap_or_else(|| OpAttrValue::Float(0.0));
+        .unwrap_or_else(|| OpAttrValue::Double(0.0));
 
     settings.ensure_empty()?;
 

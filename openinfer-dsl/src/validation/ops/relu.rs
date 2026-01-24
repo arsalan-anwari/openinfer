@@ -9,23 +9,23 @@ use super::{attr_value_expr, SettingsMap};
 pub(crate) fn build_attrs(op: &Ident, settings: &[OpSetting]) -> syn::Result<TokenStream> {
     let mut settings = SettingsMap::new(op, settings)?;
 
-    let negative_slope =
+    let alpha =
         settings
-            .take_value("negative_slope")
-            .unwrap_or_else(|| OpAttrValue::Float(0.0));
+            .take_value("alpha")
+            .unwrap_or_else(|| OpAttrValue::Double(0.0));
     let clamp_max =
         settings
             .take_value("clamp_max")
-            .unwrap_or_else(|| OpAttrValue::Float(f32::INFINITY));
+            .unwrap_or_else(|| OpAttrValue::Double(f64::INFINITY));
 
     settings.ensure_empty()?;
 
-    let negative_slope_expr = attr_value_expr(&negative_slope);
+    let alpha_expr = attr_value_expr(&alpha);
     let clamp_max_expr = attr_value_expr(&clamp_max);
 
     Ok(quote! {
         ::openinfer::OpAttrs::Relu {
-            negative_slope: #negative_slope_expr,
+            alpha: #alpha_expr,
             clamp_max: #clamp_max_expr,
         }
     })

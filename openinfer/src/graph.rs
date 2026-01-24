@@ -35,6 +35,7 @@ impl OpKind {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum AttrValue {
     Float(f32),
+    Double(f64),
     Int(i64),
     UInt(u64),
     Bool(bool),
@@ -70,7 +71,7 @@ pub enum OpAttrs {
         dtype: DType,
     },
     Relu {
-        negative_slope: AttrValue,
+        alpha: AttrValue,
         clamp_max: AttrValue,
     },
     Fill {

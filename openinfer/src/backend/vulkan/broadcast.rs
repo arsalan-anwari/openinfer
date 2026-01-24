@@ -44,7 +44,7 @@ pub fn broadcast_buffer(
         &input.inner,
         &meta_inner,
         &output_inner,
-        push,
+        &push,
         len,
     )?;
 

@@ -10,11 +10,8 @@ pub(crate) fn validate_op_attrs(ctx: &ValidationContext, attrs: &OpAttrs) -> Res
     match attrs {
         OpAttrs::None => Ok(()),
         OpAttrs::Accumulate { .. } => Ok(()),
-        OpAttrs::Relu {
-            negative_slope,
-            clamp_max,
-        } => {
-            validate_attr_value(ctx, negative_slope)?;
+        OpAttrs::Relu { alpha, clamp_max } => {
+            validate_attr_value(ctx, alpha)?;
             validate_attr_value(ctx, clamp_max)?;
             Ok(())
         }

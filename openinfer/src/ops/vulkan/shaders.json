@@ -86,7 +86,35 @@
     "matmul": {
       "shader_dir": "src/ops/vulkan/matmul/shaders",
       "spv_dir": "src/ops/vulkan/matmul/bin",
-      "push_constants_size": 16
+      "push_constants_size": 16,
+      "shader_files": [
+        "base/matmul_signed_packed.slang",
+        "base/matmul_unsigned_packed.slang",
+        "base/matmul_signed.slang",
+        "base/matmul_unsigned.slang",
+        "base/matmul_float_custom.slang",
+        "base/matmul_float.slang",
+        "base/matmul_bit.slang",
+        "inplace/matmul_signed_packed_inplace.slang",
+        "inplace/matmul_unsigned_packed_inplace.slang",
+        "inplace/matmul_signed_inplace.slang",
+        "inplace/matmul_unsigned_inplace.slang",
+        "inplace/matmul_float_custom_inplace.slang",
+        "inplace/matmul_float_inplace.slang",
+        "inplace/matmul_inplace_bit.slang",
+        "accumulate/matmul_i1_accumulate.slang",
+        "accumulate/matmul_i2_accumulate.slang",
+        "accumulate/matmul_i4_accumulate.slang",
+        "accumulate/matmul_i8_accumulate.slang",
+        "accumulate/matmul_i16_accumulate.slang",
+        "accumulate/matmul_i32_accumulate.slang",
+        "accumulate/matmul_u1_accumulate.slang",
+        "accumulate/matmul_u2_accumulate.slang",
+        "accumulate/matmul_u4_accumulate.slang",
+        "accumulate/matmul_u8_accumulate.slang",
+        "accumulate/matmul_u16_accumulate.slang",
+        "accumulate/matmul_u32_accumulate.slang"
+      ]
     },
     "mul": {
       "shader_dir": "src/ops/vulkan/mul/shaders",
@@ -122,7 +150,7 @@
     "relu": {
       "shader_dir": "src/ops/vulkan/relu/shaders",
       "spv_dir": "src/ops/vulkan/relu/bin",
-      "push_constants_size": 16,
+      "push_constants_size": 24,
       "shader_files": [
         "base/relu_signed_packed.slang",
         "base/relu_signed.slang",

@@ -37,7 +37,7 @@ pub fn is_finite_generic(
         &a.inner,
         &a.inner,
         &output_inner,
-        push,
+        &push,
         work_len,
     )?;
     Timer::record(thread_id, duration_ns);

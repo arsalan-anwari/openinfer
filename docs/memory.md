@@ -62,23 +62,23 @@ constants {
 Operations do **not** use attributes. Instead, operator configuration is expressed via **named parameters**.
 
 ```rust
-op relu(h, negative_slope=0.0, clamp_min=0.0, clamp_max=inf) >> h;
+op relu(h, alpha=0.0, clamp_min=0.0, clamp_max=inf) >> h;
 ```
 
 Examples of realistic activation settings you might see in real deployments:
 
 ```rust
 // Standard ReLU
-op relu(h, negative_slope=0.0) >> h;
+op relu(h, alpha=0.0) >> h;
 
 // LeakyReLU (common in CNNs)
-op relu(h, negative_slope=0.01) >> h;
+op relu(h, alpha=0.01) >> h;
 
 // Clipped ReLU / ReLU6 (common in mobile / quantization-aware)
-op relu(h, negative_slope=0.0, clamp_max=6.0) >> h;
+op relu(h, alpha=0.0, clamp_max=6.0) >> h;
 
 // Lower clamp (occasionally used for numerical stabilization)
-op relu(h, negative_slope=0.0, clamp_min=-1e-6) >> h;
+op relu(h, alpha=0.0, clamp_min=-1e-6) >> h;
 ```
 
 ## What attributes mean

@@ -70,8 +70,8 @@ let x = Tensor::from_vec(vec![1.0, 2.0, 3.0]).unwrap();
 insert_executor!(exec, { x: x });
 fetch_executor!(exec, { y: Tensor<f32> });
 println!("y = {:?}", y.data);
-fetch_executor!(exec, { negative_slope: f32 });
-println!("negative_slope = {}", negative_slope);
+fetch_executor!(exec, { alpha: f32 });
+println!("alpha = {}", alpha);
 ```
 
 ```rust

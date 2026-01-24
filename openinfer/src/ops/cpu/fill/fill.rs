@@ -9,6 +9,7 @@ fn fill_value(attrs: &OpAttrs) -> Result<AttrValue> {
     match attrs {
         OpAttrs::Fill { value } => match value {
             AttrValue::Float(_)
+            | AttrValue::Double(_)
             | AttrValue::Int(_)
             | AttrValue::UInt(_)
             | AttrValue::Bool(_) => Ok(value.clone()),
@@ -21,6 +22,7 @@ fn fill_value(attrs: &OpAttrs) -> Result<AttrValue> {
 pub fn fill_f32(attrs: &OpAttrs, a: &[f32], thread_id: usize) -> Result<Vec<f32>> {
     let value = match fill_value(attrs)? {
         AttrValue::Float(val) => val,
+        AttrValue::Double(val) => val as f32,
         _ => return Err(anyhow!("fill expects f32 value")),
     };
     let mut out = Vec::with_capacity(a.len());
@@ -35,6 +37,7 @@ pub fn fill_f32(attrs: &OpAttrs, a: &[f32], thread_id: usize) -> Result<Vec<f32>
 pub fn fill_f64(attrs: &OpAttrs, a: &[f64], thread_id: usize) -> Result<Vec<f64>> {
     let value = match fill_value(attrs)? {
         AttrValue::Float(val) => val as f64,
+        AttrValue::Double(val) => val,
         _ => return Err(anyhow!("fill expects f64 value")),
     };
     let mut out = Vec::with_capacity(a.len());
@@ -49,6 +52,7 @@ pub fn fill_f64(attrs: &OpAttrs, a: &[f64], thread_id: usize) -> Result<Vec<f64>
 pub fn fill_f16(attrs: &OpAttrs, a: &[F16], thread_id: usize) -> Result<Vec<F16>> {
     let value = match fill_value(attrs)? {
         AttrValue::Float(val) => F16::from_f32(val),
+        AttrValue::Double(val) => F16::from_f32(val as f32),
         _ => return Err(anyhow!("fill expects f16 value")),
     };
     let mut out = Vec::with_capacity(a.len());
@@ -63,6 +67,7 @@ pub fn fill_f16(attrs: &OpAttrs, a: &[F16], thread_id: usize) -> Result<Vec<F16>
 pub fn fill_bf16(attrs: &OpAttrs, a: &[BF16], thread_id: usize) -> Result<Vec<BF16>> {
     let value = match fill_value(attrs)? {
         AttrValue::Float(val) => BF16::from_f32(val),
+        AttrValue::Double(val) => BF16::from_f32(val as f32),
         _ => return Err(anyhow!("fill expects bf16 value")),
     };
     let mut out = Vec::with_capacity(a.len());
@@ -77,6 +82,7 @@ pub fn fill_bf16(attrs: &OpAttrs, a: &[BF16], thread_id: usize) -> Result<Vec<BF
 pub fn fill_f8(attrs: &OpAttrs, a: &[F8E5M2], thread_id: usize) -> Result<Vec<F8E5M2>> {
     let value = match fill_value(attrs)? {
         AttrValue::Float(val) => F8E5M2::from_f32(val),
+        AttrValue::Double(val) => F8E5M2::from_f32(val as f32),
         _ => return Err(anyhow!("fill expects f8 value")),
     };
     let mut out = Vec::with_capacity(a.len());

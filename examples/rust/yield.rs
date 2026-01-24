@@ -31,7 +31,7 @@ fn main() -> anyhow::Result<()> {
             op matmul(x, w) >> h;
             yield x;
 
-            op relu(h, negative_slope=0.0, clamp_max=6.0) >> h;
+            op relu(h, alpha=0.0, clamp_max=6.0) >> h;
 
             await x;
             return;
@@ -45,7 +45,7 @@ fn main() -> anyhow::Result<()> {
 
         block reader {
             await x;
-            op relu(x, negative_slope=0.0, clamp_max=6.0) >> h2;
+            op relu(x, alpha=0.0, clamp_max=6.0) >> h2;
             yield x;
         }
     };
