@@ -8,7 +8,65 @@ use crate::tensor::{compute_strides, DType};
 use crate::timer::Timer;
 
 pub mod registry;
+pub mod registry_accumulate;
 pub mod registry_inplace;
+
+#[repr(C)]
+struct FillPushConstsFloat {
+    len: u32,
+    value_f32: f32,
+    value_f64: f64,
+}
+
+#[repr(C)]
+struct FillPushConstsSigned {
+    len: u32,
+    value_i32: i32,
+    value_i64: i64,
+}
+
+#[repr(C)]
+struct FillPushConstsUnsigned {
+    len: u32,
+    value_u32: u32,
+    value_u64: u64,
+}
+
+enum FillPushConsts {
+    Float(FillPushConstsFloat),
+    Signed(FillPushConstsSigned),
+    Unsigned(FillPushConstsUnsigned),
+}
+
+impl FillPushConsts {
+    fn as_bytes(&self) -> &[u8] {
+        unsafe {
+            match self {
+                FillPushConsts::Float(value) => std::slice::from_raw_parts(
+                    (value as *const FillPushConstsFloat).cast::<u8>(),
+                    std::mem::size_of::<FillPushConstsFloat>(),
+                ),
+                FillPushConsts::Signed(value) => std::slice::from_raw_parts(
+                    (value as *const FillPushConstsSigned).cast::<u8>(),
+                    std::mem::size_of::<FillPushConstsSigned>(),
+                ),
+                FillPushConsts::Unsigned(value) => std::slice::from_raw_parts(
+                    (value as *const FillPushConstsUnsigned).cast::<u8>(),
+                    std::mem::size_of::<FillPushConstsUnsigned>(),
+                ),
+            }
+        }
+    }
+
+    fn as_u32s(&self) -> [u32; 4] {
+        let bytes = self.as_bytes();
+        let mut out = [0u32; 4];
+        for (idx, chunk) in bytes.chunks_exact(4).take(4).enumerate() {
+            out[idx] = u32::from_ne_bytes(chunk.try_into().unwrap());
+        }
+        out
+    }
+}
 
 pub fn fill_generic(
     attrs: &OpAttrs,
@@ -27,9 +85,8 @@ pub fn fill_generic(
         .ok_or_else(|| anyhow!("missing SPIR-V target {} for fill op", target))?;
     let output_size = storage_size_bytes_for_len(a.effective_dtype, a.len);
     let output_inner = runtime.create_buffer(output_size)?;
-    let (value_bits_lo, value_bits_hi, use_f64_bits) =
-        fill_value_payload(a.effective_dtype, attrs)?;
-    let push = [a.len as u32, value_bits_lo, value_bits_hi, use_f64_bits];
+    let push = fill_push_consts(a.effective_dtype, attrs, a.len)?;
+    let push = push.as_u32s();
     let duration_ns = runtime.dispatch(
         OpKind::Fill,
         a.effective_dtype,
@@ -73,9 +130,8 @@ pub fn fill_inplace_generic(
     if output_size > a.inner.size as usize {
         return Err(anyhow!("fill inplace output buffer too small"));
     }
-    let (value_bits_lo, value_bits_hi, use_f64_bits) =
-        fill_value_payload(a.effective_dtype, attrs)?;
-    let push = [a.len as u32, value_bits_lo, value_bits_hi, use_f64_bits];
+    let push = fill_push_consts(a.effective_dtype, attrs, a.len)?;
+    let push = push.as_u32s();
     let duration_ns = runtime.dispatch(
         OpKind::Fill,
         a.effective_dtype,
@@ -100,92 +156,113 @@ pub fn fill_inplace_generic(
     })
 }
 
-fn fill_value_payload(dtype: DType, attrs: &OpAttrs) -> Result<(u32, u32, u32)> {
+fn fill_push_consts(dtype: DType, attrs: &OpAttrs, len: usize) -> Result<FillPushConsts> {
     let value = match attrs {
         OpAttrs::Fill { value } => value,
         _ => return Err(anyhow!("fill expects value attribute")),
     };
-    let (value_f64, from_double) = match (dtype, value) {
-        (
-            DType::F16 | DType::BF16 | DType::F8E5M2 | DType::F32 | DType::F64,
-            crate::graph::AttrValue::Float(val),
-        ) => (*val as f64, false),
-        (
-            DType::F16 | DType::BF16 | DType::F8E5M2 | DType::F32 | DType::F64,
-            crate::graph::AttrValue::Double(val),
-        ) => (*val, true),
-        (
-            DType::I8
-            | DType::I16
-            | DType::I32
-            | DType::I64
-            | DType::I4
-            | DType::I2
-            | DType::I1,
-            crate::graph::AttrValue::Int(val),
-        ) => (*val as f64, false),
-        (
-            DType::U8
-            | DType::U16
-            | DType::U32
-            | DType::U64
-            | DType::U4
-            | DType::U2
-            | DType::U1
-            | DType::Bitset,
-            crate::graph::AttrValue::UInt(val),
-        ) => (*val as f64, false),
-        (
-            DType::U8
-            | DType::U16
-            | DType::U32
-            | DType::U64
-            | DType::U4
-            | DType::U2
-            | DType::U1
-            | DType::Bitset,
-            crate::graph::AttrValue::Int(val),
-        ) => {
-            if *val < 0 {
-                return Err(anyhow!("fill expects unsigned value"));
-            }
-            (*val as f64, false)
-        }
-        (DType::Bool, crate::graph::AttrValue::Bool(val)) => {
-            (if *val { 1.0 } else { 0.0 }, false)
-        }
-        (_, crate::graph::AttrValue::Var(_)) => {
-            return Err(anyhow!("fill expects resolved value"));
-        }
-        _ => {
-            return Err(anyhow!(
-                "fill value dtype mismatch for {:?}",
-                dtype
-            ))
-        }
-    };
     match dtype {
-        DType::F64 if from_double => {
-            if value_f64.is_finite() && value_f64.abs() <= f32::MAX as f64 {
-                let lo = (value_f64 as f32).to_bits();
-                Ok((lo, 0, 0))
-            } else {
-                let bits = value_f64.to_bits();
-                Ok((bits as u32, (bits >> 32) as u32, 1))
-            }
+        DType::F16 | DType::BF16 | DType::F8E5M2 | DType::F32 => {
+            let value = fill_attr_f32(value)?;
+            Ok(FillPushConsts::Float(FillPushConstsFloat {
+                len: len as u32,
+                value_f32: value,
+                value_f64: 0.0,
+            }))
         }
         DType::F64 => {
-            let lo = (value_f64 as f32).to_bits();
-            Ok((lo, 0, 0))
+            let value = fill_attr_f64(value)?;
+            Ok(FillPushConsts::Float(FillPushConstsFloat {
+                len: len as u32,
+                value_f32: 0.0,
+                value_f64: value,
+            }))
         }
-        DType::F16 | DType::BF16 | DType::F8E5M2 | DType::F32 => {
-            let lo = (value_f64 as f32).to_bits();
-            Ok((lo, 0, 0))
+        DType::I8 | DType::I16 | DType::I32 | DType::I4 | DType::I2 | DType::I1 => {
+            let value = fill_attr_i64(value)?;
+            Ok(FillPushConsts::Signed(FillPushConstsSigned {
+                len: len as u32,
+                value_i32: value as i32,
+                value_i64: value,
+            }))
         }
-        _ => {
-            let lo = (value_f64 as f32).to_bits();
-            Ok((lo, 0, 0))
+        DType::I64 => {
+            let value = fill_attr_i64(value)?;
+            Ok(FillPushConsts::Signed(FillPushConstsSigned {
+                len: len as u32,
+                value_i32: value as i32,
+                value_i64: value,
+            }))
         }
+        DType::U8 | DType::U16 | DType::U32 | DType::U4 | DType::U2 | DType::U1 | DType::Bitset => {
+            let value = fill_attr_u64(value)?;
+            Ok(FillPushConsts::Unsigned(FillPushConstsUnsigned {
+                len: len as u32,
+                value_u32: value as u32,
+                value_u64: value,
+            }))
+        }
+        DType::U64 => {
+            let value = fill_attr_u64(value)?;
+            Ok(FillPushConsts::Unsigned(FillPushConstsUnsigned {
+                len: len as u32,
+                value_u32: value as u32,
+                value_u64: value,
+            }))
+        }
+        DType::Bool => {
+            let value = fill_attr_bool(value)?;
+            let value_u32 = if value { 1 } else { 0 };
+            Ok(FillPushConsts::Unsigned(FillPushConstsUnsigned {
+                len: len as u32,
+                value_u32,
+                value_u64: value_u32 as u64,
+            }))
+        }
+        _ => Err(anyhow!("fill value dtype mismatch for {:?}", dtype)),
+    }
+}
+
+fn fill_attr_f32(value: &crate::graph::AttrValue) -> Result<f32> {
+    match value {
+        crate::graph::AttrValue::Float(val) => Ok(*val),
+        crate::graph::AttrValue::Double(val) => {
+            if val.is_finite() && val.abs() > f32::MAX as f64 {
+                return Err(anyhow!("fill value {} is out of range for f32", val));
+            }
+            Ok(*val as f32)
+        }
+        _ => Err(anyhow!("fill expects f32 value")),
+    }
+}
+
+fn fill_attr_f64(value: &crate::graph::AttrValue) -> Result<f64> {
+    match value {
+        crate::graph::AttrValue::Float(val) => Ok(*val as f64),
+        crate::graph::AttrValue::Double(val) => Ok(*val),
+        _ => Err(anyhow!("fill expects f64 value")),
+    }
+}
+
+fn fill_attr_i64(value: &crate::graph::AttrValue) -> Result<i64> {
+    match value {
+        crate::graph::AttrValue::Int(val) => Ok(*val),
+        _ => Err(anyhow!("fill expects i64 value")),
+    }
+}
+
+fn fill_attr_u64(value: &crate::graph::AttrValue) -> Result<u64> {
+    match value {
+        crate::graph::AttrValue::UInt(val) => Ok(*val),
+        crate::graph::AttrValue::Int(val) if *val >= 0 => Ok(*val as u64),
+        _ => Err(anyhow!("fill expects unsigned value")),
+    }
+}
+
+fn fill_attr_bool(value: &crate::graph::AttrValue) -> Result<bool> {
+    match value {
+        crate::graph::AttrValue::Bool(val) => Ok(*val),
+        _ => Err(anyhow!("fill expects bool value")),
     }
 }
 

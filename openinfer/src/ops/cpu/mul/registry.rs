@@ -1,14 +1,52 @@
-use crate::graph::OpAttrs;
-use crate::ops::KernelFn;
-use crate::tensor::DType;
-use crate::tensor::{I1, I2, I4, U1, U2, U4, TensorElement, TensorOptions, Tensor};
 use anyhow::anyhow;
 
+use crate::graph::OpAttrs;
+use crate::ops::KernelFn;
+use crate::tensor::{DType, TensorElement, TensorValue};
+
 use super::{
-    mul_tensor_bf16, mul_tensor_bitset, mul_tensor_bool, mul_tensor_f16, mul_tensor_f32,
-    mul_tensor_f64, mul_tensor_f8, mul_tensor_i16, mul_tensor_i32, mul_tensor_i64, mul_tensor_i8,
-    mul_tensor_u16, mul_tensor_u32, mul_tensor_u64, mul_tensor_u8, mul_i4, mul_i2, mul_i1, mul_u4,
-    mul_u2, mul_u1,
+    mul_bf16,
+    mul_bf16_broadcast,
+    mul_bitset,
+    mul_bitset_broadcast,
+    mul_bool,
+    mul_bool_broadcast,
+    mul_f16,
+    mul_f16_broadcast,
+    mul_f32,
+    mul_f32_broadcast,
+    mul_f64,
+    mul_f64_broadcast,
+    mul_f8,
+    mul_f8_broadcast,
+    mul_i16,
+    mul_i16_broadcast,
+    mul_i1,
+    mul_i1_broadcast,
+    mul_i2,
+    mul_i2_broadcast,
+    mul_i32,
+    mul_i32_broadcast,
+    mul_i4,
+    mul_i4_broadcast,
+    mul_i64,
+    mul_i64_broadcast,
+    mul_i8,
+    mul_i8_broadcast,
+    mul_u16,
+    mul_u16_broadcast,
+    mul_u1,
+    mul_u1_broadcast,
+    mul_u2,
+    mul_u2_broadcast,
+    mul_u32,
+    mul_u32_broadcast,
+    mul_u4,
+    mul_u4_broadcast,
+    mul_u64,
+    mul_u64_broadcast,
+    mul_u8,
+    mul_u8_broadcast,
 };
 
 pub fn lookup_kernel_cpu_mul(
@@ -17,311 +55,68 @@ pub fn lookup_kernel_cpu_mul(
     attrs: &OpAttrs,
 ) -> Option<KernelFn> {
     match (output_dtype, input_dtypes, attrs) {
-        (DType::I8, [DType::I8, DType::I8], &OpAttrs::None) => Some(KernelFn::Host(
-            crate::ops::adapter::host_kernel_simple(|_, inputs, thread_id| {
-                let a = <i8 as TensorElement>::from_value(&inputs[0])
-                    .ok_or_else(|| anyhow!("mul input 0 dtype mismatch"))?;
-                let b = <i8 as TensorElement>::from_value(&inputs[1])
-                    .ok_or_else(|| anyhow!("mul input 1 dtype mismatch"))?;
-                let (out, shape) = mul_tensor_i8(&a, &b, thread_id)?;
-                let tensor = Tensor::from_vec_with_opts(out, TensorOptions {
-                    shape: Some(shape),
-                    ..TensorOptions::default()
-                })?;
-                Ok(<i8 as TensorElement>::into_value(tensor))
-            }),
-        )),
-        (DType::I16, [DType::I16, DType::I16], &OpAttrs::None) => Some(KernelFn::Host(
-            crate::ops::adapter::host_kernel_simple(|_, inputs, thread_id| {
-                let a = <i16 as TensorElement>::from_value(&inputs[0])
-                    .ok_or_else(|| anyhow!("mul input 0 dtype mismatch"))?;
-                let b = <i16 as TensorElement>::from_value(&inputs[1])
-                    .ok_or_else(|| anyhow!("mul input 1 dtype mismatch"))?;
-                let (out, shape) = mul_tensor_i16(&a, &b, thread_id)?;
-                let tensor = Tensor::from_vec_with_opts(out, TensorOptions {
-                    shape: Some(shape),
-                    ..TensorOptions::default()
-                })?;
-                Ok(<i16 as TensorElement>::into_value(tensor))
-            }),
-        )),
-        (DType::F32, [DType::F32, DType::F32], &OpAttrs::None) => Some(KernelFn::Host(
-            crate::ops::adapter::host_kernel_simple(|_, inputs, thread_id| {
-                let a = <f32 as TensorElement>::from_value(&inputs[0])
-                    .ok_or_else(|| anyhow!("mul input 0 dtype mismatch"))?;
-                let b = <f32 as TensorElement>::from_value(&inputs[1])
-                    .ok_or_else(|| anyhow!("mul input 1 dtype mismatch"))?;
-                let (out, shape) = mul_tensor_f32(&a, &b, thread_id)?;
-                let tensor = Tensor::from_vec_with_opts(out, TensorOptions {
-                    shape: Some(shape),
-                    ..TensorOptions::default()
-                })?;
-                Ok(<f32 as TensorElement>::into_value(tensor))
-            }),
-        )),
-        (DType::F64, [DType::F64, DType::F64], &OpAttrs::None) => Some(KernelFn::Host(
-            crate::ops::adapter::host_kernel_simple(|_, inputs, thread_id| {
-                let a = <f64 as TensorElement>::from_value(&inputs[0])
-                    .ok_or_else(|| anyhow!("mul input 0 dtype mismatch"))?;
-                let b = <f64 as TensorElement>::from_value(&inputs[1])
-                    .ok_or_else(|| anyhow!("mul input 1 dtype mismatch"))?;
-                let (out, shape) = mul_tensor_f64(&a, &b, thread_id)?;
-                let tensor = Tensor::from_vec_with_opts(out, TensorOptions {
-                    shape: Some(shape),
-                    ..TensorOptions::default()
-                })?;
-                Ok(<f64 as TensorElement>::into_value(tensor))
-            }),
-        )),
-        (DType::F16, [DType::F16, DType::F16], &OpAttrs::None) => Some(KernelFn::Host(
-            crate::ops::adapter::host_kernel_simple(|_, inputs, thread_id| {
-                let a = <crate::tensor::F16 as TensorElement>::from_value(&inputs[0])
-                    .ok_or_else(|| anyhow!("mul input 0 dtype mismatch"))?;
-                let b = <crate::tensor::F16 as TensorElement>::from_value(&inputs[1])
-                    .ok_or_else(|| anyhow!("mul input 1 dtype mismatch"))?;
-                let (out, shape) = mul_tensor_f16(&a, &b, thread_id)?;
-                let tensor = Tensor::from_vec_with_opts(out, TensorOptions {
-                    shape: Some(shape),
-                    ..TensorOptions::default()
-                })?;
-                Ok(<crate::tensor::F16 as TensorElement>::into_value(tensor))
-            }),
-        )),
-        (DType::BF16, [DType::BF16, DType::BF16], &OpAttrs::None) => Some(KernelFn::Host(
-            crate::ops::adapter::host_kernel_simple(|_, inputs, thread_id| {
-                let a = <crate::tensor::BF16 as TensorElement>::from_value(&inputs[0])
-                    .ok_or_else(|| anyhow!("mul input 0 dtype mismatch"))?;
-                let b = <crate::tensor::BF16 as TensorElement>::from_value(&inputs[1])
-                    .ok_or_else(|| anyhow!("mul input 1 dtype mismatch"))?;
-                let (out, shape) = mul_tensor_bf16(&a, &b, thread_id)?;
-                let tensor = Tensor::from_vec_with_opts(out, TensorOptions {
-                    shape: Some(shape),
-                    ..TensorOptions::default()
-                })?;
-                Ok(<crate::tensor::BF16 as TensorElement>::into_value(tensor))
-            }),
-        )),
-        (DType::F8E5M2, [DType::F8E5M2, DType::F8E5M2], &OpAttrs::None) => Some(KernelFn::Host(
-            crate::ops::adapter::host_kernel_simple(|_, inputs, thread_id| {
-                let a = <crate::tensor::F8E5M2 as TensorElement>::from_value(&inputs[0])
-                    .ok_or_else(|| anyhow!("mul input 0 dtype mismatch"))?;
-                let b = <crate::tensor::F8E5M2 as TensorElement>::from_value(&inputs[1])
-                    .ok_or_else(|| anyhow!("mul input 1 dtype mismatch"))?;
-                let (out, shape) = mul_tensor_f8(&a, &b, thread_id)?;
-                let tensor = Tensor::from_vec_with_opts(out, TensorOptions {
-                    shape: Some(shape),
-                    ..TensorOptions::default()
-                })?;
-                Ok(<crate::tensor::F8E5M2 as TensorElement>::into_value(tensor))
-            }),
-        )),
-        (DType::U8, [DType::U8, DType::U8], &OpAttrs::None) => Some(KernelFn::Host(
-            crate::ops::adapter::host_kernel_simple(|_, inputs, thread_id| {
-                let a = <u8 as TensorElement>::from_value(&inputs[0])
-                    .ok_or_else(|| anyhow!("mul input 0 dtype mismatch"))?;
-                let b = <u8 as TensorElement>::from_value(&inputs[1])
-                    .ok_or_else(|| anyhow!("mul input 1 dtype mismatch"))?;
-                let (out, shape) = mul_tensor_u8(&a, &b, thread_id)?;
-                let tensor = Tensor::from_vec_with_opts(out, TensorOptions {
-                    shape: Some(shape),
-                    ..TensorOptions::default()
-                })?;
-                Ok(<u8 as TensorElement>::into_value(tensor))
-            }),
-        )),
-        (DType::U16, [DType::U16, DType::U16], &OpAttrs::None) => Some(KernelFn::Host(
-            crate::ops::adapter::host_kernel_simple(|_, inputs, thread_id| {
-                let a = <u16 as TensorElement>::from_value(&inputs[0])
-                    .ok_or_else(|| anyhow!("mul input 0 dtype mismatch"))?;
-                let b = <u16 as TensorElement>::from_value(&inputs[1])
-                    .ok_or_else(|| anyhow!("mul input 1 dtype mismatch"))?;
-                let (out, shape) = mul_tensor_u16(&a, &b, thread_id)?;
-                let tensor = Tensor::from_vec_with_opts(out, TensorOptions {
-                    shape: Some(shape),
-                    ..TensorOptions::default()
-                })?;
-                Ok(<u16 as TensorElement>::into_value(tensor))
-            }),
-        )),
-        (DType::I32, [DType::I32, DType::I32], &OpAttrs::None) => Some(KernelFn::Host(
-            crate::ops::adapter::host_kernel_simple(|_, inputs, thread_id| {
-                let a = <i32 as TensorElement>::from_value(&inputs[0])
-                    .ok_or_else(|| anyhow!("mul input 0 dtype mismatch"))?;
-                let b = <i32 as TensorElement>::from_value(&inputs[1])
-                    .ok_or_else(|| anyhow!("mul input 1 dtype mismatch"))?;
-                let (out, shape) = mul_tensor_i32(&a, &b, thread_id)?;
-                let tensor = Tensor::from_vec_with_opts(out, TensorOptions {
-                    shape: Some(shape),
-                    ..TensorOptions::default()
-                })?;
-                Ok(<i32 as TensorElement>::into_value(tensor))
-            }),
-        )),
-        (DType::I64, [DType::I64, DType::I64], &OpAttrs::None) => Some(KernelFn::Host(
-            crate::ops::adapter::host_kernel_simple(|_, inputs, thread_id| {
-                let a = <i64 as TensorElement>::from_value(&inputs[0])
-                    .ok_or_else(|| anyhow!("mul input 0 dtype mismatch"))?;
-                let b = <i64 as TensorElement>::from_value(&inputs[1])
-                    .ok_or_else(|| anyhow!("mul input 1 dtype mismatch"))?;
-                let (out, shape) = mul_tensor_i64(&a, &b, thread_id)?;
-                let tensor = Tensor::from_vec_with_opts(out, TensorOptions {
-                    shape: Some(shape),
-                    ..TensorOptions::default()
-                })?;
-                Ok(<i64 as TensorElement>::into_value(tensor))
-            }),
-        )),
-        (DType::U32, [DType::U32, DType::U32], &OpAttrs::None) => Some(KernelFn::Host(
-            crate::ops::adapter::host_kernel_simple(|_, inputs, thread_id| {
-                let a = <u32 as TensorElement>::from_value(&inputs[0])
-                    .ok_or_else(|| anyhow!("mul input 0 dtype mismatch"))?;
-                let b = <u32 as TensorElement>::from_value(&inputs[1])
-                    .ok_or_else(|| anyhow!("mul input 1 dtype mismatch"))?;
-                let (out, shape) = mul_tensor_u32(&a, &b, thread_id)?;
-                let tensor = Tensor::from_vec_with_opts(out, TensorOptions {
-                    shape: Some(shape),
-                    ..TensorOptions::default()
-                })?;
-                Ok(<u32 as TensorElement>::into_value(tensor))
-            }),
-        )),
-        (DType::U64, [DType::U64, DType::U64], &OpAttrs::None) => Some(KernelFn::Host(
-            crate::ops::adapter::host_kernel_simple(|_, inputs, thread_id| {
-                let a = <u64 as TensorElement>::from_value(&inputs[0])
-                    .ok_or_else(|| anyhow!("mul input 0 dtype mismatch"))?;
-                let b = <u64 as TensorElement>::from_value(&inputs[1])
-                    .ok_or_else(|| anyhow!("mul input 1 dtype mismatch"))?;
-                let (out, shape) = mul_tensor_u64(&a, &b, thread_id)?;
-                let tensor = Tensor::from_vec_with_opts(out, TensorOptions {
-                    shape: Some(shape),
-                    ..TensorOptions::default()
-                })?;
-                Ok(<u64 as TensorElement>::into_value(tensor))
-            }),
-        )),
-        (DType::Bool, [DType::Bool, DType::Bool], &OpAttrs::None) => Some(KernelFn::Host(
-            crate::ops::adapter::host_kernel_simple(|_, inputs, thread_id| {
-                let a = <bool as TensorElement>::from_value(&inputs[0])
-                    .ok_or_else(|| anyhow!("mul input 0 dtype mismatch"))?;
-                let b = <bool as TensorElement>::from_value(&inputs[1])
-                    .ok_or_else(|| anyhow!("mul input 1 dtype mismatch"))?;
-                let (out, shape) = mul_tensor_bool(&a, &b, thread_id)?;
-                let tensor = Tensor::from_vec_with_opts(out, TensorOptions {
-                    shape: Some(shape),
-                    ..TensorOptions::default()
-                })?;
-                Ok(<bool as TensorElement>::into_value(tensor))
-            }),
-        )),
-        (DType::Bitset, [DType::Bitset, DType::Bitset], &OpAttrs::None) => Some(KernelFn::Host(
-            crate::ops::adapter::host_kernel_simple(|_, inputs, thread_id| {
-                let a = <crate::tensor::Bitset as TensorElement>::from_value(&inputs[0])
-                    .ok_or_else(|| anyhow!("mul input 0 dtype mismatch"))?;
-                let b = <crate::tensor::Bitset as TensorElement>::from_value(&inputs[1])
-                    .ok_or_else(|| anyhow!("mul input 1 dtype mismatch"))?;
-                let (out, shape) = mul_tensor_bitset(&a, &b, thread_id)?;
-                let tensor = Tensor::from_vec_with_opts(out, TensorOptions {
-                    shape: Some(shape),
-                    ..TensorOptions::default()
-                })?;
-                Ok(<crate::tensor::Bitset as TensorElement>::into_value(tensor))
-            }),
-        )),
+        (DType::I8, [DType::I8, DType::I8], &OpAttrs::None) => {
+            crate::add_kernel!(Standard, "mul", i8, I8, mul_i8, mul_i8_broadcast)
+        }
+        (DType::I16, [DType::I16, DType::I16], &OpAttrs::None) => {
+            crate::add_kernel!(Standard, "mul", i16, I16, mul_i16, mul_i16_broadcast)
+        }
+        (DType::F32, [DType::F32, DType::F32], &OpAttrs::None) => {
+            crate::add_kernel!(Standard, "mul", f32, F32, mul_f32, mul_f32_broadcast)
+        }
+        (DType::F64, [DType::F64, DType::F64], &OpAttrs::None) => {
+            crate::add_kernel!(Standard, "mul", f64, F64, mul_f64, mul_f64_broadcast)
+        }
+        (DType::F16, [DType::F16, DType::F16], &OpAttrs::None) => {
+            crate::add_kernel!(Standard, "mul", crate::tensor::F16, F16, mul_f16, mul_f16_broadcast)
+        }
+        (DType::BF16, [DType::BF16, DType::BF16], &OpAttrs::None) => {
+            crate::add_kernel!(Standard, "mul", crate::tensor::BF16, BF16, mul_bf16, mul_bf16_broadcast)
+        }
+        (DType::F8E5M2, [DType::F8E5M2, DType::F8E5M2], &OpAttrs::None) => {
+            crate::add_kernel!(Standard, "mul", crate::tensor::F8E5M2, F8E5M2, mul_f8, mul_f8_broadcast)
+        }
+        (DType::U8, [DType::U8, DType::U8], &OpAttrs::None) => {
+            crate::add_kernel!(Standard, "mul", u8, U8, mul_u8, mul_u8_broadcast)
+        }
+        (DType::U16, [DType::U16, DType::U16], &OpAttrs::None) => {
+            crate::add_kernel!(Standard, "mul", u16, U16, mul_u16, mul_u16_broadcast)
+        }
+        (DType::I32, [DType::I32, DType::I32], &OpAttrs::None) => {
+            crate::add_kernel!(Standard, "mul", i32, I32, mul_i32, mul_i32_broadcast)
+        }
+        (DType::I64, [DType::I64, DType::I64], &OpAttrs::None) => {
+            crate::add_kernel!(Standard, "mul", i64, I64, mul_i64, mul_i64_broadcast)
+        }
+        (DType::U32, [DType::U32, DType::U32], &OpAttrs::None) => {
+            crate::add_kernel!(Standard, "mul", u32, U32, mul_u32, mul_u32_broadcast)
+        }
+        (DType::U64, [DType::U64, DType::U64], &OpAttrs::None) => {
+            crate::add_kernel!(Standard, "mul", u64, U64, mul_u64, mul_u64_broadcast)
+        }
+        (DType::Bool, [DType::Bool, DType::Bool], &OpAttrs::None) => {
+            crate::add_kernel!(Standard, "mul", bool, Bool, mul_bool, mul_bool_broadcast)
+        }
+        (DType::Bitset, [DType::Bitset, DType::Bitset], &OpAttrs::None) => {
+            crate::add_kernel!(Standard, "mul", crate::tensor::Bitset, Bitset, mul_bitset, mul_bitset_broadcast)
+        }
         (DType::I4, [DType::I4, DType::I4], &OpAttrs::None) => {
-            Some(KernelFn::Host(crate::ops::adapter::host_kernel_simple(|_, inputs, thread_id| {
-                let a = <I4 as TensorElement>::from_value(&inputs[0]).ok_or_else(|| anyhow!("mul input 0 dtype mismatch"))?;
-                let b = <I4 as TensorElement>::from_value(&inputs[1]).ok_or_else(|| anyhow!("mul input 1 dtype mismatch"))?;
-                if a.shape() != b.shape() {
-                    return Err(anyhow!("mul packed i4 does not support broadcast"));
-                }
-                let out = mul_i4(&a.data, &b.data, a.numel(), thread_id)?;
-                let tensor = Tensor::from_vec_with_opts(out, TensorOptions {
-                    shape: Some(a.shape().to_vec()),
-                    allow_len_mismatch: true,
-                    ..TensorOptions::default()
-                })?;
-                Ok(<I4 as TensorElement>::into_value(tensor))
-            })))
+            crate::add_kernel!(Standard, "mul", crate::tensor::I4, I4, mul_i4, mul_i4_broadcast)
         }
         (DType::I2, [DType::I2, DType::I2], &OpAttrs::None) => {
-            Some(KernelFn::Host(crate::ops::adapter::host_kernel_simple(|_, inputs, thread_id| {
-                let a = <I2 as TensorElement>::from_value(&inputs[0]).ok_or_else(|| anyhow!("mul input 0 dtype mismatch"))?;
-                let b = <I2 as TensorElement>::from_value(&inputs[1]).ok_or_else(|| anyhow!("mul input 1 dtype mismatch"))?;
-                if a.shape() != b.shape() {
-                    return Err(anyhow!("mul packed i2 does not support broadcast"));
-                }
-                let out = mul_i2(&a.data, &b.data, a.numel(), thread_id)?;
-                let tensor = Tensor::from_vec_with_opts(out, TensorOptions {
-                    shape: Some(a.shape().to_vec()),
-                    allow_len_mismatch: true,
-                    ..TensorOptions::default()
-                })?;
-                Ok(<I2 as TensorElement>::into_value(tensor))
-            })))
+            crate::add_kernel!(Standard, "mul", crate::tensor::I2, I2, mul_i2, mul_i2_broadcast)
         }
         (DType::I1, [DType::I1, DType::I1], &OpAttrs::None) => {
-            Some(KernelFn::Host(crate::ops::adapter::host_kernel_simple(|_, inputs, thread_id| {
-                let a = <I1 as TensorElement>::from_value(&inputs[0]).ok_or_else(|| anyhow!("mul input 0 dtype mismatch"))?;
-                let b = <I1 as TensorElement>::from_value(&inputs[1]).ok_or_else(|| anyhow!("mul input 1 dtype mismatch"))?;
-                if a.shape() != b.shape() {
-                    return Err(anyhow!("mul packed i1 does not support broadcast"));
-                }
-                let out = mul_i1(&a.data, &b.data, a.numel(), thread_id)?;
-                let tensor = Tensor::from_vec_with_opts(out, TensorOptions {
-                    shape: Some(a.shape().to_vec()),
-                    allow_len_mismatch: true,
-                    ..TensorOptions::default()
-                })?;
-                Ok(<I1 as TensorElement>::into_value(tensor))
-            })))
+            crate::add_kernel!(Standard, "mul", crate::tensor::I1, I1, mul_i1, mul_i1_broadcast)
         }
         (DType::U4, [DType::U4, DType::U4], &OpAttrs::None) => {
-            Some(KernelFn::Host(crate::ops::adapter::host_kernel_simple(|_, inputs, thread_id| {
-                let a = <U4 as TensorElement>::from_value(&inputs[0]).ok_or_else(|| anyhow!("mul input 0 dtype mismatch"))?;
-                let b = <U4 as TensorElement>::from_value(&inputs[1]).ok_or_else(|| anyhow!("mul input 1 dtype mismatch"))?;
-                if a.shape() != b.shape() {
-                    return Err(anyhow!("mul packed u4 does not support broadcast"));
-                }
-                let out = mul_u4(&a.data, &b.data, a.numel(), thread_id)?;
-                let tensor = Tensor::from_vec_with_opts(out, TensorOptions {
-                    shape: Some(a.shape().to_vec()),
-                    allow_len_mismatch: true,
-                    ..TensorOptions::default()
-                })?;
-                Ok(<U4 as TensorElement>::into_value(tensor))
-            })))
+            crate::add_kernel!(Standard, "mul", crate::tensor::U4, U4, mul_u4, mul_u4_broadcast)
         }
         (DType::U2, [DType::U2, DType::U2], &OpAttrs::None) => {
-            Some(KernelFn::Host(crate::ops::adapter::host_kernel_simple(|_, inputs, thread_id| {
-                let a = <U2 as TensorElement>::from_value(&inputs[0]).ok_or_else(|| anyhow!("mul input 0 dtype mismatch"))?;
-                let b = <U2 as TensorElement>::from_value(&inputs[1]).ok_or_else(|| anyhow!("mul input 1 dtype mismatch"))?;
-                if a.shape() != b.shape() {
-                    return Err(anyhow!("mul packed u2 does not support broadcast"));
-                }
-                let out = mul_u2(&a.data, &b.data, a.numel(), thread_id)?;
-                let tensor = Tensor::from_vec_with_opts(out, TensorOptions {
-                    shape: Some(a.shape().to_vec()),
-                    allow_len_mismatch: true,
-                    ..TensorOptions::default()
-                })?;
-                Ok(<U2 as TensorElement>::into_value(tensor))
-            })))
+            crate::add_kernel!(Standard, "mul", crate::tensor::U2, U2, mul_u2, mul_u2_broadcast)
         }
         (DType::U1, [DType::U1, DType::U1], &OpAttrs::None) => {
-            Some(KernelFn::Host(crate::ops::adapter::host_kernel_simple(|_, inputs, thread_id| {
-                let a = <U1 as TensorElement>::from_value(&inputs[0]).ok_or_else(|| anyhow!("mul input 0 dtype mismatch"))?;
-                let b = <U1 as TensorElement>::from_value(&inputs[1]).ok_or_else(|| anyhow!("mul input 1 dtype mismatch"))?;
-                if a.shape() != b.shape() {
-                    return Err(anyhow!("mul packed u1 does not support broadcast"));
-                }
-                let out = mul_u1(&a.data, &b.data, a.numel(), thread_id)?;
-                let tensor = Tensor::from_vec_with_opts(out, TensorOptions {
-                    shape: Some(a.shape().to_vec()),
-                    allow_len_mismatch: true,
-                    ..TensorOptions::default()
-                })?;
-                Ok(<U1 as TensorElement>::into_value(tensor))
-            })))
+            crate::add_kernel!(Standard, "mul", crate::tensor::U1, U1, mul_u1, mul_u1_broadcast)
         }
         _ => None,
     }

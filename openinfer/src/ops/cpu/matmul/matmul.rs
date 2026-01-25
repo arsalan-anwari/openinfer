@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 
-use crate::tensor::{broadcast_shapes, numel, Bitset, F16, Tensor, TensorOptions};
+use crate::ops::cpu::broadcast::is_contiguous;
+use crate::tensor::{broadcast_shapes, numel, Bitset, F16, Tensor};
 use crate::timer::Timer;
 
 pub(crate) fn matmul_dims(
@@ -34,15 +35,16 @@ pub(crate) fn matmul_dims(
     Ok((batch_shape, m, k, n))
 }
 
-fn matmul_broadcast_loop<T, Acc, F, G>(
+fn matmul_broadcast_into<T, Acc, F, G>(
     a: &Tensor<T>,
     b: &Tensor<T>,
+    out: &mut Tensor<T>,
     thread_id: usize,
     zero: T,
     init: Acc,
     mut accumulate: F,
     mut finalize: G,
-) -> Result<Tensor<T>>
+) -> Result<()>
 where
     T: Clone,
     Acc: Copy,
@@ -50,6 +52,26 @@ where
     G: FnMut(Acc) -> T,
 {
     let (batch_shape, m, k, n) = matmul_dims(a.shape(), b.shape())?;
+    let mut expected_shape = batch_shape.clone();
+    expected_shape.push(m);
+    expected_shape.push(n);
+    if out.shape() != expected_shape.as_slice() {
+        return Err(anyhow!(
+            "matmul output shape mismatch: expected {:?}, got {:?}",
+            expected_shape,
+            out.shape()
+        ));
+    }
+    if !is_contiguous(out.shape(), out.strides()) {
+        return Err(anyhow!("matmul output must be contiguous"));
+    }
+    let out_len = numel(out.shape());
+    if out.data.len() != out_len {
+        return Err(anyhow!("matmul output length mismatch"));
+    }
+    if !is_contiguous(a.shape(), a.strides()) || !is_contiguous(b.shape(), b.strides()) {
+        return Err(anyhow!("matmul inputs must be contiguous"));
+    }
     let batch = numel(&batch_shape);
     let rank = batch_shape.len() + 2;
     let mut a_aligned = vec![1; rank - a.shape().len()];
@@ -74,7 +96,7 @@ where
     let a_stride_k = a_strides[rank - 1];
     let b_stride_k = b_strides[rank - 2];
     let b_stride_n = b_strides[rank - 1];
-    let mut out = vec![zero; batch.saturating_mul(m).saturating_mul(n)];
+    out.data.fill(zero);
     let mut batch_coords = vec![0usize; batch_shape.len()];
     Timer::start(thread_id);
     for batch_idx in 0..batch {
@@ -96,7 +118,7 @@ where
                     let b_val = &b.data[b_batch_offset + kk * b_stride_k + j * b_stride_n];
                     acc = accumulate(acc, a_val, b_val);
                 }
-                out[out_base + i * n + j] = finalize(acc);
+                out.data[out_base + i * n + j] = finalize(acc);
             }
         }
         for dim in (0..batch_shape.len()).rev() {
@@ -108,22 +130,14 @@ where
         }
     }
     Timer::stop(thread_id);
-    let mut out_shape = batch_shape;
-    out_shape.push(m);
-    out_shape.push(n);
-    Tensor::from_vec_with_opts(
+    Ok(())
+}
+
+pub fn matmul_f32(a: &Tensor<f32>, b: &Tensor<f32>, out: &mut Tensor<f32>, thread_id: usize) -> Result<()> {
+    matmul_broadcast_into(
+        a,
+        b,
         out,
-        TensorOptions {
-            shape: Some(out_shape),
-            ..TensorOptions::default()
-        },
-    )
-}
-
-pub fn matmul_f32(a: &Tensor<f32>, b: &Tensor<f32>, thread_id: usize) -> Result<Tensor<f32>> {
-    matmul_broadcast_loop(
-        a,
-        b,
         thread_id,
         0.0f32,
         0.0f32,
@@ -132,10 +146,11 @@ pub fn matmul_f32(a: &Tensor<f32>, b: &Tensor<f32>, thread_id: usize) -> Result<
     )
 }
 
-pub fn matmul_f64(a: &Tensor<f64>, b: &Tensor<f64>, thread_id: usize) -> Result<Tensor<f64>> {
-    matmul_broadcast_loop(
+pub fn matmul_f64(a: &Tensor<f64>, b: &Tensor<f64>, out: &mut Tensor<f64>, thread_id: usize) -> Result<()> {
+    matmul_broadcast_into(
         a,
         b,
+        out,
         thread_id,
         0.0f64,
         0.0f64,
@@ -144,10 +159,11 @@ pub fn matmul_f64(a: &Tensor<f64>, b: &Tensor<f64>, thread_id: usize) -> Result<
     )
 }
 
-pub fn matmul_f16(a: &Tensor<F16>, b: &Tensor<F16>, thread_id: usize) -> Result<Tensor<F16>> {
-    matmul_broadcast_loop(
+pub fn matmul_f16(a: &Tensor<F16>, b: &Tensor<F16>, out: &mut Tensor<F16>, thread_id: usize) -> Result<()> {
+    matmul_broadcast_into(
         a,
         b,
+        out,
         thread_id,
         F16::from_f32(0.0),
         0.0f32,
@@ -156,10 +172,11 @@ pub fn matmul_f16(a: &Tensor<F16>, b: &Tensor<F16>, thread_id: usize) -> Result<
     )
 }
 
-pub fn matmul_bool(a: &Tensor<bool>, b: &Tensor<bool>, thread_id: usize) -> Result<Tensor<bool>> {
-    matmul_broadcast_loop(
+pub fn matmul_bool(a: &Tensor<bool>, b: &Tensor<bool>, out: &mut Tensor<bool>, thread_id: usize) -> Result<()> {
+    matmul_broadcast_into(
         a,
         b,
+        out,
         thread_id,
         false,
         false,
@@ -171,27 +188,33 @@ pub fn matmul_bool(a: &Tensor<bool>, b: &Tensor<bool>, thread_id: usize) -> Resu
 pub fn matmul_bitset(
     a: &Tensor<Bitset>,
     b: &Tensor<Bitset>,
+    out: &mut Tensor<Bitset>,
     thread_id: usize,
-) -> Result<Tensor<Bitset>> {
-    matmul_broadcast_loop(
+) -> Result<()> {
+    matmul_broadcast_into(
         a,
         b,
+        out,
         thread_id,
         Bitset { bits: 0 },
         0u64,
-        |acc, x, y| {
-            acc.wrapping_add((x.bits as u64).wrapping_mul(y.bits as u64))
-        },
+        |acc, x, y| acc.wrapping_add((x.bits as u64).wrapping_mul(y.bits as u64)),
         |acc| Bitset { bits: acc as u8 },
     )
 }
 
 macro_rules! matmul_signed {
     ($name:ident, $ty:ty, $acc:ty) => {
-        pub fn $name(a: &Tensor<$ty>, b: &Tensor<$ty>, thread_id: usize) -> Result<Tensor<$ty>> {
-            matmul_broadcast_loop(
+        pub fn $name(
+            a: &Tensor<$ty>,
+            b: &Tensor<$ty>,
+            out: &mut Tensor<$ty>,
+            thread_id: usize,
+        ) -> Result<()> {
+            matmul_broadcast_into(
                 a,
                 b,
+                out,
                 thread_id,
                 0 as $ty,
                 0 as $acc,
@@ -204,10 +227,16 @@ macro_rules! matmul_signed {
 
 macro_rules! matmul_unsigned {
     ($name:ident, $ty:ty, $acc:ty) => {
-        pub fn $name(a: &Tensor<$ty>, b: &Tensor<$ty>, thread_id: usize) -> Result<Tensor<$ty>> {
-            matmul_broadcast_loop(
+        pub fn $name(
+            a: &Tensor<$ty>,
+            b: &Tensor<$ty>,
+            out: &mut Tensor<$ty>,
+            thread_id: usize,
+        ) -> Result<()> {
+            matmul_broadcast_into(
                 a,
                 b,
+                out,
                 thread_id,
                 0 as $ty,
                 0 as $acc,

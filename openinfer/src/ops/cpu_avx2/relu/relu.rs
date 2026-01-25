@@ -7,15 +7,22 @@ use std::arch::x86_64::{
 use crate::graph::{AttrValue, OpAttrs};
 use crate::timer::Timer;
 use crate::ops::cpu_avx2::packed::{get_i4_value, set_i4_value};
-use crate::tensor::I4;
+use crate::ops::cpu_avx2::registry_helpers::{
+    ensure_same_len_unary,
+    ensure_same_shape_unary,
+    is_contiguous,
+};
+use crate::tensor::{BF16, F16, F8E5M2, I4, Tensor};
 
-pub fn relu_f32(attrs: &OpAttrs, a: &[f32], thread_id: usize) -> Result<Vec<f32>> {
+fn relu_f32_slice(attrs: &OpAttrs, a: &[f32], out: &mut [f32], thread_id: usize) -> Result<()> {
     let (alpha, clamp_max) = match attrs {
         OpAttrs::Relu { alpha, clamp_max } => (attr_value_f32(alpha)?, attr_value_f32(clamp_max)?),
         _ => return Err(anyhow!("relu op expects relu attributes")),
     };
     let len = a.len();
-    let mut out = vec![0.0f32; len];
+    if out.len() != len {
+        return Err(anyhow!("relu op output length mismatch"));
+    }
     Timer::start(thread_id);
     unsafe {
         let mut i = 0usize;
@@ -44,10 +51,16 @@ pub fn relu_f32(attrs: &OpAttrs, a: &[f32], thread_id: usize) -> Result<Vec<f32>
         }
     }
     Timer::stop(thread_id);
-    Ok(out)
+    Ok(())
 }
 
-pub fn relu_i4(attrs: &OpAttrs, a: &[I4], logical_len: usize, thread_id: usize) -> Result<Vec<I4>> {
+fn relu_i4_slice(
+    attrs: &OpAttrs,
+    a: &[I4],
+    logical_len: usize,
+    out: &mut [I4],
+    thread_id: usize,
+) -> Result<()> {
     let (alpha, clamp_max) = match attrs {
         OpAttrs::Relu { alpha, clamp_max } => {
             (attr_value_f32(alpha)?, attr_value_f32(clamp_max)?)
@@ -55,7 +68,9 @@ pub fn relu_i4(attrs: &OpAttrs, a: &[I4], logical_len: usize, thread_id: usize) 
         _ => return Err(anyhow!("relu op expects relu attributes")),
     };
     let storage_len = (logical_len + 1) / 2;
-    let mut out = vec![I4 { bits: 0 }; storage_len];
+    if out.len() != storage_len {
+        return Err(anyhow!("relu op output length mismatch"));
+    }
     Timer::start(thread_id);
     for idx in 0..logical_len {
         let x = get_i4_value(a, idx) as f32;
@@ -69,10 +84,10 @@ pub fn relu_i4(attrs: &OpAttrs, a: &[I4], logical_len: usize, thread_id: usize) 
         if y > i8::MAX as f32 {
             y = i8::MAX as f32;
         }
-        set_i4_value(&mut out, idx, y as i8);
+        set_i4_value(out, idx, y as i8);
     }
     Timer::stop(thread_id);
-    Ok(out)
+    Ok(())
 }
 
 fn attr_value_f32(value: &AttrValue) -> Result<f32> {
@@ -89,4 +104,54 @@ fn attr_value_f32(value: &AttrValue) -> Result<f32> {
         AttrValue::Bool(_) => Err(anyhow!("relu op attrs must be numeric")),
         AttrValue::Var(name) => Err(anyhow!("relu op attrs must be resolved: {}", name)),
     }
+}
+
+pub fn relu_f32(attrs: &OpAttrs, a: &Tensor<f32>, out: &mut Tensor<f32>, thread_id: usize) -> Result<()> {
+    ensure_same_shape_unary(a, out)?;
+    if !is_contiguous(a.shape(), a.strides()) || !is_contiguous(out.shape(), out.strides()) {
+        return Err(anyhow!("relu op requires contiguous tensors"));
+    }
+    ensure_same_len_unary(a, out)?;
+    relu_f32_slice(attrs, &a.data, &mut out.data, thread_id)
+}
+
+pub fn relu_f64(attrs: &OpAttrs, a: &Tensor<f64>, out: &mut Tensor<f64>, thread_id: usize) -> Result<()> {
+    crate::ops::cpu::relu::relu_f64(attrs, a, out, thread_id)
+}
+
+pub fn relu_f16(attrs: &OpAttrs, a: &Tensor<F16>, out: &mut Tensor<F16>, thread_id: usize) -> Result<()> {
+    crate::ops::cpu::relu::relu_f16(attrs, a, out, thread_id)
+}
+
+pub fn relu_bf16(attrs: &OpAttrs, a: &Tensor<BF16>, out: &mut Tensor<BF16>, thread_id: usize) -> Result<()> {
+    crate::ops::cpu::relu::relu_bf16(attrs, a, out, thread_id)
+}
+
+pub fn relu_f8(attrs: &OpAttrs, a: &Tensor<F8E5M2>, out: &mut Tensor<F8E5M2>, thread_id: usize) -> Result<()> {
+    crate::ops::cpu::relu::relu_f8(attrs, a, out, thread_id)
+}
+
+pub fn relu_i8(attrs: &OpAttrs, a: &Tensor<i8>, out: &mut Tensor<i8>, thread_id: usize) -> Result<()> {
+    crate::ops::cpu::relu::relu_i8(attrs, a, out, thread_id)
+}
+
+pub fn relu_i16(attrs: &OpAttrs, a: &Tensor<i16>, out: &mut Tensor<i16>, thread_id: usize) -> Result<()> {
+    crate::ops::cpu::relu::relu_i16(attrs, a, out, thread_id)
+}
+
+pub fn relu_i32(attrs: &OpAttrs, a: &Tensor<i32>, out: &mut Tensor<i32>, thread_id: usize) -> Result<()> {
+    crate::ops::cpu::relu::relu_i32(attrs, a, out, thread_id)
+}
+
+pub fn relu_i64(attrs: &OpAttrs, a: &Tensor<i64>, out: &mut Tensor<i64>, thread_id: usize) -> Result<()> {
+    crate::ops::cpu::relu::relu_i64(attrs, a, out, thread_id)
+}
+
+pub fn relu_i4(attrs: &OpAttrs, a: &Tensor<I4>, out: &mut Tensor<I4>, thread_id: usize) -> Result<()> {
+    ensure_same_shape_unary(a, out)?;
+    if !is_contiguous(a.shape(), a.strides()) || !is_contiguous(out.shape(), out.strides()) {
+        return Err(anyhow!("relu op requires contiguous packed tensors"));
+    }
+    let logical_len = a.numel();
+    relu_i4_slice(attrs, &a.data, logical_len, &mut out.data, thread_id)
 }

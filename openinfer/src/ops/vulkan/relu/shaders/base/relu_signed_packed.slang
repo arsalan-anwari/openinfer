@@ -2,11 +2,10 @@
 
 struct PushConsts {
     uint len;
-    uint alpha_lo;
-    uint alpha_hi;
-    uint clamp_lo;
-    uint clamp_hi;
-    uint flags;
+    float alpha_f32;
+    float clamp_f32;
+    double alpha_f64;
+    double clamp_f64;
 };
 
 [[vk::push_constant]] PushConsts pc;
@@ -32,7 +31,7 @@ void relu_i4(uint3 tid : SV_DispatchThreadID, uniform PushConsts pc) {
     uint i = tid.x;
     if (i < pc.len) {
         int x = packed_read_signed(gReluPacked.input0, i, 4);
-        float y = relu_float((float)x, asfloat(pc.alpha_lo), asfloat(pc.clamp_lo));
+        float y = relu_float((float)x, pc.alpha_f32, pc.clamp_f32);
         if (y < -128.0f) {
             y = -128.0f;
         }

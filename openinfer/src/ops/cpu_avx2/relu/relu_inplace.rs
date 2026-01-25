@@ -5,9 +5,11 @@ use std::arch::x86_64::{
 };
 
 use crate::graph::{AttrValue, OpAttrs};
+use crate::ops::cpu_avx2::registry_helpers::{ensure_same_len_unary, ensure_same_shape_unary, is_contiguous};
+use crate::tensor::{BF16, F16, F8E5M2, I4, Tensor};
 use crate::timer::Timer;
 
-pub fn relu_inplace_f32(attrs: &OpAttrs, a: &mut [f32], thread_id: usize) -> Result<()> {
+fn relu_inplace_f32_slice(attrs: &OpAttrs, a: &mut [f32], thread_id: usize) -> Result<()> {
     let (alpha, clamp_max) = match attrs {
         OpAttrs::Relu { alpha, clamp_max } => (attr_value_f32(alpha)?, attr_value_f32(clamp_max)?),
         _ => return Err(anyhow!("relu op expects relu attributes")),
@@ -58,4 +60,49 @@ fn attr_value_f32(value: &AttrValue) -> Result<f32> {
         AttrValue::Bool(_) => Err(anyhow!("relu op attrs must be numeric")),
         AttrValue::Var(name) => Err(anyhow!("relu op attrs must be resolved: {}", name)),
     }
+}
+
+pub fn relu_inplace_f32(attrs: &OpAttrs, a: &mut Tensor<f32>, thread_id: usize) -> Result<()> {
+    ensure_same_shape_unary(a, a)?;
+    if !is_contiguous(a.shape(), a.strides()) {
+        return Err(anyhow!("relu op requires contiguous tensors"));
+    }
+    ensure_same_len_unary(a, a)?;
+    relu_inplace_f32_slice(attrs, &mut a.data, thread_id)
+}
+
+pub fn relu_inplace_f64(attrs: &OpAttrs, a: &mut Tensor<f64>, thread_id: usize) -> Result<()> {
+    crate::ops::cpu::relu::relu_inplace_f64(attrs, a, thread_id)
+}
+
+pub fn relu_inplace_f16(attrs: &OpAttrs, a: &mut Tensor<F16>, thread_id: usize) -> Result<()> {
+    crate::ops::cpu::relu::relu_inplace_f16(attrs, a, thread_id)
+}
+
+pub fn relu_inplace_bf16(attrs: &OpAttrs, a: &mut Tensor<BF16>, thread_id: usize) -> Result<()> {
+    crate::ops::cpu::relu::relu_inplace_bf16(attrs, a, thread_id)
+}
+
+pub fn relu_inplace_f8(attrs: &OpAttrs, a: &mut Tensor<F8E5M2>, thread_id: usize) -> Result<()> {
+    crate::ops::cpu::relu::relu_inplace_f8(attrs, a, thread_id)
+}
+
+pub fn relu_inplace_i8(attrs: &OpAttrs, a: &mut Tensor<i8>, thread_id: usize) -> Result<()> {
+    crate::ops::cpu::relu::relu_inplace_i8(attrs, a, thread_id)
+}
+
+pub fn relu_inplace_i16(attrs: &OpAttrs, a: &mut Tensor<i16>, thread_id: usize) -> Result<()> {
+    crate::ops::cpu::relu::relu_inplace_i16(attrs, a, thread_id)
+}
+
+pub fn relu_inplace_i32(attrs: &OpAttrs, a: &mut Tensor<i32>, thread_id: usize) -> Result<()> {
+    crate::ops::cpu::relu::relu_inplace_i32(attrs, a, thread_id)
+}
+
+pub fn relu_inplace_i64(attrs: &OpAttrs, a: &mut Tensor<i64>, thread_id: usize) -> Result<()> {
+    crate::ops::cpu::relu::relu_inplace_i64(attrs, a, thread_id)
+}
+
+pub fn relu_inplace_i4(attrs: &OpAttrs, a: &mut Tensor<I4>, thread_id: usize) -> Result<()> {
+    crate::ops::cpu::relu::relu_inplace_i4(attrs, a, thread_id)
 }

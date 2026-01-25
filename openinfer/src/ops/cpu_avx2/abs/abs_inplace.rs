@@ -8,8 +8,9 @@ use std::arch::x86_64::{
 
 use crate::timer::Timer;
 use crate::ops::cpu_avx2::packed::{get_i2_value, get_i4_value, set_i2_value, set_i4_value};
-use crate::tensor::{I2, I4};
-pub fn abs_inplace_f32(a: &mut [f32], thread_id: usize) -> Result<()> {
+use crate::ops::cpu_avx2::registry_helpers::is_contiguous;
+use crate::tensor::{I2, I4, Tensor};
+fn abs_inplace_f32_slice(a: &mut [f32], thread_id: usize) -> Result<()> {
     Timer::start(thread_id);
     unsafe {
         let mut i = 0usize;
@@ -30,7 +31,7 @@ pub fn abs_inplace_f32(a: &mut [f32], thread_id: usize) -> Result<()> {
     Ok(())
 }
 
-pub fn abs_inplace_f64(a: &mut [f64], thread_id: usize) -> Result<()> {
+fn abs_inplace_f64_slice(a: &mut [f64], thread_id: usize) -> Result<()> {
     Timer::start(thread_id);
     unsafe {
         let mut i = 0usize;
@@ -51,7 +52,7 @@ pub fn abs_inplace_f64(a: &mut [f64], thread_id: usize) -> Result<()> {
     Ok(())
 }
 
-pub fn abs_inplace_i8(a: &mut [i8], thread_id: usize) -> Result<()> {
+fn abs_inplace_i8_slice(a: &mut [i8], thread_id: usize) -> Result<()> {
     Timer::start(thread_id);
     unsafe {
         let mut i = 0usize;
@@ -70,7 +71,7 @@ pub fn abs_inplace_i8(a: &mut [i8], thread_id: usize) -> Result<()> {
     Ok(())
 }
 
-pub fn abs_inplace_i16(a: &mut [i16], thread_id: usize) -> Result<()> {
+fn abs_inplace_i16_slice(a: &mut [i16], thread_id: usize) -> Result<()> {
     Timer::start(thread_id);
     unsafe {
         let mut i = 0usize;
@@ -89,7 +90,7 @@ pub fn abs_inplace_i16(a: &mut [i16], thread_id: usize) -> Result<()> {
     Ok(())
 }
 
-pub fn abs_inplace_i32(a: &mut [i32], thread_id: usize) -> Result<()> {
+fn abs_inplace_i32_slice(a: &mut [i32], thread_id: usize) -> Result<()> {
     Timer::start(thread_id);
     unsafe {
         let mut i = 0usize;
@@ -108,7 +109,7 @@ pub fn abs_inplace_i32(a: &mut [i32], thread_id: usize) -> Result<()> {
     Ok(())
 }
 
-pub fn abs_inplace_i64(a: &mut [i64], thread_id: usize) -> Result<()> {
+fn abs_inplace_i64_slice(a: &mut [i64], thread_id: usize) -> Result<()> {
     Timer::start(thread_id);
     unsafe {
         let mut i = 0usize;
@@ -131,7 +132,7 @@ pub fn abs_inplace_i64(a: &mut [i64], thread_id: usize) -> Result<()> {
     Ok(())
 }
 
-pub fn abs_inplace_i4(a: &mut [I4], logical_len: usize, thread_id: usize) -> Result<()> {
+fn abs_inplace_i4_slice(a: &mut [I4], logical_len: usize, thread_id: usize) -> Result<()> {
     Timer::start(thread_id);
     for idx in 0..logical_len {
         let v = get_i4_value(a, idx);
@@ -142,7 +143,7 @@ pub fn abs_inplace_i4(a: &mut [I4], logical_len: usize, thread_id: usize) -> Res
     Ok(())
 }
 
-pub fn abs_inplace_i2(a: &mut [I2], logical_len: usize, thread_id: usize) -> Result<()> {
+fn abs_inplace_i2_slice(a: &mut [I2], logical_len: usize, thread_id: usize) -> Result<()> {
     Timer::start(thread_id);
     for idx in 0..logical_len {
         let v = get_i2_value(a, idx);
@@ -151,4 +152,62 @@ pub fn abs_inplace_i2(a: &mut [I2], logical_len: usize, thread_id: usize) -> Res
     }
     Timer::stop(thread_id);
     Ok(())
+}
+
+pub fn abs_inplace_f32(a: &mut Tensor<f32>, thread_id: usize) -> Result<()> {
+    if !is_contiguous(a.shape(), a.strides()) {
+        return Err(anyhow::anyhow!("abs op requires contiguous tensors"));
+    }
+    abs_inplace_f32_slice(&mut a.data, thread_id)
+}
+
+pub fn abs_inplace_f64(a: &mut Tensor<f64>, thread_id: usize) -> Result<()> {
+    if !is_contiguous(a.shape(), a.strides()) {
+        return Err(anyhow::anyhow!("abs op requires contiguous tensors"));
+    }
+    abs_inplace_f64_slice(&mut a.data, thread_id)
+}
+
+pub fn abs_inplace_i8(a: &mut Tensor<i8>, thread_id: usize) -> Result<()> {
+    if !is_contiguous(a.shape(), a.strides()) {
+        return Err(anyhow::anyhow!("abs op requires contiguous tensors"));
+    }
+    abs_inplace_i8_slice(&mut a.data, thread_id)
+}
+
+pub fn abs_inplace_i16(a: &mut Tensor<i16>, thread_id: usize) -> Result<()> {
+    if !is_contiguous(a.shape(), a.strides()) {
+        return Err(anyhow::anyhow!("abs op requires contiguous tensors"));
+    }
+    abs_inplace_i16_slice(&mut a.data, thread_id)
+}
+
+pub fn abs_inplace_i32(a: &mut Tensor<i32>, thread_id: usize) -> Result<()> {
+    if !is_contiguous(a.shape(), a.strides()) {
+        return Err(anyhow::anyhow!("abs op requires contiguous tensors"));
+    }
+    abs_inplace_i32_slice(&mut a.data, thread_id)
+}
+
+pub fn abs_inplace_i64(a: &mut Tensor<i64>, thread_id: usize) -> Result<()> {
+    if !is_contiguous(a.shape(), a.strides()) {
+        return Err(anyhow::anyhow!("abs op requires contiguous tensors"));
+    }
+    abs_inplace_i64_slice(&mut a.data, thread_id)
+}
+
+pub fn abs_inplace_i4(a: &mut Tensor<I4>, thread_id: usize) -> Result<()> {
+    if !is_contiguous(a.shape(), a.strides()) {
+        return Err(anyhow::anyhow!("abs op requires contiguous packed tensors"));
+    }
+    let logical_len = a.numel();
+    abs_inplace_i4_slice(&mut a.data, logical_len, thread_id)
+}
+
+pub fn abs_inplace_i2(a: &mut Tensor<I2>, thread_id: usize) -> Result<()> {
+    if !is_contiguous(a.shape(), a.strides()) {
+        return Err(anyhow::anyhow!("abs op requires contiguous packed tensors"));
+    }
+    let logical_len = a.numel();
+    abs_inplace_i2_slice(&mut a.data, logical_len, thread_id)
 }

@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use crate::tensor::{I1, I2, I4, U1, U2, U4};
 
 pub(crate) trait PackedByte: Copy {
@@ -71,6 +73,15 @@ pub(crate) fn packed_mask(bits: u8) -> u8 {
 
 pub(crate) fn packed_per_byte(bits: u8) -> usize {
     (8 / bits) as usize
+}
+
+pub(crate) fn packed_storage_len(bits: u8, logical_len: usize) -> usize {
+    let per = packed_per_byte(bits);
+    if logical_len == 0 {
+        0
+    } else {
+        (logical_len + per - 1) / per
+    }
 }
 
 pub(crate) fn packed_read<T: PackedByte>(data: &[T], idx: usize, bits: u8) -> u8 {

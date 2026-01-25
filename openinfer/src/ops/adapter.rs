@@ -9,6 +9,7 @@ use crate::backend::VulkanBuffer;
 #[cfg(feature = "vulkan")]
 use crate::ops::registry::VulkanKernel;
 
+#[allow(dead_code)]
 pub trait CpuKernelAdapter {
     fn call(
         &self,
@@ -30,6 +31,7 @@ pub trait DeviceKernelAdapter {
     ) -> Result<VulkanBuffer>;
 }
 
+#[allow(dead_code)]
 pub fn cpu_kernel<K>(func: K) -> HostKernel
 where
     K: CpuKernelAdapter + Send + Sync + 'static,
@@ -38,6 +40,7 @@ where
 }
 
 
+#[allow(dead_code)]
 pub fn host_kernel_simple<F>(func: F) -> HostKernel
 where
     F: Fn(&OpAttrs, &[TensorValue], usize) -> Result<TensorValue> + Send + Sync + 'static,

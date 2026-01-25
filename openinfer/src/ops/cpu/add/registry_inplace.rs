@@ -1,14 +1,52 @@
 use anyhow::anyhow;
 
 use crate::graph::OpAttrs;
-use crate::ops::registry::{HostInplaceKernel, InplaceKernelFn};
+use crate::ops::registry::InplaceKernelFn;
 use crate::tensor::{DType, TensorValue};
 
 use super::{
-    add_inplace_bf16, add_inplace_bitset, add_inplace_bool, add_inplace_f16, add_inplace_f32,
-    add_inplace_f64, add_inplace_f8, add_inplace_i16, add_inplace_i32, add_inplace_i64,
-    add_inplace_i8, add_inplace_u16, add_inplace_u32, add_inplace_u64, add_inplace_u8,
-    add_inplace_i4, add_inplace_i2, add_inplace_i1, add_inplace_u4, add_inplace_u2, add_inplace_u1,
+    add_inplace_bf16,
+    add_inplace_bf16_broadcast,
+    add_inplace_bitset,
+    add_inplace_bitset_broadcast,
+    add_inplace_bool,
+    add_inplace_bool_broadcast,
+    add_inplace_f16,
+    add_inplace_f16_broadcast,
+    add_inplace_f32,
+    add_inplace_f32_broadcast,
+    add_inplace_f64,
+    add_inplace_f64_broadcast,
+    add_inplace_f8,
+    add_inplace_f8_broadcast,
+    add_inplace_i16,
+    add_inplace_i16_broadcast,
+    add_inplace_i1,
+    add_inplace_i1_broadcast,
+    add_inplace_i2,
+    add_inplace_i2_broadcast,
+    add_inplace_i32,
+    add_inplace_i32_broadcast,
+    add_inplace_i4,
+    add_inplace_i4_broadcast,
+    add_inplace_i64,
+    add_inplace_i64_broadcast,
+    add_inplace_i8,
+    add_inplace_i8_broadcast,
+    add_inplace_u16,
+    add_inplace_u16_broadcast,
+    add_inplace_u1,
+    add_inplace_u1_broadcast,
+    add_inplace_u2,
+    add_inplace_u2_broadcast,
+    add_inplace_u32,
+    add_inplace_u32_broadcast,
+    add_inplace_u4,
+    add_inplace_u4_broadcast,
+    add_inplace_u64,
+    add_inplace_u64_broadcast,
+    add_inplace_u8,
+    add_inplace_u8_broadcast,
 };
 
 #[allow(dead_code)]
@@ -47,56 +85,70 @@ pub fn lookup_kernel_cpu_add_inplace(
     if !supports_add_inplace(output_dtype, input_dtypes, attrs) {
         return None;
     }
-    let kernel: HostInplaceKernel = Box::new(|_attrs, output, inputs, thread_id| {
-        let other = inputs
-            .get(0)
-            .ok_or_else(|| anyhow!("inplace add expects at least 1 input"))?;
-        match (output, other) {
-            (TensorValue::I8(out), TensorValue::I8(b)) => add_inplace_i8(&mut out.data, &b.data, thread_id),
-            (TensorValue::I16(out), TensorValue::I16(b)) => add_inplace_i16(&mut out.data, &b.data, thread_id),
-            (TensorValue::F32(out), TensorValue::F32(b)) => add_inplace_f32(&mut out.data, &b.data, thread_id),
-            (TensorValue::F64(out), TensorValue::F64(b)) => add_inplace_f64(&mut out.data, &b.data, thread_id),
-            (TensorValue::F16(out), TensorValue::F16(b)) => add_inplace_f16(&mut out.data, &b.data, thread_id),
-            (TensorValue::BF16(out), TensorValue::BF16(b)) => add_inplace_bf16(&mut out.data, &b.data, thread_id),
-            (TensorValue::F8E5M2(out), TensorValue::F8E5M2(b)) => add_inplace_f8(&mut out.data, &b.data, thread_id),
-            (TensorValue::U8(out), TensorValue::U8(b)) => add_inplace_u8(&mut out.data, &b.data, thread_id),
-            (TensorValue::U16(out), TensorValue::U16(b)) => add_inplace_u16(&mut out.data, &b.data, thread_id),
-            (TensorValue::I32(out), TensorValue::I32(b)) => add_inplace_i32(&mut out.data, &b.data, thread_id),
-            (TensorValue::I64(out), TensorValue::I64(b)) => add_inplace_i64(&mut out.data, &b.data, thread_id),
-            (TensorValue::U32(out), TensorValue::U32(b)) => add_inplace_u32(&mut out.data, &b.data, thread_id),
-            (TensorValue::U64(out), TensorValue::U64(b)) => add_inplace_u64(&mut out.data, &b.data, thread_id),
-            (TensorValue::Bool(out), TensorValue::Bool(b)) => {
-                add_inplace_bool(&mut out.data, &b.data, thread_id)
-            }
-            (TensorValue::Bitset(out), TensorValue::Bitset(b)) => {
-                add_inplace_bitset(&mut out.data, &b.data, thread_id)
-            }
-            (TensorValue::I4(out), TensorValue::I4(b)) => {
-                let len = out.numel();
-                add_inplace_i4(&mut out.data, &b.data, len, thread_id)
-            }
-            (TensorValue::I2(out), TensorValue::I2(b)) => {
-                let len = out.numel();
-                add_inplace_i2(&mut out.data, &b.data, len, thread_id)
-            }
-            (TensorValue::I1(out), TensorValue::I1(b)) => {
-                let len = out.numel();
-                add_inplace_i1(&mut out.data, &b.data, len, thread_id)
-            }
-            (TensorValue::U4(out), TensorValue::U4(b)) => {
-                let len = out.numel();
-                add_inplace_u4(&mut out.data, &b.data, len, thread_id)
-            }
-            (TensorValue::U2(out), TensorValue::U2(b)) => {
-                let len = out.numel();
-                add_inplace_u2(&mut out.data, &b.data, len, thread_id)
-            }
-            (TensorValue::U1(out), TensorValue::U1(b)) => {
-                let len = out.numel();
-                add_inplace_u1(&mut out.data, &b.data, len, thread_id)
-            }
-            _ => Err(anyhow!("inplace add dtype mismatch")),
+    match (output_dtype, input_dtypes, attrs) {
+        (DType::I8, [DType::I8, DType::I8], OpAttrs::None) => {
+            crate::add_kernel!(Inplace, "add", I8, add_inplace_i8, add_inplace_i8_broadcast)
         }
-    });
-    Some(InplaceKernelFn::Host(kernel))
+        (DType::I16, [DType::I16, DType::I16], OpAttrs::None) => {
+            crate::add_kernel!(Inplace, "add", I16, add_inplace_i16, add_inplace_i16_broadcast)
+        }
+        (DType::F32, [DType::F32, DType::F32], OpAttrs::None) => {
+            crate::add_kernel!(Inplace, "add", F32, add_inplace_f32, add_inplace_f32_broadcast)
+        }
+        (DType::F64, [DType::F64, DType::F64], OpAttrs::None) => {
+            crate::add_kernel!(Inplace, "add", F64, add_inplace_f64, add_inplace_f64_broadcast)
+        }
+        (DType::F16, [DType::F16, DType::F16], OpAttrs::None) => {
+            crate::add_kernel!(Inplace, "add", F16, add_inplace_f16, add_inplace_f16_broadcast)
+        }
+        (DType::BF16, [DType::BF16, DType::BF16], OpAttrs::None) => {
+            crate::add_kernel!(Inplace, "add", BF16, add_inplace_bf16, add_inplace_bf16_broadcast)
+        }
+        (DType::F8E5M2, [DType::F8E5M2, DType::F8E5M2], OpAttrs::None) => {
+            crate::add_kernel!(Inplace, "add", F8E5M2, add_inplace_f8, add_inplace_f8_broadcast)
+        }
+        (DType::U8, [DType::U8, DType::U8], OpAttrs::None) => {
+            crate::add_kernel!(Inplace, "add", U8, add_inplace_u8, add_inplace_u8_broadcast)
+        }
+        (DType::U16, [DType::U16, DType::U16], OpAttrs::None) => {
+            crate::add_kernel!(Inplace, "add", U16, add_inplace_u16, add_inplace_u16_broadcast)
+        }
+        (DType::I32, [DType::I32, DType::I32], OpAttrs::None) => {
+            crate::add_kernel!(Inplace, "add", I32, add_inplace_i32, add_inplace_i32_broadcast)
+        }
+        (DType::I64, [DType::I64, DType::I64], OpAttrs::None) => {
+            crate::add_kernel!(Inplace, "add", I64, add_inplace_i64, add_inplace_i64_broadcast)
+        }
+        (DType::U32, [DType::U32, DType::U32], OpAttrs::None) => {
+            crate::add_kernel!(Inplace, "add", U32, add_inplace_u32, add_inplace_u32_broadcast)
+        }
+        (DType::U64, [DType::U64, DType::U64], OpAttrs::None) => {
+            crate::add_kernel!(Inplace, "add", U64, add_inplace_u64, add_inplace_u64_broadcast)
+        }
+        (DType::Bool, [DType::Bool, DType::Bool], OpAttrs::None) => {
+            crate::add_kernel!(Inplace, "add", Bool, add_inplace_bool, add_inplace_bool_broadcast)
+        }
+        (DType::Bitset, [DType::Bitset, DType::Bitset], OpAttrs::None) => {
+            crate::add_kernel!(Inplace, "add", Bitset, add_inplace_bitset, add_inplace_bitset_broadcast)
+        }
+        (DType::I4, [DType::I4, DType::I4], OpAttrs::None) => {
+            crate::add_kernel!(Inplace, "add", I4, add_inplace_i4, add_inplace_i4_broadcast)
+        }
+        (DType::I2, [DType::I2, DType::I2], OpAttrs::None) => {
+            crate::add_kernel!(Inplace, "add", I2, add_inplace_i2, add_inplace_i2_broadcast)
+        }
+        (DType::I1, [DType::I1, DType::I1], OpAttrs::None) => {
+            crate::add_kernel!(Inplace, "add", I1, add_inplace_i1, add_inplace_i1_broadcast)
+        }
+        (DType::U4, [DType::U4, DType::U4], OpAttrs::None) => {
+            crate::add_kernel!(Inplace, "add", U4, add_inplace_u4, add_inplace_u4_broadcast)
+        }
+        (DType::U2, [DType::U2, DType::U2], OpAttrs::None) => {
+            crate::add_kernel!(Inplace, "add", U2, add_inplace_u2, add_inplace_u2_broadcast)
+        }
+        (DType::U1, [DType::U1, DType::U1], OpAttrs::None) => {
+            crate::add_kernel!(Inplace, "add", U1, add_inplace_u1, add_inplace_u1_broadcast)
+        }
+        _ => None,
+    }
 }

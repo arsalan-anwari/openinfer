@@ -383,23 +383,29 @@ impl Executor {
                 .ok_or_else(|| anyhow!("op {} expects at least 1 input", op.as_str()))?
                 .dtype(),
         };
-        let mut reuse_output = None;
-        if matches!(resolved_attrs, OpAttrs::Accumulate { .. }) {
-            if matches!(self.storage.get(output), Some(super::StoredTensor::Data(_))) {
-                if let Some(super::StoredTensor::Data(data)) = self.storage.remove(output) {
-                    reuse_output = Some(data);
-                }
-            }
-            if reuse_output.is_none() {
-                reuse_output = self.dynamic.remove(output);
-            }
-        }
         let use_inplace = self.inplace_enabled
             && inplace_index.is_some()
             && inplace_hits == 1
             && supports_inplace(op)
             && !matches!(resolved_attrs, OpAttrs::Accumulate { .. })
             && tensors.len() == inputs.len();
+        let mut reuse_output = None;
+        if !use_inplace {
+            if reuse_output.is_none() {
+                reuse_output = self.dynamic.remove(output);
+            }
+            if reuse_output.is_none() {
+                if let Some(super::StoredTensor::Data(data)) = self.storage.remove(output) {
+                    reuse_output = Some(data);
+                }
+            }
+            if reuse_output.is_none() {
+                if let Some(decl) = self.graph.vars.get(output) {
+                    let shape = self.model.resolve_shape(&decl.dims)?;
+                    reuse_output = Some(self.backend.alloc(decl.dtype, &shape)?);
+                }
+            }
+        }
         let result = if use_inplace {
             let index = inplace_index.unwrap();
             if index != 0 {

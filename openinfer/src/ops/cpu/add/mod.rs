@@ -10,3 +10,8 @@ pub use add::*;
 pub use add_accumulate::*;
 #[allow(unused_imports)]
 pub use add_inplace::*;
+
+#[allow(dead_code)]
+pub fn supports_broadcast() -> bool {
+    true
+}

@@ -1,7 +1,7 @@
 use anyhow::Result;
 
-use crate::simulator::Device;
 use crate::graph::{OpAttrs, OpKind};
+use crate::simulator::Device;
 use crate::tensor::{DType, TensorValue};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -13,8 +13,8 @@ pub enum BroadcastPolicy {
     BatchOnly,
 }
 
+#[allow(dead_code)]
 pub fn broadcast_policy(op: OpKind) -> BroadcastPolicy {
-    // Central switch: add ops here to enable broadcasting across devices.
     match op {
         OpKind::Add | OpKind::Mul => BroadcastPolicy::AllDevices,
         OpKind::Matmul => BroadcastPolicy::BatchOnly,
@@ -22,6 +22,7 @@ pub fn broadcast_policy(op: OpKind) -> BroadcastPolicy {
     }
 }
 
+#[allow(dead_code)]
 pub fn broadcast_enabled(op: OpKind, device: Device) -> bool {
     match broadcast_policy(op) {
         BroadcastPolicy::None => false,
@@ -30,6 +31,7 @@ pub fn broadcast_enabled(op: OpKind, device: Device) -> bool {
     }
 }
 
+#[allow(dead_code)]
 pub fn broadcast_is_elementwise(op: OpKind) -> bool {
     matches!(
         broadcast_policy(op),
@@ -37,6 +39,7 @@ pub fn broadcast_is_elementwise(op: OpKind) -> bool {
     )
 }
 
+#[allow(dead_code)]
 pub fn broadcast_requires_materialize(op: OpKind) -> bool {
     match op {
         OpKind::Add | OpKind::Mul => false,
@@ -139,7 +142,7 @@ pub fn lookup_kernel_inplace(
             attrs,
         ),
         #[cfg(feature = "vulkan")]
-        Device::Vulkan => super::vulkan::registry::lookup_kernel_vulkan_inplace(
+        Device::Vulkan => super::vulkan::registry_inplace::lookup_kernel_vulkan_inplace(
             op,
             output_dtype,
             input_dtypes,

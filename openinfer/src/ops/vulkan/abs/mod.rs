@@ -8,6 +8,7 @@ use crate::tensor::{compute_strides, DType};
 use crate::timer::Timer;
 
 pub mod registry;
+pub mod registry_accumulate;
 pub mod registry_inplace;
 
 pub fn abs_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: usize) -> Result<VulkanBuffer> {

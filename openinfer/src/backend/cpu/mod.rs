@@ -4,19 +4,12 @@ use anyhow::{anyhow, Result};
 use crate::backend::DeviceTensor;
 use crate::backend::TensorStorage;
 use crate::graph::{OpAttrs, OpKind};
-use crate::ops::{
-    broadcast_enabled,
-    broadcast_is_elementwise,
-    broadcast_requires_materialize,
-    lookup_kernel,
-    KernelFn,
-};
+use crate::ops::{lookup_kernel, KernelFn};
 use crate::ops::registry::lookup_kernel_inplace;
 use crate::simulator::{Device, DeviceBackend};
-use crate::tensor::{broadcast_shapes, DType, TensorValue};
+use crate::tensor::{DType, TensorValue};
 use crate::types::cpu::{effective_dtype, from_effective_tensor, to_effective_tensor};
 
-pub mod broadcast;
 pub mod scheduler;
 
 #[derive(Debug)]
@@ -69,26 +62,6 @@ impl DeviceBackend for CpuBackend {
                 to_effective_tensor(value, effective)
             })
             .collect::<Result<Vec<_>>>()?;
-        let force_broadcast_materialize =
-            matches!(attrs, OpAttrs::Accumulate { .. }) && matches!(op, OpKind::Add | OpKind::Mul);
-        if host.len() > 1 && broadcast_enabled(op, self.device) && broadcast_is_elementwise(op) {
-            let mut out_shape = host[0].shape().to_vec();
-            for value in host.iter().skip(1) {
-                out_shape = broadcast_shapes(&out_shape, value.shape())?;
-            }
-            let needs_packed_materialize = host
-                .iter()
-                .any(|value| value.dtype().is_packed() && value.shape() != out_shape);
-            if broadcast_requires_materialize(op)
-                || force_broadcast_materialize
-                || needs_packed_materialize
-            {
-                host = host
-                    .iter()
-                    .map(|value| broadcast::broadcast_value_to_shape(value, &out_shape))
-                    .collect::<Result<Vec<_>>>()?;
-            }
-        }
         let input_dtypes: Vec<DType> = host.iter().map(|t| t.dtype()).collect();
         let mut lookup_device = self.device;
         if matches!(self.device, Device::CpuAvx | Device::CpuAvx2) {
@@ -115,7 +88,9 @@ impl DeviceBackend for CpuBackend {
         match kernel {
             KernelFn::Host(func) => {
                 let mut output_value = match output {
-                    Some(TensorStorage::Host(value)) => Some(value),
+                    Some(TensorStorage::Host(value)) => {
+                        Some(to_effective_tensor(value, output_effective)?)
+                    }
                     _ => None,
                 };
                 let output_value_result = (func)(attrs, &host, output_value.as_mut(), thread_id)?;
@@ -182,29 +157,6 @@ impl DeviceBackend for CpuBackend {
             .ok_or_else(|| anyhow!("unsupported inplace op {}", op.as_str()))?;
         match kernel {
             crate::ops::registry::InplaceKernelFn::Host(func) => {
-                if !host.is_empty()
-                    && broadcast_enabled(op, lookup_device)
-                    && broadcast_is_elementwise(op)
-                {
-                    let out_shape = output.shape().to_vec();
-                    for value in host.iter() {
-                        let merged = broadcast_shapes(&out_shape, value.shape())?;
-                        if merged != out_shape {
-                            return Err(anyhow!(
-                                "inplace op {} requires output shape {:?}, got broadcast {:?}",
-                                op.as_str(),
-                                out_shape,
-                                merged
-                            ));
-                        }
-                    }
-                    if host.iter().any(|value| value.shape() != out_shape) {
-                        host = host
-                            .iter()
-                            .map(|value| broadcast::broadcast_value_to_shape(value, &out_shape))
-                            .collect::<Result<Vec<_>>>()?;
-                    }
-                }
                 (func)(attrs, &mut output, &host, thread_id)?;
                 let output = from_effective_tensor(output, output_dtype)?;
                 Ok(TensorStorage::Host(output))

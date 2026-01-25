@@ -9,3 +9,8 @@ pub use mul::*;
 #[allow(unused_imports)]
 pub use mul_accumulate::*;
 pub use mul_inplace::*;
+
+#[allow(dead_code)]
+pub fn supports_broadcast() -> bool {
+    false
+}

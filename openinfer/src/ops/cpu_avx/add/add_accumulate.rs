@@ -1,48 +1,17 @@
 use anyhow::{anyhow, Result};
 use std::arch::x86_64::*;
 
-use crate::timer::Timer;
+use crate::ops::cpu::data_helper::OutputBuf;
 use crate::ops::cpu_avx::packed::{get_i2_value, get_i4_value, get_u2_value, get_u4_value};
-use crate::tensor::{I2, I4, U2, U4};
-
-enum OutputBuf<'a, T>
-where
-    T: Default + Copy,
-{
-    Borrowed(&'a mut [T]),
-    Owned(Vec<T>),
-}
-
-impl<'a, T> OutputBuf<'a, T>
-where
-    T: Default + Copy,
-{
-    fn new(len: usize, output: Option<&'a mut [T]>, err: &'static str) -> Result<Self> {
-        if let Some(out) = output {
-            if out.len() != len {
-                return Err(anyhow!(err));
-            }
-            Ok(Self::Borrowed(out))
-        } else {
-            Ok(Self::Owned(vec![T::default(); len]))
-        }
-    }
-
-    fn as_mut_slice(&mut self) -> &mut [T] {
-        match self {
-            Self::Borrowed(slice) => slice,
-            Self::Owned(vec) => vec.as_mut_slice(),
-        }
-    }
-
-    fn into_result(self) -> Option<Vec<T>> {
-        match self {
-            Self::Borrowed(_) => None,
-            Self::Owned(vec) => Some(vec),
-        }
-    }
-}
-
+use crate::ops::cpu_avx::registry_helpers::{
+    ensure_same_len,
+    ensure_same_shape,
+    is_contiguous,
+    needs_broadcast,
+    BroadcastVariant,
+};
+use crate::tensor::{I2, I4, U2, U4, Tensor};
+use crate::timer::Timer;
 
 pub fn add_i8_i16(
     a: &[i8],
@@ -506,3 +475,95 @@ add_packed_unsigned_wrap!(add_u2_u8_packed, U2, get_u2_value);
 add_packed_unsigned_widen!(add_u2_u16_packed, U2, get_u2_value, u16);
 add_packed_unsigned_widen!(add_u2_u32_packed, U2, get_u2_value, u32);
 add_packed_unsigned_widen!(add_u2_u64_packed, U2, get_u2_value, u64);
+
+macro_rules! add_accumulate_tensor {
+    ($name:ident, $broadcast:ident, $slice:ident, $in:ty, $out:ty) => {
+        pub fn $name(
+            a: &Tensor<$in>,
+            b: &Tensor<$in>,
+            out: &mut Tensor<$out>,
+            thread_id: usize,
+        ) -> Result<()> {
+            if needs_broadcast(a, b, out, Some(BroadcastVariant::Accumulate)) {
+                return crate::ops::cpu::add::$broadcast(a, b, out, thread_id);
+            }
+            ensure_same_shape(a, b, out)?;
+            if !is_contiguous(a.shape(), a.strides())
+                || !is_contiguous(b.shape(), b.strides())
+                || !is_contiguous(out.shape(), out.strides())
+            {
+                return Err(anyhow!("add accumulate requires contiguous tensors"));
+            }
+            ensure_same_len(a, b, out)?;
+            let result = $slice(&a.data, &b.data, Some(out.data.as_mut_slice()), thread_id)?;
+            if let Some(vec) = result {
+                out.data.copy_from_slice(&vec);
+            }
+            Ok(())
+        }
+    };
+}
+
+macro_rules! add_accumulate_tensor_packed {
+    ($name:ident, $broadcast:ident, $slice:ident, $in:ty, $out:ty) => {
+        pub fn $name(
+            a: &Tensor<$in>,
+            b: &Tensor<$in>,
+            out: &mut Tensor<$out>,
+            thread_id: usize,
+        ) -> Result<()> {
+            if needs_broadcast(a, b, out, Some(BroadcastVariant::Accumulate)) {
+                return crate::ops::cpu::add::$broadcast(a, b, out, thread_id);
+            }
+            ensure_same_shape(a, b, out)?;
+            if !is_contiguous(a.shape(), a.strides())
+                || !is_contiguous(b.shape(), b.strides())
+                || !is_contiguous(out.shape(), out.strides())
+            {
+                return Err(anyhow!("add accumulate requires contiguous packed tensors"));
+            }
+            let logical_len = a.numel();
+            let result = $slice(
+                &a.data,
+                &b.data,
+                logical_len,
+                Some(out.data.as_mut_slice()),
+                thread_id,
+            )?;
+            if let Some(vec) = result {
+                out.data.copy_from_slice(&vec);
+            }
+            Ok(())
+        }
+    };
+}
+
+add_accumulate_tensor!(add_i8_i16_tensor, add_i8_i16_broadcast, add_i8_i16, i8, i16);
+add_accumulate_tensor!(add_i8_i32_tensor, add_i8_i32_broadcast, add_i8_i32, i8, i32);
+add_accumulate_tensor!(add_i8_i64_tensor, add_i8_i64_broadcast, add_i8_i64, i8, i64);
+add_accumulate_tensor!(add_i16_i32_tensor, add_i16_i32_broadcast, add_i16_i32, i16, i32);
+add_accumulate_tensor!(add_i16_i64_tensor, add_i16_i64_broadcast, add_i16_i64, i16, i64);
+add_accumulate_tensor!(add_i32_i64_tensor, add_i32_i64_broadcast, add_i32_i64, i32, i64);
+add_accumulate_tensor!(add_u8_u16_tensor, add_u8_u16_broadcast, add_u8_u16, u8, u16);
+add_accumulate_tensor!(add_u8_u32_tensor, add_u8_u32_broadcast, add_u8_u32, u8, u32);
+add_accumulate_tensor!(add_u8_u64_tensor, add_u8_u64_broadcast, add_u8_u64, u8, u64);
+add_accumulate_tensor!(add_u16_u32_tensor, add_u16_u32_broadcast, add_u16_u32, u16, u32);
+add_accumulate_tensor!(add_u16_u64_tensor, add_u16_u64_broadcast, add_u16_u64, u16, u64);
+add_accumulate_tensor!(add_u32_u64_tensor, add_u32_u64_broadcast, add_u32_u64, u32, u64);
+
+add_accumulate_tensor_packed!(add_i4_i8_packed_tensor, add_i4_i8_packed_broadcast, add_i4_i8_packed, I4, i8);
+add_accumulate_tensor_packed!(add_i4_i16_packed_tensor, add_i4_i16_packed_broadcast, add_i4_i16_packed, I4, i16);
+add_accumulate_tensor_packed!(add_i4_i32_packed_tensor, add_i4_i32_packed_broadcast, add_i4_i32_packed, I4, i32);
+add_accumulate_tensor_packed!(add_i4_i64_packed_tensor, add_i4_i64_packed_broadcast, add_i4_i64_packed, I4, i64);
+add_accumulate_tensor_packed!(add_i2_i8_packed_tensor, add_i2_i8_packed_broadcast, add_i2_i8_packed, I2, i8);
+add_accumulate_tensor_packed!(add_i2_i16_packed_tensor, add_i2_i16_packed_broadcast, add_i2_i16_packed, I2, i16);
+add_accumulate_tensor_packed!(add_i2_i32_packed_tensor, add_i2_i32_packed_broadcast, add_i2_i32_packed, I2, i32);
+add_accumulate_tensor_packed!(add_i2_i64_packed_tensor, add_i2_i64_packed_broadcast, add_i2_i64_packed, I2, i64);
+add_accumulate_tensor_packed!(add_u4_u8_packed_tensor, add_u4_u8_packed_broadcast, add_u4_u8_packed, U4, u8);
+add_accumulate_tensor_packed!(add_u4_u16_packed_tensor, add_u4_u16_packed_broadcast, add_u4_u16_packed, U4, u16);
+add_accumulate_tensor_packed!(add_u4_u32_packed_tensor, add_u4_u32_packed_broadcast, add_u4_u32_packed, U4, u32);
+add_accumulate_tensor_packed!(add_u4_u64_packed_tensor, add_u4_u64_packed_broadcast, add_u4_u64_packed, U4, u64);
+add_accumulate_tensor_packed!(add_u2_u8_packed_tensor, add_u2_u8_packed_broadcast, add_u2_u8_packed, U2, u8);
+add_accumulate_tensor_packed!(add_u2_u16_packed_tensor, add_u2_u16_packed_broadcast, add_u2_u16_packed, U2, u16);
+add_accumulate_tensor_packed!(add_u2_u32_packed_tensor, add_u2_u32_packed_broadcast, add_u2_u32_packed, U2, u32);
+add_accumulate_tensor_packed!(add_u2_u64_packed_tensor, add_u2_u64_packed_broadcast, add_u2_u64_packed, U2, u64);

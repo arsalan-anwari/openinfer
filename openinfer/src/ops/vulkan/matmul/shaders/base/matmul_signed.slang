@@ -59,3 +59,4 @@ void matmul_i32(uint3 tid : SV_DispatchThreadID, uniform PushConsts pc) {
 void matmul_i64(uint3 tid : SV_DispatchThreadID, uniform PushConsts pc) {
     matmulImpl<int64_t, 256>(tid, gMatmul_i64, pc);
 }
+

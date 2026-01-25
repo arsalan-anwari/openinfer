@@ -7,12 +7,17 @@ use crate::tensor::{broadcast_strides, compute_strides, numel, DType};
 use crate::timer::Timer;
 
 pub mod registry;
+pub mod registry_accumulate;
 pub mod registry_inplace;
+
+pub fn supports_broadcast() -> bool {
+    true
+}
 
 fn matmul_dims(
     a: &VulkanBuffer,
     b: &VulkanBuffer,
-) -> Result<(Vec<usize>, usize, usize, usize, Vec<usize>)> {
+) -> Result<(Vec<usize>, usize, usize, usize, Vec<usize>, bool)> {
     if a.shape.len() < 2 || b.shape.len() < 2 {
         return Err(anyhow!(
             "matmul expects >=2D inputs, got {:?} and {:?}",
@@ -36,11 +41,14 @@ fn matmul_dims(
             b.shape
         ));
     }
-    let batch_shape = crate::tensor::broadcast_shapes(&a_aligned[..rank - 2], &b_aligned[..rank - 2])?;
+    let a_batch = &a_aligned[..rank - 2];
+    let b_batch = &b_aligned[..rank - 2];
+    let batch_shape = crate::tensor::broadcast_shapes(a_batch, b_batch)?;
+    let broadcast = a_batch != b_batch;
     let mut out_shape = batch_shape.clone();
     out_shape.push(m);
     out_shape.push(n);
-    Ok((batch_shape, m, k, n, out_shape))
+    Ok((batch_shape, m, k, n, out_shape, broadcast))
 }
 
 fn matmul_dispatch(
@@ -53,9 +61,13 @@ fn matmul_dispatch(
     if a.effective_dtype != b.effective_dtype {
         return Err(anyhow!("matmul op expects matching dtypes"));
     }
-    let (batch_shape, m, k, n, out_shape) = matmul_dims(a, b)?;
+    let (batch_shape, m, k, n, out_shape, broadcast) = matmul_dims(a, b)?;
     let batch = numel(&batch_shape);
     let runtime = super::runtime_from_buffers(a, Some(b))?;
+    let mut target = target;
+    if broadcast {
+        target = format!("{target}_broadcast");
+    }
     let entry = "main";
     let spirv = a
         .spv_bytes_for_target(&target)
@@ -202,10 +214,13 @@ pub fn matmul_accumulate_generic(
     if a.effective_dtype != b.effective_dtype {
         return Err(anyhow!("matmul accumulate expects matching dtypes"));
     }
-    let (batch_shape, m, k, n, out_shape) = matmul_dims(a, b)?;
+    let (batch_shape, m, k, n, out_shape, broadcast) = matmul_dims(a, b)?;
     let batch = numel(&batch_shape);
     let runtime = super::runtime_from_buffers(a, Some(b))?;
-    let target = spv_target_name_matmul_accumulate(a.effective_dtype, output_dtype, attrs)?;
+    let mut target = spv_target_name_matmul_accumulate(a.effective_dtype, output_dtype, attrs)?;
+    if broadcast {
+        target = format!("{target}_broadcast");
+    }
     let entry = "main";
     let spirv = a
         .spv_bytes_for_target(&target)

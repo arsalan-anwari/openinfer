@@ -5,7 +5,6 @@ use crate::graph::OpAttrs;
 use crate::ops::{device_kernel, KernelFn};
 use crate::tensor::DType;
 
-use super::matmul_accumulate_generic;
 use super::matmul_generic;
 
 pub fn lookup_kernel_vulkan_matmul(
@@ -43,13 +42,6 @@ pub fn lookup_kernel_vulkan_matmul(
             Some(KernelFn::Vulkan(device_kernel(
                 matmul_generic as fn(&OpAttrs, &VulkanBuffer, &VulkanBuffer, usize) -> Result<VulkanBuffer>,
             )))
-        }
-        (out, [a, b], &OpAttrs::Accumulate { dtype })
-            if *a == *b && out == dtype =>
-        {
-            Some(KernelFn::Vulkan(Box::new(move |attrs, buffers, thread_id| {
-                matmul_accumulate_generic(attrs, buffers[0], buffers[1], out, None, thread_id)
-            })))
         }
         _ => None,
     }

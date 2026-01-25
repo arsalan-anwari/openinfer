@@ -1,8 +1,7 @@
 struct PushConsts {
     uint len;
-    uint value_bits;
-    uint pad0;
-    uint pad1;
+    int value_i32;
+    int64_t value_i64;
 };
 
 [[vk::push_constant]] PushConsts pc;
@@ -22,8 +21,7 @@ ParameterBlock<FillBuffers<int64_t>> gFill_i64;
 void fill_inplace_i8(uint3 tid : SV_DispatchThreadID, uniform PushConsts pc) {
     uint i = tid.x;
     if (i < pc.len) {
-        float value = asfloat(pc.value_bits);
-        gFill_i8.output0[i] = (int)value;
+        gFill_i8.output0[i] = pc.value_i32;
     }
 }
 
@@ -32,8 +30,7 @@ void fill_inplace_i8(uint3 tid : SV_DispatchThreadID, uniform PushConsts pc) {
 void fill_inplace_i16(uint3 tid : SV_DispatchThreadID, uniform PushConsts pc) {
     uint i = tid.x;
     if (i < pc.len) {
-        float value = asfloat(pc.value_bits);
-        gFill_i16.output0[i] = (int)value;
+        gFill_i16.output0[i] = pc.value_i32;
     }
 }
 
@@ -42,8 +39,7 @@ void fill_inplace_i16(uint3 tid : SV_DispatchThreadID, uniform PushConsts pc) {
 void fill_inplace_i32(uint3 tid : SV_DispatchThreadID, uniform PushConsts pc) {
     uint i = tid.x;
     if (i < pc.len) {
-        float value = asfloat(pc.value_bits);
-        gFill_i32.output0[i] = (int)value;
+        gFill_i32.output0[i] = pc.value_i32;
     }
 }
 
@@ -52,7 +48,6 @@ void fill_inplace_i32(uint3 tid : SV_DispatchThreadID, uniform PushConsts pc) {
 void fill_inplace_i64(uint3 tid : SV_DispatchThreadID, uniform PushConsts pc) {
     uint i = tid.x;
     if (i < pc.len) {
-        float value = asfloat(pc.value_bits);
-        gFill_i64.output0[i] = (int64_t)value;
+        gFill_i64.output0[i] = pc.value_i64;
     }
 }
