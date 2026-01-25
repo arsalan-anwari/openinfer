@@ -1,5 +1,5 @@
 use syn::parse::{ParseStream, Result};
-use syn::{parenthesized, LitInt, Token};
+use syn::{parenthesized, LitBool, LitInt, Token};
 
 use crate::types::InitValue;
 
@@ -18,7 +18,13 @@ pub fn parse_init_value(input: ParseStream) -> Result<InitValue> {
     } else if content.peek(LitInt) {
         let lit: LitInt = content.parse()?;
         Ok(InitValue::Int { lit, negative })
+    } else if content.peek(LitBool) {
+        if negative {
+            return Err(content.error("boolean init cannot be negative"));
+        }
+        let lit: LitBool = content.parse()?;
+        Ok(InitValue::Bool { lit })
     } else {
-        Err(content.error("expected numeric literal for init"))
+        Err(content.error("expected numeric or boolean literal for init"))
     }
 }

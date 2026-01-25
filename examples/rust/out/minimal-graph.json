@@ -14,42 +14,46 @@
               "name": "t0"
             }
           },
-          "uuid": "2570bdd1-3b7a-4622-bb28-5bfb6d507344"
+          "uuid": "79ca59bd-dd3f-4851-af74-997722938bba"
         },
         {
           "index": 1,
           "kind": {
             "Op": {
-              "attrs": "None",
+              "attrs": {
+                "items": []
+              },
               "inputs": [
                 "x",
                 "a"
               ],
-              "op": "Add",
+              "op": "add",
               "output": "t0"
             }
           },
-          "uuid": "cab3f70d-6ceb-47c7-8bf6-18eb361aaf15"
+          "uuid": "b406c1d9-2e75-4231-babb-1b034dc0e34c"
         },
         {
           "index": 2,
           "kind": {
             "Op": {
-              "attrs": "None",
+              "attrs": {
+                "items": []
+              },
               "inputs": [
                 "y",
                 "t0"
               ],
-              "op": "Mul",
+              "op": "mul",
               "output": "y"
             }
           },
-          "uuid": "44b41a0c-60bf-441e-b1e3-9d6a002d768b"
+          "uuid": "49b63dea-0cdb-4a09-b0b7-1bc845cf0c5d"
         },
         {
           "index": 3,
           "kind": "Return",
-          "uuid": "84e0a8c1-cb08-4c7e-8a4e-b505cd2214bf"
+          "uuid": "79e63679-c037-4736-9e96-7b6ef5c36e26"
         }
       ]
     }

@@ -1,4 +1,4 @@
-use syn::{Ident, LitFloat, LitInt, LitStr};
+use syn::{Ident, LitBool, LitFloat, LitInt, LitStr};
 
 pub(crate) struct GraphDsl {
     pub(crate) sections: Vec<Section>,
@@ -48,6 +48,7 @@ pub(crate) enum DimAtom {
 pub(crate) enum InitValue {
     Float { lit: LitFloat, negative: bool },
     Int { lit: LitInt, negative: bool },
+    Bool { lit: LitBool },
 }
 
 pub(crate) struct BlockSection {

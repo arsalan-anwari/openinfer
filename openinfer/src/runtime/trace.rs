@@ -1,6 +1,5 @@
 use std::fmt;
 
-use anyhow::Result;
 use serde::ser::{SerializeStruct, Serializer};
 use uuid::Uuid;
 
@@ -15,6 +14,8 @@ pub enum TraceEventKind {
     CacheReset,
     Yield,
     Await,
+    Branch,
+    Loop,
     Return,
 }
 
@@ -30,6 +31,8 @@ impl fmt::Display for TraceEventKind {
             TraceEventKind::CacheReset => write!(f, "CacheReset"),
             TraceEventKind::Yield => write!(f, "Yield"),
             TraceEventKind::Await => write!(f, "Await"),
+            TraceEventKind::Branch => write!(f, "Branch"),
+            TraceEventKind::Loop => write!(f, "Loop"),
             TraceEventKind::Return => write!(f, "Return"),
         }
     }
@@ -47,27 +50,6 @@ pub struct TraceEvent {
     pub output: Vec<String>,
     pub micros: String,
     pub micros_parts: [u64; 3],
-}
-
-pub(crate) fn format_duration_ns(ns: u128) -> (String, [u64; 3]) {
-    let ms = (ns / 1_000_000) as u64;
-    let rem_ms = (ns % 1_000_000) as u64;
-    let us = rem_ms / 1_000;
-    let ns = rem_ms % 1_000;
-    (format!("{}ms {}us {}ns", ms, us, ns), [ms, us, ns])
-}
-
-pub(crate) fn format_step_line(event: &TraceEvent) -> String {
-    match event.kind {
-        TraceEventKind::OpExecute => format!(
-            "{} {} [{}] -- {} -- ({})",
-            event.node_index, event.node_uuid, event.block_name, event.node_desc, event.micros
-        ),
-        _ => format!(
-            "{} {} [{}] -- {}",
-            event.node_index, event.node_uuid, event.block_name, event.node_desc
-        ),
-    }
 }
 
 impl serde::Serialize for TraceEvent {

@@ -20,7 +20,7 @@ fn main() -> anyhow::Result<()> {
 
         volatile {
             h: f32[B, D];
-            cond: bool;
+            cond: bool @init(false);
         }
 
         block entry {
