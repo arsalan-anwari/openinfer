@@ -192,51 +192,8 @@ fn validate_cache_decl(ctx: &ValidationContext, decl: &crate::types::VarDecl) ->
 }
 
 fn validate_yield_backend(ctx: &ValidationContext) -> Result<()> {
-    if ctx.device == super::Device::Cpu
-        || ctx.device == super::Device::CpuAvx
-        || ctx.device == super::Device::CpuAvx2
-        || ctx.device == super::Device::Vulkan
-    {
-        return Ok(());
-    }
-    for block in ctx.graph.blocks.values() {
-        for node in &block.nodes {
-            match &node.kind {
-                crate::graph::NodeKind::Yield { .. } | crate::graph::NodeKind::Await { .. } => {
-                    return Err(anyhow!(
-                        "yield/await is only supported on CPU backends (block {})",
-                        block.name
-                    ));
-                }
-                crate::graph::NodeKind::Loop { body, .. } => {
-                    if loop_contains_yield(body) {
-                        return Err(anyhow!(
-                            "yield/await is only supported on CPU backends (block {})",
-                            block.name
-                        ));
-                    }
-                }
-                _ => {}
-            }
-        }
-    }
+    let _ = ctx;
     Ok(())
-}
-
-fn loop_contains_yield(nodes: &[crate::graph::Node]) -> bool {
-    for node in nodes {
-        match &node.kind {
-            crate::graph::NodeKind::Yield { .. }
-            | crate::graph::NodeKind::Await { .. } => return true,
-            crate::graph::NodeKind::Loop { body, .. } => {
-                if loop_contains_yield(body) {
-                    return true;
-                }
-            }
-            _ => {}
-        }
-    }
-    false
 }
 
 fn validate_yield_writers(ctx: &ValidationContext) -> Result<()> {

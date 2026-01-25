@@ -9,7 +9,7 @@ use crate::graph::Graph;
 use crate::model_loader::ModelLoader;
 use std::sync::Arc;
 use self::prefix::{parse_prefix_access, resolve_prefix_name};
-use crate::tensor::{Tensor, TensorElement, TensorValue};
+use crate::tensor::{DType, Tensor, TensorElement, TensorValue};
 use crate::timer::Timer;
 use crate::types::MemoryKind;
 
@@ -33,9 +33,6 @@ use self::tensor_utils::{
     tensor_scalar_to_u8,
 };
 use self::trace::format_step_line;
-
-#[cfg(feature = "vulkan")]
-use crate::backend::vulkan::scheduler::VulkanScheduler;
 static NEXT_THREAD_ID: AtomicUsize = AtomicUsize::new(0);
 
 pub trait Fetchable: Sized {
@@ -123,8 +120,6 @@ pub struct Executor {
     thread_id: usize,
     device: Device,
     cpu_scheduler: Option<Arc<crate::backend::cpu::scheduler::CpuScheduler>>,
-    #[cfg(feature = "vulkan")]
-    vulkan_scheduler: Option<Arc<VulkanScheduler>>,
     last_yield_vars: Option<Vec<String>>,
 }
 
@@ -138,10 +133,8 @@ impl Executor {
         inplace_enabled: bool,
         force_simulated_float: bool,
     ) -> Result<Self> {
-        #[cfg(feature = "vulkan")]
         let backend = backend_for(device, force_simulated_float)?;
-        #[cfg(feature = "vulkan")]
-        return Self::new_with_backend(
+        Self::new_with_backend(
             model,
             device,
             graph,
@@ -149,135 +142,10 @@ impl Executor {
             trace_enabled,
             timer_enabled,
             inplace_enabled,
-            None,
             None,
         )
-        ;
-        #[cfg(not(feature = "vulkan"))]
-        {
-            let backend = backend_for(device, force_simulated_float)?;
-            Self::new_with_backend(
-                model,
-                device,
-                graph,
-                backend,
-                trace_enabled,
-                timer_enabled,
-                inplace_enabled,
-                None,
-            )
-        }
     }
 
-    #[cfg(feature = "vulkan")]
-    fn new_with_backend(
-        model: Arc<ModelLoader>,
-        device: Device,
-        graph: Graph,
-        backend: Arc<dyn DeviceBackend>,
-        trace_enabled: bool,
-        timer_enabled: bool,
-        inplace_enabled: bool,
-        cpu_scheduler_override: Option<Arc<crate::backend::cpu::scheduler::CpuScheduler>>,
-        #[cfg(feature = "vulkan")]
-        vulkan_scheduler_override: Option<Arc<VulkanScheduler>>,
-    ) -> Result<Self> {
-        let mut storage = HashMap::new();
-        let mut kinds = HashMap::new();
-        let mut cache_tables = HashMap::new();
-        let mut auto_dims = HashMap::new();
-        for (name, decl) in &graph.vars {
-            kinds.insert(name.clone(), decl.kind);
-            if decl.kind != MemoryKind::Dynamic {
-                storage.insert(name.clone(), StoredTensor::Unloaded);
-            }
-            if decl.is_cache_table() {
-                let base_shape = model.resolve_shape(&decl.dims)?;
-                let table_indices = decl.cache_table_indices();
-                let (fixed_sizes, sizes) = init_cache_table_sizes(decl, &table_indices)?;
-                cache_tables.insert(
-                    name.clone(),
-                    CacheTable {
-                        decl: decl.clone(),
-                        base_shape,
-                        table_indices,
-                        fixed_sizes,
-                        sizes,
-                        entries: HashMap::new(),
-                    },
-                );
-            }
-            if decl.has_auto_dim() {
-                let base_shape = model.resolve_shape(&decl.dims)?;
-                let max = decl
-                    .auto_dim
-                    .iter()
-                    .map(|index| fixed_size_for(decl, index))
-                    .collect::<Vec<_>>();
-                auto_dims.insert(
-                    name.clone(),
-                    AutoDimState {
-                        base_shape,
-                        counts: vec![0; decl.auto_dim.len()],
-                        max,
-                    },
-                );
-            }
-        }
-
-        let thread_id = NEXT_THREAD_ID.fetch_add(1, Ordering::Relaxed);
-        Timer::set_enabled(thread_id, timer_enabled);
-        let cpu_scheduler = if cpu_scheduler_override.is_some() {
-            cpu_scheduler_override
-        } else {
-            crate::backend::cpu::scheduler::CpuScheduler::maybe_new(
-                device,
-                &graph,
-                trace_enabled,
-                timer_enabled,
-                inplace_enabled,
-            )?
-        };
-        #[cfg(feature = "vulkan")]
-        let vulkan_scheduler = if vulkan_scheduler_override.is_some() {
-            vulkan_scheduler_override
-        } else {
-            VulkanScheduler::maybe_new(
-                device,
-                &graph,
-                backend.clone(),
-                trace_enabled,
-                timer_enabled,
-                inplace_enabled,
-            )?
-        };
-        Ok(Self {
-            model,
-            backend,
-            graph,
-            dynamic: HashMap::new(),
-            storage,
-            cache_tables,
-            auto_dims,
-            kinds,
-            temps: HashSet::new(),
-            inplace_enabled,
-            state: ExecState::NotStarted,
-            frames: Vec::new(),
-            loop_vars: HashMap::new(),
-            trace_events: Vec::new(),
-            trace_enabled,
-            timer_enabled,
-            thread_id,
-            device,
-            cpu_scheduler,
-            #[cfg(feature = "vulkan")]
-            vulkan_scheduler,
-            last_yield_vars: None,
-        })
-    }
-
-    #[cfg(not(feature = "vulkan"))]
     fn new_with_backend(
         model: Arc<ModelLoader>,
         device: Device,
@@ -389,40 +257,6 @@ impl Executor {
             timer_enabled,
             inplace_enabled,
             scheduler,
-            #[cfg(feature = "vulkan")]
-            None,
-        )?;
-        exec.storage.extend(snapshot.storage);
-        exec.dynamic.extend(snapshot.dynamic);
-        exec.temps.extend(snapshot.temps);
-        exec.cache_tables = snapshot.cache_tables;
-        exec.auto_dims = snapshot.auto_dims;
-        Ok(exec)
-    }
-
-    #[cfg(feature = "vulkan")]
-    pub(crate) fn from_snapshot_with_backend(
-        model: Arc<ModelLoader>,
-        device: Device,
-        graph: Graph,
-        backend: Arc<dyn DeviceBackend>,
-        trace_enabled: bool,
-        timer_enabled: bool,
-        inplace_enabled: bool,
-        snapshot: ExecutorSnapshot,
-        cpu_scheduler: Option<Arc<crate::backend::cpu::scheduler::CpuScheduler>>,
-        vulkan_scheduler: Option<Arc<VulkanScheduler>>,
-    ) -> Result<Self> {
-        let mut exec = Self::new_with_backend(
-            model,
-            device,
-            graph,
-            backend,
-            trace_enabled,
-            timer_enabled,
-            inplace_enabled,
-            cpu_scheduler,
-            vulkan_scheduler,
         )?;
         exec.storage.extend(snapshot.storage);
         exec.dynamic.extend(snapshot.dynamic);
@@ -532,10 +366,6 @@ impl Executor {
     fn prepare_step(&mut self, reset_scheduler: bool) -> Result<()> {
         if reset_scheduler {
             if let Some(scheduler) = self.cpu_scheduler.as_ref() {
-                scheduler.reset();
-            }
-            #[cfg(feature = "vulkan")]
-            if let Some(scheduler) = self.vulkan_scheduler.as_ref() {
                 scheduler.reset();
             }
         }
@@ -741,6 +571,146 @@ impl Executor {
             self.storage
                 .insert(access.cache_key, StoredTensor::Data(data.clone()));
             return Ok(data);
+        }
+        if self.temps.contains(name) {
+            return Err(anyhow!("temporary variable missing: {}", name));
+        }
+        Err(anyhow!("unknown variable: {}", name))
+    }
+
+    fn ensure_tensor_loaded(&mut self, name: &str) -> Result<()> {
+        if let Some(decl) = self.graph.vars.get(name) {
+            if decl.is_cache_table() {
+                return Err(anyhow!(
+                    "cache table {} must be accessed via cache operations",
+                    name
+                ));
+            }
+        }
+        if let Some(kind) = self.kinds.get(name) {
+            if *kind == MemoryKind::Dynamic {
+                if self.dynamic.get(name).is_some() {
+                    return Ok(());
+                }
+                return Err(anyhow!("dynamic variable not set: {}", name));
+            }
+        }
+
+        match self.storage.get(name) {
+            Some(StoredTensor::Data(_)) => return Ok(()),
+            Some(StoredTensor::Unloaded) => {
+                let decl = self
+                    .graph
+                    .vars
+                    .get(name)
+                    .ok_or_else(|| anyhow!("unknown variable: {}", name))?;
+                let model_name = decl.model_name();
+                let data =
+                    load_decl_tensor(self.model.as_ref(), &*self.backend, decl, model_name, false)?;
+                self.storage
+                    .insert(name.to_string(), StoredTensor::Data(data));
+                return Ok(());
+            }
+            None => {}
+        }
+        if let Some(access) = self.resolve_prefix_access(name)? {
+            if self.storage.get(&access.cache_key).is_some() {
+                return Ok(());
+            }
+            let data = load_decl_tensor(
+                self.model.as_ref(),
+                &*self.backend,
+                &access.decl,
+                &access.model_name,
+                true,
+            )?;
+            self.storage
+                .insert(access.cache_key.clone(), StoredTensor::Data(data));
+            return Ok(());
+        }
+        if self.temps.contains(name) {
+            return Err(anyhow!("temporary variable missing: {}", name));
+        }
+        Err(anyhow!("unknown variable: {}", name))
+    }
+
+    fn get_tensor_ref_loaded(&self, name: &str) -> Result<&TensorStorage> {
+        if let Some(kind) = self.kinds.get(name) {
+            if *kind == MemoryKind::Dynamic {
+                return self
+                    .dynamic
+                    .get(name)
+                    .ok_or_else(|| anyhow!("dynamic variable not set: {}", name));
+            }
+        }
+        if let Some(StoredTensor::Data(data)) = self.storage.get(name) {
+            return Ok(data);
+        }
+        if let Some(access) = self.resolve_prefix_access(name)? {
+            if let Some(StoredTensor::Data(data)) = self.storage.get(&access.cache_key) {
+                return Ok(data);
+            }
+        }
+        Err(anyhow!("tensor not loaded: {}", name))
+    }
+
+    fn get_tensor_value_ref(&mut self, name: &str) -> Result<&TensorValue> {
+        self.ensure_tensor_loaded(name)?;
+        let storage = self.get_tensor_ref_loaded(name)?;
+        match storage {
+            TensorStorage::Host(value) => Ok(value),
+        }
+    }
+
+    fn input_dtype_for(&mut self, name: &str) -> Result<DType> {
+        if let Some(decl) = self.graph.vars.get(name) {
+            return Ok(decl.dtype);
+        }
+        if let Some(access) = self.resolve_prefix_access(name)? {
+            return Ok(access.decl.dtype);
+        }
+        self.ensure_tensor_loaded(name)?;
+        let storage = self.get_tensor_ref_loaded(name)?;
+        Ok(storage.dtype())
+    }
+
+    fn take_tensor(&mut self, name: &str) -> Result<TensorStorage> {
+        if let Some(decl) = self.graph.vars.get(name) {
+            if decl.is_cache_table() {
+                return Err(anyhow!(
+                    "cache table {} must be accessed via cache operations",
+                    name
+                ));
+            }
+        }
+        if let Some(kind) = self.kinds.get(name) {
+            if *kind == MemoryKind::Dynamic {
+                return self
+                    .dynamic
+                    .remove(name)
+                    .ok_or_else(|| anyhow!("dynamic variable not set: {}", name));
+            }
+        }
+
+        if let Some(stored) = self.storage.remove(name) {
+            match stored {
+                StoredTensor::Data(data) => return Ok(data),
+                StoredTensor::Unloaded => {
+                    let decl = self
+                        .graph
+                        .vars
+                        .get(name)
+                        .ok_or_else(|| anyhow!("unknown variable: {}", name))?;
+                    let model_name = decl.model_name();
+                    let data =
+                        load_decl_tensor(self.model.as_ref(), &*self.backend, decl, model_name, false)?;
+                    return Ok(data);
+                }
+            }
+        }
+
+        if self.resolve_prefix_access(name)?.is_some() {
+            return Err(anyhow!("cannot take prefix table entry {}", name));
         }
         if self.temps.contains(name) {
             return Err(anyhow!("temporary variable missing: {}", name));

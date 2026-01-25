@@ -9,7 +9,6 @@ fn device_name(device: Device) -> &'static str {
         Device::Cpu => "cpu",
         Device::CpuAvx => "cpu-avx",
         Device::CpuAvx2 => "cpu-avx2",
-        Device::Vulkan => "vulkan",
     }
 }
 
@@ -199,21 +198,6 @@ fn main() -> anyhow::Result<()> {
 
     let device = select_device()?;
     let device_label = device_name(device);
-
-    if device == Device::Vulkan {
-        #[cfg(feature = "vulkan")]
-        {
-            let features = openinfer::vulkan_features()?;
-            log::info!(
-                "vulkan features: i64/u64={}, f64={}, f16={}",
-                features.supports_i64, features.supports_f64, features.supports_f16
-            );
-        }
-        #[cfg(not(feature = "vulkan"))]
-        {
-            log::info!("vulkan features: unavailable (vulkan feature disabled)");
-        }
-    }
 
     try_graph(&format!("{} universal graph", device_label), &model, &graph_universal, device);
     try_graph(&format!("{} special graph", device_label), &model, &graph_special, device);

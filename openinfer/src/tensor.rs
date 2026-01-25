@@ -579,6 +579,7 @@ pub fn broadcast_shapes(a: &[usize], b: &[usize]) -> Result<Vec<usize>> {
     Ok(out)
 }
 
+#[allow(dead_code)]
 pub fn broadcast_strides(
     in_shape: &[usize],
     in_strides: &[usize],

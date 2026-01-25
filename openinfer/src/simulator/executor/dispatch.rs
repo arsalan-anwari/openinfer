@@ -173,9 +173,8 @@ impl Executor {
                     else_block,
                 } => {
                     let target = if let Some(cond) = cond {
-                        let tensor = self.get_tensor(&cond)?;
-                        let value = self.backend.download(tensor)?;
-                        if tensor_scalar_to_bool(&value, &cond)? {
+                        let value = self.get_tensor_value_ref(&cond)?;
+                        if tensor_scalar_to_bool(value, &cond)? {
                             then_block
                         } else {
                             else_block.ok_or_else(|| {
@@ -211,48 +210,20 @@ impl Executor {
                             }
                         }
                         let snapshot = self.snapshot();
-                        match self.device {
-                            super::Device::Vulkan => {
-                                #[cfg(feature = "vulkan")]
-                                {
-                                    let scheduler = self
-                                        .vulkan_scheduler
-                                        .as_ref()
-                                        .ok_or_else(|| anyhow!("yield is only supported on Vulkan backend"))?;
-                                    scheduler.schedule_yield(
-                                        &vars,
-                                        snapshot,
-                                        self.model.clone(),
-                                        self.device,
-                                        self.graph.clone(),
-                                        self.trace_enabled,
-                                        self.timer_enabled,
-                                        self.inplace_enabled,
-                                    )?;
-                                }
-                                #[cfg(not(feature = "vulkan"))]
-                                {
-                                    let _ = snapshot;
-                                    return Err(anyhow!("vulkan feature not enabled for this build"));
-                                }
-                            }
-                            _ => {
-                                let scheduler = self
-                                    .cpu_scheduler
-                                    .as_ref()
-                                    .ok_or_else(|| anyhow!("yield is only supported on CPU backends"))?;
-                                scheduler.schedule_yield(
-                                    &vars,
-                                    snapshot,
-                                    self.model.clone(),
-                                    self.device,
-                                    self.graph.clone(),
-                                    self.trace_enabled,
-                                    self.timer_enabled,
-                                    self.inplace_enabled,
-                                )?;
-                            }
-                        }
+                        let scheduler = self
+                            .cpu_scheduler
+                            .as_ref()
+                            .ok_or_else(|| anyhow!("yield is only supported on CPU backends"))?;
+                        scheduler.schedule_yield(
+                            &vars,
+                            snapshot,
+                            self.model.clone(),
+                            self.device,
+                            self.graph.clone(),
+                            self.trace_enabled,
+                            self.timer_enabled,
+                            self.inplace_enabled,
+                        )?;
                     } else {
                         self.last_yield_vars = Some(vars.clone());
                         let finished = self.return_from_block();
@@ -276,38 +247,15 @@ impl Executor {
                     }));
                 }
                 NodeKind::Await { vars } => {
-                    match self.device {
-                        super::Device::Vulkan => {
-                            #[cfg(feature = "vulkan")]
-                            {
-                                let scheduler = self
-                                    .vulkan_scheduler
-                                    .as_ref()
-                                    .ok_or_else(|| anyhow!("await is only supported on Vulkan backend"))?;
-                                if block_name == "entry" {
-                                    let updates = scheduler.await_vars(&vars)?;
-                                    self.apply_updates(updates);
-                                } else {
-                                    scheduler.wait_for_vars(&vars)?;
-                                }
-                            }
-                            #[cfg(not(feature = "vulkan"))]
-                            {
-                                return Err(anyhow!("vulkan feature not enabled for this build"));
-                            }
-                        }
-                        _ => {
-                            let scheduler = self
-                                .cpu_scheduler
-                                .as_ref()
-                                .ok_or_else(|| anyhow!("await is only supported on CPU backends"))?;
-                            if block_name == "entry" {
-                                let updates = scheduler.await_vars(&vars)?;
-                                self.apply_updates(updates);
-                            } else {
-                                scheduler.wait_for_vars(&vars)?;
-                            }
-                        }
+                    let scheduler = self
+                        .cpu_scheduler
+                        .as_ref()
+                        .ok_or_else(|| anyhow!("await is only supported on CPU backends"))?;
+                    if block_name == "entry" {
+                        let updates = scheduler.await_vars(&vars)?;
+                        self.apply_updates(updates);
+                    } else {
+                        scheduler.wait_for_vars(&vars)?;
                     }
                     return Ok(self.record_event(TraceEvent {
                         kind: TraceEventKind::Await,
@@ -353,7 +301,6 @@ impl Executor {
         inputs: &[String],
         output: &str,
     ) -> Result<()> {
-        let mut tensors = Vec::new();
         let mut inplace_index = None;
         let mut inplace_hits = 0usize;
         for (idx, input) in inputs.iter().enumerate() {
@@ -361,7 +308,6 @@ impl Executor {
                 inplace_index = Some(idx);
                 inplace_hits += 1;
             }
-            tensors.push(self.get_tensor(input)?);
         }
         if self.kinds.get(output) == Some(&MemoryKind::Constant) {
             return Err(anyhow!("cannot write to constant memory: {}", output));
@@ -376,58 +322,83 @@ impl Executor {
             return Err(anyhow!("cannot write to prefix table entry {}", output));
         }
         let resolved_attrs = self.resolve_op_attrs(attrs)?;
-        let output_dtype = match self.graph.vars.get(output) {
-            Some(var) => var.dtype,
-            None => tensors
-                .first()
-                .ok_or_else(|| anyhow!("op {} expects at least 1 input", op.as_str()))?
-                .dtype(),
-        };
-        let use_inplace = self.inplace_enabled
-            && inplace_index.is_some()
+        let output_decl = self.graph.vars.get(output);
+        let output_dtype_decl = output_decl.map(|decl| decl.dtype);
+        let _output_dims = output_decl.map(|decl| decl.dims.clone());
+        let use_inplace = inplace_index.is_some()
             && inplace_hits == 1
             && supports_inplace(op)
-            && !matches!(resolved_attrs, OpAttrs::Accumulate { .. })
-            && tensors.len() == inputs.len();
-        let mut reuse_output = None;
-        if !use_inplace {
-            if reuse_output.is_none() {
-                reuse_output = self.dynamic.remove(output);
-            }
-            if reuse_output.is_none() {
-                if let Some(super::StoredTensor::Data(data)) = self.storage.remove(output) {
-                    reuse_output = Some(data);
-                }
-            }
-            if reuse_output.is_none() {
-                if let Some(decl) = self.graph.vars.get(output) {
-                    let shape = self.model.resolve_shape(&decl.dims)?;
-                    reuse_output = Some(self.backend.alloc(decl.dtype, &shape)?);
-                }
-            }
-        }
-        let result = if use_inplace {
+            && !matches!(resolved_attrs, OpAttrs::Accumulate { .. });
+        let output_is_input = inputs.iter().any(|name| name == output);
+        let output_storage = if use_inplace {
             let index = inplace_index.unwrap();
-            if index != 0 {
-                tensors.swap(0, index);
+            if output_is_input && inplace_hits != 1 {
+                return Err(anyhow!(
+                    "inplace op {} requires output to appear once in inputs",
+                    op.as_str()
+                ));
             }
-            self.backend.exec_op_inplace(
+            for (idx, input) in inputs.iter().enumerate() {
+                if idx == index {
+                    continue;
+                }
+                self.ensure_tensor_loaded(input)?;
+            }
+            let mut output_storage = self.take_tensor(output)?;
+            let output_dtype = output_dtype_decl.unwrap_or_else(|| output_storage.dtype());
+            let mut input_refs = Vec::with_capacity(inputs.len().saturating_sub(1));
+            for (idx, input) in inputs.iter().enumerate() {
+                if idx == index {
+                    continue;
+                }
+                input_refs.push(self.get_tensor_ref_loaded(input)?);
+            }
+            let thread_id = self.thread_id;
+            let backend = self.backend.as_ref();
+            backend.exec_op_inplace(
                 op,
                 &resolved_attrs,
                 output_dtype,
-                &tensors,
-                self.thread_id,
-            )?
+                &mut output_storage,
+                &input_refs,
+                thread_id,
+            )?;
+            output_storage
         } else {
-            self.backend
-                .exec_op(op, &resolved_attrs, output_dtype, &tensors, reuse_output, self.thread_id)?
+            if output_is_input {
+                return Err(anyhow!(
+                    "op {} requires inplace handling when output is also an input",
+                    op.as_str()
+                ));
+            }
+            for input in inputs {
+                self.ensure_tensor_loaded(input)?;
+            }
+            let mut output_storage = self.take_tensor(output)?;
+            let output_dtype = output_dtype_decl.unwrap_or_else(|| output_storage.dtype());
+            let mut input_refs = Vec::with_capacity(inputs.len());
+            for input in inputs {
+                input_refs.push(self.get_tensor_ref_loaded(input)?);
+            }
+            let thread_id = self.thread_id;
+            let backend = self.backend.as_ref();
+            backend.exec_op(
+                op,
+                &resolved_attrs,
+                output_dtype,
+                &input_refs,
+                &mut output_storage,
+                thread_id,
+                false,
+            )?;
+            output_storage
         };
 
         if self.kinds.get(output) == Some(&MemoryKind::Dynamic) {
-            self.dynamic.insert(output.to_string(), result);
+            self.dynamic.insert(output.to_string(), output_storage);
         } else {
             self.storage
-                .insert(output.to_string(), super::StoredTensor::Data(result));
+                .insert(output.to_string(), super::StoredTensor::Data(output_storage));
         }
         Ok(())
     }
@@ -436,15 +407,20 @@ impl Executor {
         match attrs {
             OpAttrs::None => Ok(OpAttrs::None),
             OpAttrs::Accumulate { dtype } => Ok(OpAttrs::Accumulate { dtype: *dtype }),
-            OpAttrs::Relu { alpha, clamp_max } => Ok(OpAttrs::Relu {
-                alpha: AttrValue::Float(self.resolve_attr_value_f32(alpha)?),
-                clamp_max: AttrValue::Float(self.resolve_attr_value_f32(clamp_max)?),
-            }),
+            OpAttrs::Relu { alpha, clamp_max } => {
+                let alpha_value = self.resolve_attr_value_literal(alpha)?;
+                let clamp_value = self.resolve_attr_value_literal(clamp_max)?;
+                Ok(OpAttrs::Relu {
+                    alpha: alpha_value,
+                    clamp_max: clamp_value,
+                })
+            }
             OpAttrs::Fill { value } => Ok(OpAttrs::Fill {
                 value: self.resolve_attr_value_literal(value)?,
             }),
         }
     }
+
 
     pub(super) fn resolve_attr_value_f32(&mut self, value: &AttrValue) -> Result<f32> {
         match value {
@@ -462,9 +438,8 @@ impl Executor {
                 if let Some(kind) = self.kinds.get(name) {
                     return match kind {
                         MemoryKind::Constant => {
-                            let tensor = self.get_tensor(name)?;
-                            let host = self.backend.download(tensor)?;
-                            tensor_scalar_to_f32_lossy(&host, name)
+                            let host = self.get_tensor_value_ref(name)?;
+                            tensor_scalar_to_f32_lossy(host, name)
                         }
                         _ => Err(anyhow!(
                             "op setting must reference constant memory: {} is {:?}",
@@ -481,9 +456,8 @@ impl Executor {
                             access.decl.kind
                         ));
                     }
-                    let tensor = self.get_tensor(name)?;
-                    let host = self.backend.download(tensor)?;
-                    return tensor_scalar_to_f32_lossy(&host, name);
+                    let host = self.get_tensor_value_ref(name)?;
+                    return tensor_scalar_to_f32_lossy(host, name);
                 }
                 Err(anyhow!("unknown variable: {}", name))
             }
@@ -496,9 +470,8 @@ impl Executor {
                 if let Some(kind) = self.kinds.get(name) {
                     return match kind {
                         MemoryKind::Constant => {
-                            let tensor = self.get_tensor(name)?;
-                            let host = self.backend.download(tensor)?;
-                            tensor_scalar_to_attr_value(&host, name)
+                            let host = self.get_tensor_value_ref(name)?;
+                            tensor_scalar_to_attr_value(host, name)
                         }
                         _ => Err(anyhow!(
                             "op setting must reference constant memory: {} is {:?}",
@@ -515,9 +488,8 @@ impl Executor {
                             access.decl.kind
                         ));
                     }
-                    let tensor = self.get_tensor(name)?;
-                    let host = self.backend.download(tensor)?;
-                    return tensor_scalar_to_attr_value(&host, name);
+                    let host = self.get_tensor_value_ref(name)?;
+                    return tensor_scalar_to_attr_value(host, name);
                 }
                 Err(anyhow!("unknown variable: {}", name))
             }
@@ -566,3 +538,4 @@ fn supports_inplace(op: OpKind) -> bool {
         OpKind::Add | OpKind::Mul | OpKind::Abs | OpKind::Relu | OpKind::Fill | OpKind::Matmul
     )
 }
+

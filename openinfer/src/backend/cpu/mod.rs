@@ -1,31 +1,14 @@
-use anyhow::{anyhow, Result};
-
-#[cfg(feature = "vulkan")]
-use crate::backend::DeviceTensor;
 use crate::backend::TensorStorage;
 use crate::graph::{OpAttrs, OpKind};
-use crate::ops::{lookup_kernel, KernelFn};
-use crate::ops::registry::lookup_kernel_inplace;
 use crate::simulator::{Device, DeviceBackend};
 use crate::tensor::{DType, TensorValue};
-use crate::types::cpu::{effective_dtype, from_effective_tensor, to_effective_tensor};
+use anyhow::Result;
 
 pub mod scheduler;
 
-#[derive(Debug)]
-pub struct CpuBackend {
-    device: Device,
-}
-
-impl CpuBackend {
-    pub fn new(device: Device) -> Self {
-        Self { device }
-    }
-}
-
-impl DeviceBackend for CpuBackend {
+impl DeviceBackend for Device {
     fn device(&self) -> Device {
-        self.device
+        *self
     }
 
     fn alloc(&self, dtype: DType, shape: &[usize]) -> Result<TensorStorage> {
@@ -39,8 +22,6 @@ impl DeviceBackend for CpuBackend {
     fn download(&self, value: TensorStorage) -> Result<TensorValue> {
         match value {
             TensorStorage::Host(host) => Ok(host),
-            #[cfg(feature = "vulkan")]
-            TensorStorage::Device(_) => Err(anyhow!("host backend cannot download device tensor")),
         }
     }
 
@@ -49,64 +30,22 @@ impl DeviceBackend for CpuBackend {
         op: OpKind,
         attrs: &OpAttrs,
         output_dtype: DType,
-        tensors: &[TensorStorage],
-        output: Option<TensorStorage>,
+        tensors: &[&TensorStorage],
+        output: &mut TensorStorage,
         thread_id: usize,
-    ) -> Result<TensorStorage> {
-        let output_effective = effective_dtype(output_dtype)?;
-        let mut host = to_host_tensors(tensors)?;
-        host = host
-            .into_iter()
-            .map(|value| {
-                let effective = effective_dtype(value.dtype())?;
-                to_effective_tensor(value, effective)
-            })
-            .collect::<Result<Vec<_>>>()?;
-        let input_dtypes: Vec<DType> = host.iter().map(|t| t.dtype()).collect();
-        let mut lookup_device = self.device;
-        if matches!(self.device, Device::CpuAvx | Device::CpuAvx2) {
-            let needs_broadcast_fallback = match op {
-                OpKind::Add | OpKind::Mul => host
-                    .iter()
-                    .skip(1)
-                    .any(|value| value.shape() != host[0].shape()),
-                OpKind::Matmul => {
-                    if host.len() >= 2 {
-                        host[0].shape() != host[1].shape()
-                    } else {
-                        false
-                    }
-                }
-                _ => false,
-            };
-            if needs_broadcast_fallback {
-                lookup_device = Device::Cpu;
-            }
-        }
-        let kernel = lookup_kernel(lookup_device, op, output_effective, &input_dtypes, attrs)
-            .ok_or_else(|| anyhow!("unsupported op {}", op.as_str()))?;
-        match kernel {
-            KernelFn::Host(func) => {
-                let mut output_value = match output {
-                    Some(TensorStorage::Host(value)) => {
-                        Some(to_effective_tensor(value, output_effective)?)
-                    }
-                    _ => None,
-                };
-                let output_value_result = (func)(attrs, &host, output_value.as_mut(), thread_id)?;
-                if let Some(value) = output_value_result {
-                    let value = from_effective_tensor(value, output_dtype)?;
-                    return Ok(TensorStorage::Host(value));
-                }
-                if let Some(existing) = output_value {
-                    let value = from_effective_tensor(existing, output_dtype)?;
-                    return Ok(TensorStorage::Host(value));
-                }
-                Err(anyhow!("cpu kernel returned no output"))
-            }
-            #[cfg(feature = "vulkan")]
-            KernelFn::Vulkan(_) => Err(anyhow!("host backend cannot run device kernel")),
-        }
+        is_inplace: bool,
+    ) -> Result<()> {
+        log_exec_op(
+            *self,
+            op,
+            attrs,
+            output_dtype,
+            tensors,
+            output,
+            thread_id,
+            is_inplace,
+        );
+        Ok(())
     }
 
     fn exec_op_inplace(
@@ -114,71 +53,91 @@ impl DeviceBackend for CpuBackend {
         op: OpKind,
         attrs: &OpAttrs,
         output_dtype: DType,
-        tensors: &[TensorStorage],
+        output: &mut TensorStorage,
+        inputs: &[&TensorStorage],
         thread_id: usize,
-    ) -> Result<TensorStorage> {
-        let output_effective = effective_dtype(output_dtype)?;
-        let mut host = to_host_tensors(tensors)?;
-        host = host
-            .into_iter()
-            .map(|value| {
-                let effective = effective_dtype(value.dtype())?;
-                to_effective_tensor(value, effective)
-            })
-            .collect::<Result<Vec<_>>>()?;
-        if host.is_empty() {
-            return Err(anyhow!("inplace op {} expects at least 1 input", op.as_str()));
-        }
-        let mut output = host.remove(0);
-        let input_dtypes: Vec<DType> = std::iter::once(&output)
-            .chain(host.iter())
-            .map(|t| t.dtype())
-            .collect();
-        let mut lookup_device = self.device;
-        if matches!(self.device, Device::CpuAvx | Device::CpuAvx2) {
-            let needs_broadcast_fallback = match op {
-                OpKind::Add | OpKind::Mul => host
-                    .iter()
-                    .any(|value| value.shape() != output.shape()),
-                OpKind::Matmul => {
-                    if host.len() >= 1 {
-                        output.shape() != host[0].shape()
-                    } else {
-                        false
-                    }
-                }
-                _ => false,
-            };
-            if needs_broadcast_fallback {
-                lookup_device = Device::Cpu;
-            }
-        }
-        let kernel = lookup_kernel_inplace(lookup_device, op, output_effective, &input_dtypes, attrs)
-            .ok_or_else(|| anyhow!("unsupported inplace op {}", op.as_str()))?;
-        match kernel {
-            crate::ops::registry::InplaceKernelFn::Host(func) => {
-                (func)(attrs, &mut output, &host, thread_id)?;
-                let output = from_effective_tensor(output, output_dtype)?;
-                Ok(TensorStorage::Host(output))
-            }
-            #[cfg(feature = "vulkan")]
-            crate::ops::registry::InplaceKernelFn::Vulkan(_) => {
-                Err(anyhow!("host backend cannot run device kernel"))
-            }
-        }
+    ) -> Result<()> {
+        let mut tensors = Vec::with_capacity(inputs.len() + 1);
+        tensors.push(output as &TensorStorage);
+        tensors.extend_from_slice(inputs);
+        log_exec_op(
+            *self,
+            op,
+            attrs,
+            output_dtype,
+            &tensors,
+            output,
+            thread_id,
+            true,
+        );
+        Ok(())
     }
 }
 
-fn to_host_tensors(tensors: &[TensorStorage]) -> Result<Vec<TensorValue>> {
-    let mut out = Vec::with_capacity(tensors.len());
+fn log_exec_op(
+    device: Device,
+    op: OpKind,
+    attrs: &OpAttrs,
+    output_dtype: DType,
+    tensors: &[&TensorStorage],
+    output: &TensorStorage,
+    thread_id: usize,
+    is_inplace: bool,
+) {
+    let _ = thread_id;
+    let is_accumulate = matches!(attrs, OpAttrs::Accumulate { .. });
+    let input_summary = format_tensor_list(tensors);
+    let output_summary = format_tensor(output);
+    let is_broadcast = compute_broadcast(tensors);
+    println!(
+        "exec_op\n\t- device: {:?}\n\t- op: {}\n\t- inputs: {}\n\t- attrs: {:?}\n\t- output_dtype: {:?}\n\t- outputs: {}\n\t- is_inplace: {}\n\t- is_broadcast: {}\n\t- is_accumulate: {}",
+        device,
+        op.as_str(),
+        input_summary,
+        attrs,
+        output_dtype,
+        output_summary,
+        is_inplace,
+        is_broadcast,
+        is_accumulate
+    );
+}
+
+fn format_tensor(storage: &TensorStorage) -> String {
+    match storage {
+        TensorStorage::Host(value) => format!(
+            "Host(dtype={:?}, shape={:?})",
+            value.dtype(),
+            value.shape()
+        ),
+    }
+}
+
+fn format_tensor_list(tensors: &[&TensorStorage]) -> String {
+    if tensors.is_empty() {
+        return "[]".to_string();
+    }
+    let formatted = tensors
+        .iter()
+        .map(|tensor| format_tensor(*tensor))
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!("[{}]", formatted)
+}
+
+fn compute_broadcast(tensors: &[&TensorStorage]) -> bool {
+    let mut base_shape: Option<Vec<usize>> = None;
     for tensor in tensors {
-        match tensor {
-            TensorStorage::Host(value) => out.push(value.clone()),
-            #[cfg(feature = "vulkan")]
-            TensorStorage::Device(DeviceTensor::Vulkan(_)) => {
-                return Err(anyhow!("device tensor passed to host backend"));
+        let shape = match tensor {
+            TensorStorage::Host(value) => value.shape().to_vec(),
+        };
+        if let Some(base) = &base_shape {
+            if *base != shape {
+                return true;
             }
+        } else {
+            base_shape = Some(shape);
         }
     }
-    Ok(out)
+    false
 }

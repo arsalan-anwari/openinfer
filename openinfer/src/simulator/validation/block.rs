@@ -5,8 +5,6 @@ use anyhow::{anyhow, Result};
 use crate::graph::{
     AttrValue, Block, CacheAccess, CacheIndexExpr, CacheIndexValue, NodeKind, OpAttrs, OpKind,
 };
-use crate::ops::lookup_kernel;
-use crate::simulator::Device;
 use crate::simulator::executor::prefix::{parse_prefix_access, resolve_prefix_name};
 use crate::tensor::{broadcast_shapes, DType};
 use crate::types::MemoryKind;
@@ -27,17 +25,7 @@ pub(crate) fn validate_block(
     Ok(())
 }
 
-fn op_supports_broadcast(ctx: &ValidationContext, op: OpKind) -> bool {
-    if matches!(ctx.device, Device::Vulkan) {
-        #[cfg(feature = "vulkan")]
-        {
-            return crate::ops::vulkan::broadcast::supports_broadcast(op);
-        }
-        #[cfg(not(feature = "vulkan"))]
-        {
-            return false;
-        }
-    }
+fn op_supports_broadcast(_ctx: &ValidationContext, op: OpKind) -> bool {
     matches!(op, OpKind::Add | OpKind::Mul | OpKind::Matmul)
 }
 
@@ -388,20 +376,6 @@ fn validate_op(
             .ok_or_else(|| anyhow!("op fill expects input 0"))?;
         validate_fill_value(ctx, input_dtype, attrs)?;
     }
-    let mut has_kernel = lookup_kernel(ctx.device, op, output_dtype, &input_dtypes, attrs).is_some();
-    if matches!(ctx.device, Device::Vulkan) && !has_kernel {
-        has_kernel = lookup_kernel(Device::Cpu, op, output_dtype, &input_dtypes, attrs).is_some();
-    }
-    if !has_kernel {
-        return Err(anyhow!(
-            "no kernel for op {} with output {:?} and inputs {:?} on {:?}",
-            op.as_str(),
-            output_dtype,
-            input_dtypes,
-            ctx.device
-        ));
-    }
-
     Ok(())
 }
 

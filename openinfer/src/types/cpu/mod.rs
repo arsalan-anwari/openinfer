@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 
 use crate::tensor::{BF16, DType, F16, F8E5M2, Tensor, TensorOptions, TensorValue};
-
+#[allow(dead_code)]
 pub fn effective_dtype(dtype: DType) -> Result<DType> {
     match dtype {
         DType::F16 | DType::BF16 | DType::F8E5M2 => Ok(DType::F32),
@@ -9,6 +9,7 @@ pub fn effective_dtype(dtype: DType) -> Result<DType> {
     }
 }
 
+#[allow(dead_code)]
 pub fn to_effective_tensor(value: TensorValue, effective: DType) -> Result<TensorValue> {
     if value.dtype() == effective {
         return Ok(value);
@@ -61,6 +62,7 @@ pub fn to_effective_tensor(value: TensorValue, effective: DType) -> Result<Tenso
     }
 }
 
+#[allow(dead_code)]
 pub fn from_effective_tensor(value: TensorValue, original: DType) -> Result<TensorValue> {
     if value.dtype() == original {
         return Ok(value);
