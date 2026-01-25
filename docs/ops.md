@@ -79,9 +79,9 @@ device-specific notes.
 | mul | [f8, bf16, f16, f32, f64]<br>[i1, i2, i4, i8, i16, i32, i64]<br>[u1, u2, u4, u8, u16, u32, u64]<br>[bool, bitset] | a: Tensor[T], b: Tensor[T] | y: Tensor[T] |  | Yes | Yes | Elementwise multiply with broadcasting. Accumulate is integer-only and widens output dtype. |
 | matmul | [f8, bf16, f16, f32, f64]<br>[i1, i2, i4, i8, i16, i32, i64]<br>[u1, u2, u4, u8, u16, u32, u64]<br>[bool, bitset] | a: Tensor[T], b: Tensor[T] | y: Tensor[T] |  | Yes | Yes | N-D matmul with batch-dim broadcasting. Accumulate is integer-only and widens output dtype. |
 | abs | [f8, bf16, f16, f32, f64]<br>[i1, i2, i4, i8, i16, i32, i64] | a: Tensor[T] | y: Tensor[T] |  | Yes | Yes | Elementwise absolute value. Accumulate is integer-only and widens output dtype. |
-| relu | [f8, bf16, f16, f32, f64]<br>[i4, i8, i16, i32, i64] | a: Tensor[T] | y: Tensor[T] | alpha, clamp_max | Yes | No | Leaky ReLU with clamp. |
-| is_finite | [f8, bf16, f16, f32, f64] | a: Tensor[T] | y: bool (scalar) | None | No | No | True if all elements are finite. |
-| fill | [f8, bf16, f16, f32, f64]<br>[i1, i2, i4, i8, i16, i32, i64]<br>[u1, u2, u4, u8, u16, u32, u64]<br>[bool, bitset] | a: Tensor[T] | y: Tensor[T] | value | Yes | No | Fill output with a scalar literal. |
+| relu | [f8, bf16, f16, f32, f64]<br>[i4, i8, i16, i32, i64] | a: Tensor[T] | y: Tensor[T] | alpha: T, clamp_max: T | Yes | No | Leaky ReLU with clamp. |
+| is_finite | [f8, bf16, f16, f32, f64] | a: Tensor[T] | y: bool | None | No | No | True if all elements are finite. |
+| fill | [f8, bf16, f16, f32, f64]<br>[i1, i2, i4, i8, i16, i32, i64]<br>[u1, u2, u4, u8, u16, u32, u64]<br>[bool, bitset] | a: Tensor[T] | y: Tensor[T] | value: T | Yes | No | Fill output with a scalar literal. |
 
 Device notes:
 
@@ -91,6 +91,11 @@ Device notes:
   half when `shader_float16` is available and falls back to shader-side casting
   otherwise. Use `Simulator::with_simulated_float()` to force the simulated
   f16 path for benchmarking or drift analysis.
+- Vulkan elementwise ops use separate broadcast shader variants. Non-broadcast
+  shaders bind only data buffers; broadcast shaders bind metadata buffers and
+  compute broadcasted offsets inline.
+- Vulkan push constants are typed per op/shader. For scalar attributes (relu/fill),
+  the attribute type must match the input dtype (f64 uses f64, ints use int/uint).
 - CPU and Vulkan add/mul/matmul support packed broadcast, including inplace/accumulate.
 - Vulkan relu supports inplace execution.
 - If Vulkan lacks `shader_int64` or `shader_float64`, ops fall back to CPU with a warning.

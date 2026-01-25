@@ -628,6 +628,7 @@ pub fn broadcast_strides(
     Ok(out_strides)
 }
 
+#[allow(dead_code)]
 pub fn broadcast_to_vec<T: Clone>(tensor: &Tensor<T>, out_shape: &[usize]) -> Result<Vec<T>> {
     if tensor.shape == out_shape {
         return Ok(tensor.data.clone());

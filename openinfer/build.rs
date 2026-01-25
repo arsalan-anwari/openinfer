@@ -20,9 +20,6 @@ struct VulkanShaderEntry {
     shader_files: Option<Vec<String>>,
 }
 
-const BROADCAST_OP: &str = "broadcast";
-const BROADCAST_PATH: &str = "src/backend/vulkan/broadcast/broadcast.slang";
-const BROADCAST_SPV_DIR: &str = "src/backend/vulkan/broadcast/bin";
 
 struct ProgressLine {
     last_len: usize,
@@ -70,17 +67,7 @@ fn main() -> Result<()> {
     for (op_name, entry) in &manifest.ops {
         compile_op(&manifest_dir, op_name, entry, &mut progress)?;
     }
-    let include_broadcast = !manifest.ops.contains_key(BROADCAST_OP);
-    if include_broadcast {
-        let broadcast_entry = VulkanShaderEntry {
-            shader_dir: None,
-            spv_dir: BROADCAST_SPV_DIR.to_string(),
-            shader_files: None,
-        };
-        compile_op(&manifest_dir, BROADCAST_OP, &broadcast_entry, &mut progress)?;
-    }
-
-    write_embedded_module(&manifest_dir, &manifest, include_broadcast)?;
+    write_embedded_module(&manifest_dir, &manifest)?;
     Ok(())
 }
 
@@ -158,7 +145,7 @@ fn collect_includes(
         .parent()
         .ok_or_else(|| anyhow!("missing parent for {}", src.display()))?;
     for line in contents.lines() {
-        let trimmed = line.trim();
+        let trimmed = line.trim_start_matches('\u{feff}').trim();
         let rest = match trimmed.strip_prefix("#include") {
             Some(rest) => rest.trim(),
             None => continue,
@@ -220,11 +207,7 @@ fn compile_slang(src: &Path, spv: &Path, entry_point: &str) -> Result<()> {
     Ok(())
 }
 
-fn write_embedded_module(
-    manifest_dir: &Path,
-    manifest: &VulkanShaderManifest,
-    include_broadcast: bool,
-) -> Result<()> {
+fn write_embedded_module(manifest_dir: &Path, manifest: &VulkanShaderManifest) -> Result<()> {
     let out_dir = PathBuf::from(env::var("OUT_DIR").context("missing OUT_DIR")?);
     let out_path = out_dir.join("vulkan_spirv.rs");
 
@@ -255,21 +238,6 @@ fn write_embedded_module(
         }
         contents.push_str("        }\n");
     }
-    if include_broadcast {
-        contents.push_str(&format!("        \"{}\" => {{\n", BROADCAST_OP));
-        let spv_dir = manifest_dir.join(BROADCAST_SPV_DIR);
-        let targets = slang_entry_points(&manifest_dir.join(BROADCAST_PATH))
-            .with_context(|| format!("failed to parse entry points for {}", BROADCAST_PATH))?;
-        for target in &targets {
-            let spv_path = spv_dir.join(format!("{}.spv", target));
-            contents.push_str(&format!(
-                "            map.insert(\"{}\".to_string(), &include_bytes!(r\"{}\")[..]);\n",
-                target,
-                spv_path.display()
-            ));
-        }
-        contents.push_str("        }\n");
-    }
     contents.push_str("        _ => {}\n");
     contents.push_str("    }\n");
     contents.push_str("    map\n");
@@ -283,6 +251,16 @@ fn write_embedded_module(
 fn slang_entry_points(src: &Path) -> Result<Vec<String>> {
     let contents = fs::read_to_string(src)
         .with_context(|| format!("failed to read {}", src.display()))?;
+    let mut targets = extract_compute_entries(&contents);
+    if targets.is_empty() {
+        return Err(anyhow!("no compute entry points found in {}", src.display()));
+    }
+    targets.sort();
+    targets.dedup();
+    Ok(targets)
+}
+
+fn extract_compute_entries(contents: &str) -> Vec<String> {
     let mut targets = Vec::new();
     let mut awaiting_entry = false;
     for line in contents.lines() {
@@ -309,12 +287,7 @@ fn slang_entry_points(src: &Path) -> Result<Vec<String>> {
             }
         }
     }
-    if targets.is_empty() {
-        return Err(anyhow!("no compute entry points found in {}", src.display()));
-    }
-    targets.sort();
-    targets.dedup();
-    Ok(targets)
+    targets
 }
 
 fn shader_paths(
@@ -322,9 +295,6 @@ fn shader_paths(
     entry: &VulkanShaderEntry,
     op_name: &str,
 ) -> Result<Vec<PathBuf>> {
-    if op_name == BROADCAST_OP {
-        return Ok(vec![manifest_dir.join(BROADCAST_PATH)]);
-    }
     let shader_dir = entry.shader_dir.as_ref().ok_or_else(|| {
         anyhow!("missing shader_dir for op {}", op_name)
     })?;

@@ -19,9 +19,6 @@ struct VulkanShaderEntry {
     spv_dir: String,
 }
 
-const BROADCAST_OP: &str = "broadcast";
-const BROADCAST_PATH: &str = "src/backend/vulkan/broadcast/broadcast.slang";
-const BROADCAST_SPV_DIR: &str = "src/backend/vulkan/broadcast/bin";
 
 struct ProgressLine {
     last_len: usize,
@@ -67,21 +64,9 @@ fn main() -> Result<()> {
     let manifest: VulkanShaderManifest = serde_json::from_str(&contents)
         .with_context(|| format!("failed to parse {}", manifest_path.display()))?;
 
-    let include_broadcast = !manifest.ops.contains_key(BROADCAST_OP);
     let mut jobs = Vec::new();
     for (op_name, entry) in &manifest.ops {
         jobs.extend(gather_jobs_for_op(&manifest_dir, op_name, entry)?);
-    }
-    if include_broadcast {
-        let broadcast_entry = VulkanShaderEntry {
-            shader_dir: None,
-            spv_dir: BROADCAST_SPV_DIR.to_string(),
-        };
-        jobs.extend(gather_jobs_for_op(
-            &manifest_dir,
-            BROADCAST_OP,
-            &broadcast_entry,
-        )?);
     }
 
     let total = jobs.len();
@@ -304,9 +289,6 @@ fn shader_paths(
     entry: &VulkanShaderEntry,
     op_name: &str,
 ) -> Result<Vec<PathBuf>> {
-    if op_name == BROADCAST_OP {
-        return Ok(vec![manifest_dir.join(BROADCAST_PATH)]);
-    }
     let shader_dir = entry
         .shader_dir
         .as_ref()

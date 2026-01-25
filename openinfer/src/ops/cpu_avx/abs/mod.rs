@@ -9,3 +9,8 @@ pub use abs::*;
 #[allow(unused_imports)]
 pub use abs_accumulate::*;
 pub use abs_inplace::*;
+
+#[allow(dead_code)]
+pub fn supports_broadcast() -> bool {
+    false
+}

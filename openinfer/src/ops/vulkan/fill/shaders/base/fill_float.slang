@@ -1,8 +1,7 @@
 struct PushConsts {
     uint len;
-    uint value_bits_lo;
-    uint value_bits_hi;
-    uint use_f64_bits;
+    float value_f32;
+    double value_f64;
 };
 
 [[vk::push_constant]] PushConsts pc;
@@ -21,8 +20,7 @@ ParameterBlock<FillBuffers<double>> gFill_f64;
 void fill_f16_native(uint3 tid : SV_DispatchThreadID, uniform PushConsts pc) {
     uint i = tid.x;
     if (i < pc.len) {
-        float value = asfloat(pc.value_bits_lo);
-        gFill_f16_native.output0[i] = (half)value;
+        gFill_f16_native.output0[i] = (half)pc.value_f32;
     }
 }
 
@@ -31,8 +29,7 @@ void fill_f16_native(uint3 tid : SV_DispatchThreadID, uniform PushConsts pc) {
 void fill_f32(uint3 tid : SV_DispatchThreadID, uniform PushConsts pc) {
     uint i = tid.x;
     if (i < pc.len) {
-        float value = asfloat(pc.value_bits_lo);
-        gFill_f32.output0[i] = value;
+        gFill_f32.output0[i] = pc.value_f32;
     }
 }
 
@@ -41,10 +38,6 @@ void fill_f32(uint3 tid : SV_DispatchThreadID, uniform PushConsts pc) {
 void fill_f64(uint3 tid : SV_DispatchThreadID, uniform PushConsts pc) {
     uint i = tid.x;
     if (i < pc.len) {
-        double value = (double)asfloat(pc.value_bits_lo);
-        if (pc.use_f64_bits != 0u) {
-            value = asdouble(pc.value_bits_lo, pc.value_bits_hi);
-        }
-        gFill_f64.output0[i] = value;
+        gFill_f64.output0[i] = pc.value_f64;
     }
 }

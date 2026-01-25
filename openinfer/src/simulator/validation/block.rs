@@ -5,7 +5,7 @@ use anyhow::{anyhow, Result};
 use crate::graph::{
     AttrValue, Block, CacheAccess, CacheIndexExpr, CacheIndexValue, NodeKind, OpAttrs, OpKind,
 };
-use crate::ops::{broadcast_enabled, lookup_kernel};
+use crate::ops::lookup_kernel;
 use crate::simulator::Device;
 use crate::simulator::executor::prefix::{parse_prefix_access, resolve_prefix_name};
 use crate::tensor::{broadcast_shapes, DType};
@@ -25,6 +25,20 @@ pub(crate) fn validate_block(
     validate_nodes(ctx, &mut temps, &block.nodes, is_entry)?;
     validate_yield_rules(block, is_entry)?;
     Ok(())
+}
+
+fn op_supports_broadcast(ctx: &ValidationContext, op: OpKind) -> bool {
+    if matches!(ctx.device, Device::Vulkan) {
+        #[cfg(feature = "vulkan")]
+        {
+            return crate::ops::vulkan::broadcast::supports_broadcast(op);
+        }
+        #[cfg(not(feature = "vulkan"))]
+        {
+            return false;
+        }
+    }
+    matches!(op, OpKind::Add | OpKind::Mul | OpKind::Matmul)
 }
 
 fn validate_nodes(
@@ -329,7 +343,7 @@ fn validate_op(
                 }
             }
             _ => {
-                let expected_shape = if broadcast_enabled(op, ctx.device) {
+                let expected_shape = if op_supports_broadcast(ctx, op) {
                     let mut shape = input_shapes[0].clone();
                     for input_shape in input_shapes.iter().skip(1) {
                         shape = crate::tensor::broadcast_shapes(&shape, input_shape)?;

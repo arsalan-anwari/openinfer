@@ -13,8 +13,15 @@ use crate::ops::cpu_avx2::packed::{
     get_i2_value, get_i4_value, get_u2_value, get_u4_value, set_i2_value, set_i4_value,
     set_u2_value, set_u4_value,
 };
-use crate::tensor::{I2, I4, U2, U4};
-pub fn mul_inplace_f32(a: &mut [f32], b: &[f32], thread_id: usize) -> Result<()> {
+use crate::ops::cpu_avx2::registry_helpers::{
+    ensure_same_len,
+    ensure_same_shape,
+    is_contiguous,
+    needs_broadcast,
+    BroadcastVariant,
+};
+use crate::tensor::{I2, I4, U2, U4, Tensor};
+fn mul_inplace_f32_slice(a: &mut [f32], b: &[f32], thread_id: usize) -> Result<()> {
     if a.len() != b.len() {
         return Err(anyhow!("mul inplace shape mismatch"));
     }
@@ -37,7 +44,7 @@ pub fn mul_inplace_f32(a: &mut [f32], b: &[f32], thread_id: usize) -> Result<()>
     Ok(())
 }
 
-pub fn mul_inplace_f64(a: &mut [f64], b: &[f64], thread_id: usize) -> Result<()> {
+fn mul_inplace_f64_slice(a: &mut [f64], b: &[f64], thread_id: usize) -> Result<()> {
     if a.len() != b.len() {
         return Err(anyhow!("mul inplace shape mismatch"));
     }
@@ -60,7 +67,7 @@ pub fn mul_inplace_f64(a: &mut [f64], b: &[f64], thread_id: usize) -> Result<()>
     Ok(())
 }
 
-pub fn mul_inplace_i8(a: &mut [i8], b: &[i8], thread_id: usize) -> Result<()> {
+fn mul_inplace_i8_slice(a: &mut [i8], b: &[i8], thread_id: usize) -> Result<()> {
     if a.len() != b.len() {
         return Err(anyhow!("mul inplace shape mismatch"));
     }
@@ -95,7 +102,7 @@ pub fn mul_inplace_i8(a: &mut [i8], b: &[i8], thread_id: usize) -> Result<()> {
     Ok(())
 }
 
-pub fn mul_inplace_i16(a: &mut [i16], b: &[i16], thread_id: usize) -> Result<()> {
+fn mul_inplace_i16_slice(a: &mut [i16], b: &[i16], thread_id: usize) -> Result<()> {
     if a.len() != b.len() {
         return Err(anyhow!("mul inplace shape mismatch"));
     }
@@ -118,7 +125,7 @@ pub fn mul_inplace_i16(a: &mut [i16], b: &[i16], thread_id: usize) -> Result<()>
     Ok(())
 }
 
-pub fn mul_inplace_i32(a: &mut [i32], b: &[i32], thread_id: usize) -> Result<()> {
+fn mul_inplace_i32_slice(a: &mut [i32], b: &[i32], thread_id: usize) -> Result<()> {
     if a.len() != b.len() {
         return Err(anyhow!("mul inplace shape mismatch"));
     }
@@ -141,7 +148,7 @@ pub fn mul_inplace_i32(a: &mut [i32], b: &[i32], thread_id: usize) -> Result<()>
     Ok(())
 }
 
-pub fn mul_inplace_i64(a: &mut [i64], b: &[i64], thread_id: usize) -> Result<()> {
+fn mul_inplace_i64_slice(a: &mut [i64], b: &[i64], thread_id: usize) -> Result<()> {
     if a.len() != b.len() {
         return Err(anyhow!("mul inplace shape mismatch"));
     }
@@ -171,7 +178,7 @@ pub fn mul_inplace_i64(a: &mut [i64], b: &[i64], thread_id: usize) -> Result<()>
     Ok(())
 }
 
-pub fn mul_inplace_u8(a: &mut [u8], b: &[u8], thread_id: usize) -> Result<()> {
+fn mul_inplace_u8_slice(a: &mut [u8], b: &[u8], thread_id: usize) -> Result<()> {
     if a.len() != b.len() {
         return Err(anyhow!("mul inplace shape mismatch"));
     }
@@ -204,7 +211,7 @@ pub fn mul_inplace_u8(a: &mut [u8], b: &[u8], thread_id: usize) -> Result<()> {
     Ok(())
 }
 
-pub fn mul_inplace_u16(a: &mut [u16], b: &[u16], thread_id: usize) -> Result<()> {
+fn mul_inplace_u16_slice(a: &mut [u16], b: &[u16], thread_id: usize) -> Result<()> {
     if a.len() != b.len() {
         return Err(anyhow!("mul inplace shape mismatch"));
     }
@@ -227,7 +234,7 @@ pub fn mul_inplace_u16(a: &mut [u16], b: &[u16], thread_id: usize) -> Result<()>
     Ok(())
 }
 
-pub fn mul_inplace_i4(a: &mut [I4], b: &[I4], logical_len: usize, thread_id: usize) -> Result<()> {
+fn mul_inplace_i4_slice(a: &mut [I4], b: &[I4], logical_len: usize, thread_id: usize) -> Result<()> {
     if a.len() != b.len() {
         return Err(anyhow!("mul inplace shape mismatch"));
     }
@@ -242,7 +249,7 @@ pub fn mul_inplace_i4(a: &mut [I4], b: &[I4], logical_len: usize, thread_id: usi
     Ok(())
 }
 
-pub fn mul_inplace_i2(a: &mut [I2], b: &[I2], logical_len: usize, thread_id: usize) -> Result<()> {
+fn mul_inplace_i2_slice(a: &mut [I2], b: &[I2], logical_len: usize, thread_id: usize) -> Result<()> {
     if a.len() != b.len() {
         return Err(anyhow!("mul inplace shape mismatch"));
     }
@@ -257,7 +264,7 @@ pub fn mul_inplace_i2(a: &mut [I2], b: &[I2], logical_len: usize, thread_id: usi
     Ok(())
 }
 
-pub fn mul_inplace_u4(a: &mut [U4], b: &[U4], logical_len: usize, thread_id: usize) -> Result<()> {
+fn mul_inplace_u4_slice(a: &mut [U4], b: &[U4], logical_len: usize, thread_id: usize) -> Result<()> {
     if a.len() != b.len() {
         return Err(anyhow!("mul inplace shape mismatch"));
     }
@@ -272,7 +279,7 @@ pub fn mul_inplace_u4(a: &mut [U4], b: &[U4], logical_len: usize, thread_id: usi
     Ok(())
 }
 
-pub fn mul_inplace_u2(a: &mut [U2], b: &[U2], logical_len: usize, thread_id: usize) -> Result<()> {
+fn mul_inplace_u2_slice(a: &mut [U2], b: &[U2], logical_len: usize, thread_id: usize) -> Result<()> {
     if a.len() != b.len() {
         return Err(anyhow!("mul inplace shape mismatch"));
     }
@@ -287,7 +294,7 @@ pub fn mul_inplace_u2(a: &mut [U2], b: &[U2], logical_len: usize, thread_id: usi
     Ok(())
 }
 
-pub fn mul_inplace_u32(a: &mut [u32], b: &[u32], thread_id: usize) -> Result<()> {
+fn mul_inplace_u32_slice(a: &mut [u32], b: &[u32], thread_id: usize) -> Result<()> {
     if a.len() != b.len() {
         return Err(anyhow!("mul inplace shape mismatch"));
     }
@@ -310,7 +317,7 @@ pub fn mul_inplace_u32(a: &mut [u32], b: &[u32], thread_id: usize) -> Result<()>
     Ok(())
 }
 
-pub fn mul_inplace_u64(a: &mut [u64], b: &[u64], thread_id: usize) -> Result<()> {
+fn mul_inplace_u64_slice(a: &mut [u64], b: &[u64], thread_id: usize) -> Result<()> {
     if a.len() != b.len() {
         return Err(anyhow!("mul inplace shape mismatch"));
     }
@@ -340,7 +347,7 @@ pub fn mul_inplace_u64(a: &mut [u64], b: &[u64], thread_id: usize) -> Result<()>
     Ok(())
 }
 
-pub fn mul_inplace_bool(a: &mut [bool], b: &[bool], thread_id: usize) -> Result<()> {
+fn mul_inplace_bool_slice(a: &mut [bool], b: &[bool], thread_id: usize) -> Result<()> {
     if a.len() != b.len() {
         return Err(anyhow!("mul inplace shape mismatch"));
     }
@@ -351,3 +358,52 @@ pub fn mul_inplace_bool(a: &mut [bool], b: &[bool], thread_id: usize) -> Result<
     Timer::stop(thread_id);
     Ok(())
 }
+
+macro_rules! mul_inplace_tensor_standard {
+    ($name:ident, $slice:ident, $broadcast:ident, $ty:ty) => {
+        pub fn $name(a: &mut Tensor<$ty>, b: &Tensor<$ty>, thread_id: usize) -> Result<()> {
+            if needs_broadcast(a, b, a, Some(BroadcastVariant::Inplace)) {
+                return crate::ops::cpu::mul::$broadcast(a, b, thread_id);
+            }
+            ensure_same_shape(a, b, a)?;
+            if !is_contiguous(a.shape(), a.strides()) || !is_contiguous(b.shape(), b.strides()) {
+                return Err(anyhow!("mul inplace requires contiguous tensors"));
+            }
+            ensure_same_len(a, b, a)?;
+            $slice(&mut a.data, &b.data, thread_id)
+        }
+    };
+}
+
+macro_rules! mul_inplace_tensor_packed {
+    ($name:ident, $slice:ident, $broadcast:ident, $ty:ty) => {
+        pub fn $name(a: &mut Tensor<$ty>, b: &Tensor<$ty>, thread_id: usize) -> Result<()> {
+            if needs_broadcast(a, b, a, Some(BroadcastVariant::Inplace)) {
+                return crate::ops::cpu::mul::$broadcast(a, b, thread_id);
+            }
+            ensure_same_shape(a, b, a)?;
+            if !is_contiguous(a.shape(), a.strides()) || !is_contiguous(b.shape(), b.strides()) {
+                return Err(anyhow!("mul inplace requires contiguous packed tensors"));
+            }
+            let logical_len = a.numel();
+            $slice(&mut a.data, &b.data, logical_len, thread_id)
+        }
+    };
+}
+
+mul_inplace_tensor_standard!(mul_inplace_f32, mul_inplace_f32_slice, mul_inplace_f32_broadcast, f32);
+mul_inplace_tensor_standard!(mul_inplace_f64, mul_inplace_f64_slice, mul_inplace_f64_broadcast, f64);
+mul_inplace_tensor_standard!(mul_inplace_i8, mul_inplace_i8_slice, mul_inplace_i8_broadcast, i8);
+mul_inplace_tensor_standard!(mul_inplace_i16, mul_inplace_i16_slice, mul_inplace_i16_broadcast, i16);
+mul_inplace_tensor_standard!(mul_inplace_i32, mul_inplace_i32_slice, mul_inplace_i32_broadcast, i32);
+mul_inplace_tensor_standard!(mul_inplace_i64, mul_inplace_i64_slice, mul_inplace_i64_broadcast, i64);
+mul_inplace_tensor_standard!(mul_inplace_u8, mul_inplace_u8_slice, mul_inplace_u8_broadcast, u8);
+mul_inplace_tensor_standard!(mul_inplace_u16, mul_inplace_u16_slice, mul_inplace_u16_broadcast, u16);
+mul_inplace_tensor_standard!(mul_inplace_u32, mul_inplace_u32_slice, mul_inplace_u32_broadcast, u32);
+mul_inplace_tensor_standard!(mul_inplace_u64, mul_inplace_u64_slice, mul_inplace_u64_broadcast, u64);
+mul_inplace_tensor_standard!(mul_inplace_bool, mul_inplace_bool_slice, mul_inplace_bool_broadcast, bool);
+
+mul_inplace_tensor_packed!(mul_inplace_i4, mul_inplace_i4_slice, mul_inplace_i4_broadcast, I4);
+mul_inplace_tensor_packed!(mul_inplace_i2, mul_inplace_i2_slice, mul_inplace_i2_broadcast, I2);
+mul_inplace_tensor_packed!(mul_inplace_u4, mul_inplace_u4_slice, mul_inplace_u4_broadcast, U4);
+mul_inplace_tensor_packed!(mul_inplace_u2, mul_inplace_u2_slice, mul_inplace_u2_broadcast, U2);

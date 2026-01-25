@@ -1,11 +1,14 @@
 pub mod abs;
 pub mod add;
+pub mod broadcast;
 pub mod fill;
 pub mod is_finite;
 pub mod matmul;
 pub mod mul;
 pub mod relu;
 pub mod registry;
+pub mod registry_accumulate;
+pub mod registry_inplace;
 
 use crate::backend::VulkanBuffer;
 use anyhow::{anyhow, Result};

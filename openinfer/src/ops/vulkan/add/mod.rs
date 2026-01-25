@@ -8,7 +8,12 @@ use crate::tensor::{broadcast_shapes, compute_strides, numel, DType};
 use crate::timer::Timer;
 
 pub mod registry;
+pub mod registry_accumulate;
 pub mod registry_inplace;
+
+pub fn supports_broadcast() -> bool {
+    true
+}
 
 pub fn add_generic(attrs: &OpAttrs, a: &VulkanBuffer, b: &VulkanBuffer, thread_id: usize) -> Result<VulkanBuffer> {
     let allow_mixed = a.shader_setting_bool("allow_mixed_dtypes").unwrap_or(false);
@@ -22,11 +27,14 @@ pub fn add_generic(attrs: &OpAttrs, a: &VulkanBuffer, b: &VulkanBuffer, thread_i
     };
     let len = numel(&out_shape);
     let runtime = super::runtime_from_buffers(a, Some(b))?;
-    let target = if a.effective_dtype == DType::F16 && runtime.use_native_f16() {
+    let mut target = if a.effective_dtype == DType::F16 && runtime.use_native_f16() {
         "add_f16_native".to_string()
     } else {
         super::spv_target_name(OpKind::Add, a.effective_dtype, attrs)?
     };
+    if a.shape != out_shape || b.shape != out_shape {
+        target = format!("{target}_broadcast");
+    }
     let entry = "main";
     let spirv = a
         .spv_bytes_for_target(&target)
@@ -43,8 +51,8 @@ pub fn add_generic(attrs: &OpAttrs, a: &VulkanBuffer, b: &VulkanBuffer, thread_i
         b.strides.as_slice(),
         out_shape.as_slice(),
     )?;
-    let meta_a_bytes: Vec<u8> = meta_a.iter().flat_map(|v| v.to_le_bytes()).collect();
-    let meta_b_bytes: Vec<u8> = meta_b.iter().flat_map(|v| v.to_le_bytes()).collect();
+    let meta_a_bytes: Vec<u8> = meta_a.iter().flat_map(|v: &u32| v.to_le_bytes()).collect();
+    let meta_b_bytes: Vec<u8> = meta_b.iter().flat_map(|v: &u32| v.to_le_bytes()).collect();
     let meta_a_inner = runtime.create_buffer(meta_a_bytes.len())?;
     let meta_b_inner = runtime.create_buffer(meta_b_bytes.len())?;
     runtime.write_buffer(&meta_a_inner, &meta_a_bytes)?;
@@ -96,7 +104,10 @@ pub fn add_accumulate_generic(
     };
     let len = numel(&out_shape);
     let runtime = super::runtime_from_buffers(a, Some(b))?;
-    let target = spv_target_name_add_accumulate(a.effective_dtype, output_dtype, attrs)?;
+    let mut target = spv_target_name_add_accumulate(a.effective_dtype, output_dtype, attrs)?;
+    if a.shape != out_shape || b.shape != out_shape {
+        target = format!("{target}_broadcast");
+    }
     let entry = "main";
     let spirv = a
         .spv_bytes_for_target(&target)
@@ -123,8 +134,8 @@ pub fn add_accumulate_generic(
         b.strides.as_slice(),
         out_shape.as_slice(),
     )?;
-    let meta_a_bytes: Vec<u8> = meta_a.iter().flat_map(|v| v.to_le_bytes()).collect();
-    let meta_b_bytes: Vec<u8> = meta_b.iter().flat_map(|v| v.to_le_bytes()).collect();
+    let meta_a_bytes: Vec<u8> = meta_a.iter().flat_map(|v: &u32| v.to_le_bytes()).collect();
+    let meta_b_bytes: Vec<u8> = meta_b.iter().flat_map(|v: &u32| v.to_le_bytes()).collect();
     let meta_a_inner = runtime.create_buffer(meta_a_bytes.len())?;
     let meta_b_inner = runtime.create_buffer(meta_b_bytes.len())?;
     runtime.write_buffer(&meta_a_inner, &meta_a_bytes)?;
@@ -175,11 +186,14 @@ pub fn add_inplace_generic(
     };
     let len = numel(&out_shape);
     let runtime = super::runtime_from_buffers(a, Some(b))?;
-    let target = if a.effective_dtype == DType::F16 && runtime.use_native_f16() {
+    let mut target = if a.effective_dtype == DType::F16 && runtime.use_native_f16() {
         "add_inplace_f16_native".to_string()
     } else {
         spv_target_name_add_inplace(a.effective_dtype, attrs)?
     };
+    if a.shape != out_shape || b.shape != out_shape {
+        target = format!("{target}_broadcast");
+    }
     let entry = "main";
     let spirv = a
         .spv_bytes_for_target(&target)
@@ -198,8 +212,8 @@ pub fn add_inplace_generic(
         b.strides.as_slice(),
         out_shape.as_slice(),
     )?;
-    let meta_a_bytes: Vec<u8> = meta_a.iter().flat_map(|v| v.to_le_bytes()).collect();
-    let meta_b_bytes: Vec<u8> = meta_b.iter().flat_map(|v| v.to_le_bytes()).collect();
+    let meta_a_bytes: Vec<u8> = meta_a.iter().flat_map(|v: &u32| v.to_le_bytes()).collect();
+    let meta_b_bytes: Vec<u8> = meta_b.iter().flat_map(|v: &u32| v.to_le_bytes()).collect();
     let meta_a_inner = runtime.create_buffer(meta_a_bytes.len())?;
     let meta_b_inner = runtime.create_buffer(meta_b_bytes.len())?;
     runtime.write_buffer(&meta_a_inner, &meta_a_bytes)?;

@@ -1,5 +1,7 @@
 pub mod abs;
 pub mod add;
+pub mod broadcast;
+pub mod data_helper;
 pub mod fill;
 pub mod is_finite;
 pub mod matmul;
@@ -7,4 +9,6 @@ pub mod mul;
 pub mod packed;
 pub mod relu;
 pub mod registry;
+pub mod registry_accumulate;
+pub mod registry_helpers;
 pub mod registry_inplace;

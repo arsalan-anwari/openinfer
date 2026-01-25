@@ -8,13 +8,58 @@ use crate::tensor::{compute_strides, DType};
 use crate::timer::Timer;
 
 pub mod registry;
+pub mod registry_accumulate;
 pub mod registry_inplace;
 
-pub fn relu_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: usize) -> Result<VulkanBuffer> {
+#[repr(C)]
+struct ReluPushConsts {
+    len: u32,
+    alpha_f32: f32,
+    clamp_f32: f32,
+    alpha_f64: f64,
+    clamp_f64: f64,
+}
+
+fn relu_push_words(push: &ReluPushConsts) -> [u32; 8] {
+    let bytes = unsafe {
+        std::slice::from_raw_parts(
+            (push as *const ReluPushConsts).cast::<u8>(),
+            std::mem::size_of::<ReluPushConsts>(),
+        )
+    };
+    let mut out = [0u32; 8];
+    for (idx, chunk) in bytes.chunks_exact(4).take(out.len()).enumerate() {
+        out[idx] = u32::from_ne_bytes(chunk.try_into().unwrap());
+    }
+    out
+}
+
+fn relu_push_consts(dtype: DType, attrs: &OpAttrs, len: usize) -> Result<ReluPushConsts> {
     let (alpha, clamp_max) = match attrs {
         OpAttrs::Relu { alpha, clamp_max } => (alpha, clamp_max),
         _ => return Err(anyhow!("relu op expects relu attributes")),
     };
+    let mut alpha_f32 = 0.0f32;
+    let mut clamp_f32 = 0.0f32;
+    let mut alpha_f64 = 0.0f64;
+    let mut clamp_f64 = 0.0f64;
+    if dtype == DType::F64 {
+        alpha_f64 = relu_attr_f64(alpha)?;
+        clamp_f64 = relu_attr_f64(clamp_max)?;
+    } else {
+        alpha_f32 = relu_attr_f32(alpha)?;
+        clamp_f32 = relu_attr_f32(clamp_max)?;
+    }
+    Ok(ReluPushConsts {
+        len: len as u32,
+        alpha_f32,
+        clamp_f32,
+        alpha_f64,
+        clamp_f64,
+    })
+}
+
+pub fn relu_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: usize) -> Result<VulkanBuffer> {
     let runtime = super::runtime_from_buffers(a, None)?;
     let target = if a.effective_dtype == DType::F16 && runtime.use_native_f16() {
         "relu_f16_native".to_string()
@@ -27,10 +72,8 @@ pub fn relu_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: usize) -> Resu
     let spirv = a
         .spv_bytes_for_target(&target)
         .ok_or_else(|| anyhow!("missing SPIR-V target {} for relu op", target))?;
-    let (alpha_lo, alpha_hi, alpha_use) = relu_value_payload(a.effective_dtype, alpha)?;
-    let (clamp_lo, clamp_hi, clamp_use) = relu_value_payload(a.effective_dtype, clamp_max)?;
-    let flags = (alpha_use & 1) | ((clamp_use & 1) << 1);
-    let push = [a.len as u32, alpha_lo, alpha_hi, clamp_lo, clamp_hi, flags];
+    let push = relu_push_consts(a.effective_dtype, attrs, a.len)?;
+    let push = relu_push_words(&push);
     let duration_ns = runtime.dispatch(
         OpKind::Relu,
         a.effective_dtype,
@@ -56,10 +99,6 @@ pub fn relu_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: usize) -> Resu
 }
 
 pub fn relu_inplace_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: usize) -> Result<VulkanBuffer> {
-    let (alpha, clamp_max) = match attrs {
-        OpAttrs::Relu { alpha, clamp_max } => (alpha, clamp_max),
-        _ => return Err(anyhow!("relu op expects relu attributes")),
-    };
     let runtime = super::runtime_from_buffers(a, None)?;
     let target = if a.effective_dtype == DType::F16 && runtime.use_native_f16() {
         "relu_f16_native".to_string()
@@ -74,10 +113,8 @@ pub fn relu_inplace_generic(attrs: &OpAttrs, a: &VulkanBuffer, thread_id: usize)
     let spirv = a
         .spv_bytes_for_target(&target)
         .ok_or_else(|| anyhow!("missing SPIR-V target {} for relu op", target))?;
-    let (alpha_lo, alpha_hi, alpha_use) = relu_value_payload(a.effective_dtype, alpha)?;
-    let (clamp_lo, clamp_hi, clamp_use) = relu_value_payload(a.effective_dtype, clamp_max)?;
-    let flags = (alpha_use & 1) | ((clamp_use & 1) << 1);
-    let push = [a.len as u32, alpha_lo, alpha_hi, clamp_lo, clamp_hi, flags];
+    let push = relu_push_consts(a.effective_dtype, attrs, a.len)?;
+    let push = relu_push_words(&push);
     let duration_ns = runtime.dispatch(
         OpKind::Relu,
         a.effective_dtype,
@@ -122,31 +159,29 @@ pub(crate) fn spv_target_name_relu(dtype: DType, attrs: &OpAttrs) -> Result<Stri
     }
 }
 
-fn relu_value_payload(dtype: DType, value: &AttrValue) -> Result<(u32, u32, u32)> {
-    let (value_f64, from_double) = match value {
-        AttrValue::Float(val) => (*val as f64, false),
-        AttrValue::Double(val) => (*val, true),
-        AttrValue::Int(val) => (*val as f64, false),
-        AttrValue::UInt(val) => (*val as f64, false),
-        AttrValue::Bool(_) => return Err(anyhow!("relu op attrs must be numeric")),
-        AttrValue::Var(name) => return Err(anyhow!("relu op attrs must be resolved: {}", name)),
-    };
-    if dtype != DType::F64 && value_f64.is_finite() && value_f64.abs() > f32::MAX as f64 {
-        return Err(anyhow!("relu op attr {} is out of range for f32", value_f64));
-    }
-    match dtype {
-        DType::F64 if from_double => {
-            if value_f64.is_finite() && value_f64.abs() <= f32::MAX as f64 {
-                let lo = (value_f64 as f32).to_bits();
-                Ok((lo, 0, 0))
-            } else {
-                let bits = value_f64.to_bits();
-                Ok((bits as u32, (bits >> 32) as u32, 1))
+fn relu_attr_f32(value: &AttrValue) -> Result<f32> {
+    match value {
+        AttrValue::Float(val) => Ok(*val),
+        AttrValue::Double(val) => {
+            if val.is_finite() && val.abs() > f32::MAX as f64 {
+                return Err(anyhow!("relu op attr {} is out of range for f32", val));
             }
+            Ok(*val as f32)
         }
-        _ => {
-            let lo = (value_f64 as f32).to_bits();
-            Ok((lo, 0, 0))
-        }
+        AttrValue::Int(val) => Ok(*val as f32),
+        AttrValue::UInt(val) => Ok(*val as f32),
+        AttrValue::Bool(_) => Err(anyhow!("relu op attrs must be numeric")),
+        AttrValue::Var(name) => Err(anyhow!("relu op attrs must be resolved: {}", name)),
+    }
+}
+
+fn relu_attr_f64(value: &AttrValue) -> Result<f64> {
+    match value {
+        AttrValue::Float(val) => Ok(*val as f64),
+        AttrValue::Double(val) => Ok(*val),
+        AttrValue::Int(val) => Ok(*val as f64),
+        AttrValue::UInt(val) => Ok(*val as f64),
+        AttrValue::Bool(_) => Err(anyhow!("relu op attrs must be numeric")),
+        AttrValue::Var(name) => Err(anyhow!("relu op attrs must be resolved: {}", name)),
     }
 }

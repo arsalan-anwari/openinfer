@@ -1,37 +1,62 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 
+use crate::ops::cpu::broadcast::is_contiguous;
 use crate::tensor::{numel, Tensor};
 use crate::timer::Timer;
 
 use super::matmul::matmul_dims;
+
+fn ensure_output_len<T>(out: &Tensor<T>, len: usize) -> Result<()> {
+    if out.data.len() != len {
+        return Err(anyhow!("matmul output shape mismatch"));
+    }
+    Ok(())
+}
+
+fn ensure_matmul_accumulate_layout<T, O>(
+    a: &Tensor<T>,
+    b: &Tensor<T>,
+    out: &Tensor<O>,
+    batch_shape: &[usize],
+    m: usize,
+    n: usize,
+) -> Result<()> {
+    let mut expected_shape = batch_shape.to_vec();
+    expected_shape.push(m);
+    expected_shape.push(n);
+    if out.shape() != expected_shape.as_slice() {
+        return Err(anyhow!(
+            "matmul output shape mismatch: expected {:?}, got {:?}",
+            expected_shape,
+            out.shape()
+        ));
+    }
+    if !is_contiguous(out.shape(), out.strides()) {
+        return Err(anyhow!("matmul output must be contiguous"));
+    }
+    if !is_contiguous(a.shape(), a.strides()) || !is_contiguous(b.shape(), b.strides()) {
+        return Err(anyhow!("matmul inputs must be contiguous"));
+    }
+    if a.data.len() != numel(a.shape()) || b.data.len() != numel(b.shape()) {
+        return Err(anyhow!("matmul input length mismatch"));
+    }
+    Ok(())
+}
 
 macro_rules! matmul_accumulate_signed {
     ($name:ident, $in:ty, $out:ty) => {
         pub fn $name(
             a: &Tensor<$in>,
             b: &Tensor<$in>,
-            output: Option<&mut [$out]>,
+            out: &mut Tensor<$out>,
             thread_id: usize,
-        ) -> Result<Option<Vec<$out>>> {
+        ) -> Result<()> {
             let (batch_shape, m, k, n) = matmul_dims(a.shape(), b.shape())?;
             let batch = numel(&batch_shape);
             let len = batch * m * n;
+            ensure_output_len(out, len)?;
+            ensure_matmul_accumulate_layout(a, b, out, &batch_shape, m, n)?;
             Timer::start(thread_id);
-            let reuse = output.is_some();
-            let mut out_storage = if reuse {
-                None
-            } else {
-                Some(vec![0 as $out; len])
-            };
-            let out = match output {
-                Some(out) => {
-                    if out.len() != len {
-                        return Err(anyhow::anyhow!("matmul output shape mismatch"));
-                    }
-                    out
-                }
-                None => out_storage.as_mut().unwrap().as_mut_slice(),
-            };
             let rank = batch_shape.len() + 2;
             let mut a_aligned = vec![1; rank - a.shape().len()];
             a_aligned.extend_from_slice(a.shape());
@@ -73,10 +98,13 @@ macro_rules! matmul_accumulate_signed {
                         for kk in 0..k {
                             acc = acc.wrapping_add(
                                 (a.data[a_row_base + kk * a_stride_k] as $out)
-                                    .wrapping_mul(b.data[b_batch_offset + kk * b_stride_k + j * b_stride_n] as $out),
+                                    .wrapping_mul(
+                                        b.data[b_batch_offset + kk * b_stride_k + j * b_stride_n]
+                                            as $out,
+                                    ),
                             );
                         }
-                        out[out_base + i * n + j] = acc;
+                        out.data[out_base + i * n + j] = acc;
                     }
                 }
                 for dim in (0..batch_shape.len()).rev() {
@@ -88,11 +116,7 @@ macro_rules! matmul_accumulate_signed {
                 }
             }
             Timer::stop(thread_id);
-            if reuse {
-                Ok(None)
-            } else {
-                Ok(out_storage)
-            }
+            Ok(())
         }
     };
 }
@@ -102,28 +126,15 @@ macro_rules! matmul_accumulate_unsigned {
         pub fn $name(
             a: &Tensor<$in>,
             b: &Tensor<$in>,
-            output: Option<&mut [$out]>,
+            out: &mut Tensor<$out>,
             thread_id: usize,
-        ) -> Result<Option<Vec<$out>>> {
+        ) -> Result<()> {
             let (batch_shape, m, k, n) = matmul_dims(a.shape(), b.shape())?;
             let batch = numel(&batch_shape);
             let len = batch * m * n;
+            ensure_output_len(out, len)?;
+            ensure_matmul_accumulate_layout(a, b, out, &batch_shape, m, n)?;
             Timer::start(thread_id);
-            let reuse = output.is_some();
-            let mut out_storage = if reuse {
-                None
-            } else {
-                Some(vec![0 as $out; len])
-            };
-            let out = match output {
-                Some(out) => {
-                    if out.len() != len {
-                        return Err(anyhow::anyhow!("matmul output shape mismatch"));
-                    }
-                    out
-                }
-                None => out_storage.as_mut().unwrap().as_mut_slice(),
-            };
             let rank = batch_shape.len() + 2;
             let mut a_aligned = vec![1; rank - a.shape().len()];
             a_aligned.extend_from_slice(a.shape());
@@ -165,10 +176,13 @@ macro_rules! matmul_accumulate_unsigned {
                         for kk in 0..k {
                             acc = acc.wrapping_add(
                                 (a.data[a_row_base + kk * a_stride_k] as $out)
-                                    .wrapping_mul(b.data[b_batch_offset + kk * b_stride_k + j * b_stride_n] as $out),
+                                    .wrapping_mul(
+                                        b.data[b_batch_offset + kk * b_stride_k + j * b_stride_n]
+                                            as $out,
+                                    ),
                             );
                         }
-                        out[out_base + i * n + j] = acc;
+                        out.data[out_base + i * n + j] = acc;
                     }
                 }
                 for dim in (0..batch_shape.len()).rev() {
@@ -180,11 +194,7 @@ macro_rules! matmul_accumulate_unsigned {
                 }
             }
             Timer::stop(thread_id);
-            if reuse {
-                Ok(None)
-            } else {
-                Ok(out_storage)
-            }
+            Ok(())
         }
     };
 }

@@ -8,12 +8,19 @@ use std::arch::x86_64::{
 
 use crate::timer::Timer;
 use crate::ops::cpu_avx2::packed::{get_i2_value, get_i4_value, set_i2_value, set_i4_value};
-use crate::tensor::{I2, I4};
+use crate::ops::cpu_avx2::registry_helpers::{
+    ensure_same_len_unary,
+    ensure_same_shape_unary,
+    is_contiguous,
+};
+use crate::tensor::{I2, I4, Tensor};
 
 
-pub fn abs_f32(a: &[f32], thread_id: usize) -> Result<Vec<f32>> {
+fn abs_f32_slice(a: &[f32], out: &mut [f32], thread_id: usize) -> Result<()> {
     let len = a.len();
-    let mut out = vec![0.0f32; len];
+    if out.len() != len {
+        return Err(anyhow::anyhow!("abs op output length mismatch"));
+    }
     Timer::start(thread_id);
     unsafe {
         let mut i = 0usize;
@@ -32,12 +39,14 @@ pub fn abs_f32(a: &[f32], thread_id: usize) -> Result<Vec<f32>> {
         }
     }
     Timer::stop(thread_id);
-    Ok(out)
+    Ok(())
 }
 
-pub fn abs_i8(a: &[i8], thread_id: usize) -> Result<Vec<i8>> {
+fn abs_i8_slice(a: &[i8], out: &mut [i8], thread_id: usize) -> Result<()> {
     let len = a.len();
-    let mut out = vec![0i8; len];
+    if out.len() != len {
+        return Err(anyhow::anyhow!("abs op output length mismatch"));
+    }
     Timer::start(thread_id);
     unsafe {
         let mut i = 0usize;
@@ -54,12 +63,14 @@ pub fn abs_i8(a: &[i8], thread_id: usize) -> Result<Vec<i8>> {
         }
     }
     Timer::stop(thread_id);
-    Ok(out)
+    Ok(())
 }
 
-pub fn abs_i16(a: &[i16], thread_id: usize) -> Result<Vec<i16>> {
+fn abs_i16_slice(a: &[i16], out: &mut [i16], thread_id: usize) -> Result<()> {
     let len = a.len();
-    let mut out = vec![0i16; len];
+    if out.len() != len {
+        return Err(anyhow::anyhow!("abs op output length mismatch"));
+    }
     Timer::start(thread_id);
     unsafe {
         let mut i = 0usize;
@@ -76,12 +87,14 @@ pub fn abs_i16(a: &[i16], thread_id: usize) -> Result<Vec<i16>> {
         }
     }
     Timer::stop(thread_id);
-    Ok(out)
+    Ok(())
 }
 
-pub fn abs_f64(a: &[f64], thread_id: usize) -> Result<Vec<f64>> {
+fn abs_f64_slice(a: &[f64], out: &mut [f64], thread_id: usize) -> Result<()> {
     let len = a.len();
-    let mut out = vec![0.0f64; len];
+    if out.len() != len {
+        return Err(anyhow::anyhow!("abs op output length mismatch"));
+    }
     Timer::start(thread_id);
     unsafe {
         let mut i = 0usize;
@@ -100,12 +113,14 @@ pub fn abs_f64(a: &[f64], thread_id: usize) -> Result<Vec<f64>> {
         }
     }
     Timer::stop(thread_id);
-    Ok(out)
+    Ok(())
 }
 
-pub fn abs_i32(a: &[i32], thread_id: usize) -> Result<Vec<i32>> {
+fn abs_i32_slice(a: &[i32], out: &mut [i32], thread_id: usize) -> Result<()> {
     let len = a.len();
-    let mut out = vec![0i32; len];
+    if out.len() != len {
+        return Err(anyhow::anyhow!("abs op output length mismatch"));
+    }
     Timer::start(thread_id);
     unsafe {
         let mut i = 0usize;
@@ -122,12 +137,14 @@ pub fn abs_i32(a: &[i32], thread_id: usize) -> Result<Vec<i32>> {
         }
     }
     Timer::stop(thread_id);
-    Ok(out)
+    Ok(())
 }
 
-pub fn abs_i64(a: &[i64], thread_id: usize) -> Result<Vec<i64>> {
+fn abs_i64_slice(a: &[i64], out: &mut [i64], thread_id: usize) -> Result<()> {
     let len = a.len();
-    let mut out = vec![0i64; len];
+    if out.len() != len {
+        return Err(anyhow::anyhow!("abs op output length mismatch"));
+    }
     Timer::start(thread_id);
     unsafe {
         let mut i = 0usize;
@@ -148,32 +165,118 @@ pub fn abs_i64(a: &[i64], thread_id: usize) -> Result<Vec<i64>> {
         }
     }
     Timer::stop(thread_id);
-    Ok(out)
+    Ok(())
 }
 
-pub fn abs_i4_packed(a: &[I4], logical_len: usize, thread_id: usize) -> Result<Vec<I4>> {
+fn abs_i4_packed_slice(
+    a: &[I4],
+    logical_len: usize,
+    out: &mut [I4],
+    thread_id: usize,
+) -> Result<()> {
     let storage_len = (logical_len + 1) / 2;
-    let mut out = vec![I4 { bits: 0 }; storage_len];
+    if out.len() != storage_len {
+        return Err(anyhow::anyhow!("abs op output length mismatch"));
+    }
     Timer::start(thread_id);
     for idx in 0..logical_len {
         let v = get_i4_value(a, idx);
         let y = if v < 0 { v.wrapping_neg() } else { v };
-        set_i4_value(&mut out, idx, y);
+        set_i4_value(out, idx, y);
     }
     Timer::stop(thread_id);
-    Ok(out)
+    Ok(())
 }
 
-pub fn abs_i2_packed(a: &[I2], logical_len: usize, thread_id: usize) -> Result<Vec<I2>> {
+fn abs_i2_packed_slice(
+    a: &[I2],
+    logical_len: usize,
+    out: &mut [I2],
+    thread_id: usize,
+) -> Result<()> {
     let storage_len = (logical_len + 3) / 4;
-    let mut out = vec![I2 { bits: 0 }; storage_len];
+    if out.len() != storage_len {
+        return Err(anyhow::anyhow!("abs op output length mismatch"));
+    }
     Timer::start(thread_id);
     for idx in 0..logical_len {
         let v = get_i2_value(a, idx);
         let y = if v < 0 { v.wrapping_neg() } else { v };
-        set_i2_value(&mut out, idx, y);
+        set_i2_value(out, idx, y);
     }
     Timer::stop(thread_id);
-    Ok(out)
+    Ok(())
+}
+
+pub fn abs_f32(a: &Tensor<f32>, out: &mut Tensor<f32>, thread_id: usize) -> Result<()> {
+    ensure_same_shape_unary(a, out)?;
+    if !is_contiguous(a.shape(), a.strides()) || !is_contiguous(out.shape(), out.strides()) {
+        return Err(anyhow::anyhow!("abs op requires contiguous tensors"));
+    }
+    ensure_same_len_unary(a, out)?;
+    abs_f32_slice(&a.data, &mut out.data, thread_id)
+}
+
+pub fn abs_i8(a: &Tensor<i8>, out: &mut Tensor<i8>, thread_id: usize) -> Result<()> {
+    ensure_same_shape_unary(a, out)?;
+    if !is_contiguous(a.shape(), a.strides()) || !is_contiguous(out.shape(), out.strides()) {
+        return Err(anyhow::anyhow!("abs op requires contiguous tensors"));
+    }
+    ensure_same_len_unary(a, out)?;
+    abs_i8_slice(&a.data, &mut out.data, thread_id)
+}
+
+pub fn abs_i16(a: &Tensor<i16>, out: &mut Tensor<i16>, thread_id: usize) -> Result<()> {
+    ensure_same_shape_unary(a, out)?;
+    if !is_contiguous(a.shape(), a.strides()) || !is_contiguous(out.shape(), out.strides()) {
+        return Err(anyhow::anyhow!("abs op requires contiguous tensors"));
+    }
+    ensure_same_len_unary(a, out)?;
+    abs_i16_slice(&a.data, &mut out.data, thread_id)
+}
+
+pub fn abs_f64(a: &Tensor<f64>, out: &mut Tensor<f64>, thread_id: usize) -> Result<()> {
+    ensure_same_shape_unary(a, out)?;
+    if !is_contiguous(a.shape(), a.strides()) || !is_contiguous(out.shape(), out.strides()) {
+        return Err(anyhow::anyhow!("abs op requires contiguous tensors"));
+    }
+    ensure_same_len_unary(a, out)?;
+    abs_f64_slice(&a.data, &mut out.data, thread_id)
+}
+
+pub fn abs_i32(a: &Tensor<i32>, out: &mut Tensor<i32>, thread_id: usize) -> Result<()> {
+    ensure_same_shape_unary(a, out)?;
+    if !is_contiguous(a.shape(), a.strides()) || !is_contiguous(out.shape(), out.strides()) {
+        return Err(anyhow::anyhow!("abs op requires contiguous tensors"));
+    }
+    ensure_same_len_unary(a, out)?;
+    abs_i32_slice(&a.data, &mut out.data, thread_id)
+}
+
+pub fn abs_i64(a: &Tensor<i64>, out: &mut Tensor<i64>, thread_id: usize) -> Result<()> {
+    ensure_same_shape_unary(a, out)?;
+    if !is_contiguous(a.shape(), a.strides()) || !is_contiguous(out.shape(), out.strides()) {
+        return Err(anyhow::anyhow!("abs op requires contiguous tensors"));
+    }
+    ensure_same_len_unary(a, out)?;
+    abs_i64_slice(&a.data, &mut out.data, thread_id)
+}
+
+pub fn abs_i4_packed(a: &Tensor<I4>, out: &mut Tensor<I4>, thread_id: usize) -> Result<()> {
+    ensure_same_shape_unary(a, out)?;
+    if !is_contiguous(a.shape(), a.strides()) || !is_contiguous(out.shape(), out.strides()) {
+        return Err(anyhow::anyhow!("abs op requires contiguous packed tensors"));
+    }
+    let logical_len = a.numel();
+    abs_i4_packed_slice(&a.data, logical_len, &mut out.data, thread_id)
+}
+
+pub fn abs_i2_packed(a: &Tensor<I2>, out: &mut Tensor<I2>, thread_id: usize) -> Result<()> {
+    ensure_same_shape_unary(a, out)?;
+    if !is_contiguous(a.shape(), a.strides()) || !is_contiguous(out.shape(), out.strides()) {
+        return Err(anyhow::anyhow!("abs op requires contiguous packed tensors"));
+    }
+    let logical_len = a.numel();
+    abs_i2_packed_slice(&a.data, logical_len, &mut out.data, thread_id)
 }
 

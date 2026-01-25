@@ -2,9 +2,8 @@
 
 struct PushConsts {
     uint len;
-    uint value_bits;
-    uint pad0;
-    uint pad1;
+    uint value_u32;
+    uint64_t value_u64;
 };
 
 [[vk::push_constant]] PushConsts pc;
@@ -23,8 +22,7 @@ void fillPackedUnsignedImpl(uint3 tid, FillPackedBuffers bufs, PushConsts pc)
 {
     uint i = tid.x;
     if (i < pc.len) {
-        float value = asfloat(pc.value_bits);
-        uint raw = (uint)((int)value);
+        uint raw = pc.value_u32;
         packed_write(bufs.output0, i, BITS, raw);
     }
 }

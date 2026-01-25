@@ -17,9 +17,9 @@ pub use registry::{
     broadcast_is_elementwise,
     broadcast_policy,
     broadcast_requires_materialize,
+    BroadcastPolicy,
     lookup_kernel,
     lookup_kernel_inplace,
-    BroadcastPolicy,
     InplaceKernelFn,
     KernelFn,
 };

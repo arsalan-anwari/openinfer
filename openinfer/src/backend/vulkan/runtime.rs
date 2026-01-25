@@ -157,7 +157,7 @@ impl VulkanRuntime {
         let push_constant_range = vk::PushConstantRange::builder()
             .stage_flags(vk::ShaderStageFlags::COMPUTE)
             .offset(0)
-            .size(24)
+            .size(32)
             .build();
         let set_layouts = vec![descriptor_set_layout; max_descriptor_sets as usize];
         let pipeline_layout_info = vk::PipelineLayoutCreateInfo::builder()
@@ -501,7 +501,7 @@ impl VulkanRuntime {
                 std::slice::from_ref(&descriptor_set),
                 &[],
             );
-            if push.len() * 4 > 24 {
+            if push.len() * 4 > 32 {
                 return Err(anyhow!("push constant payload too large: {}", push.len() * 4));
             }
             let push_bytes = std::slice::from_raw_parts(
@@ -756,7 +756,7 @@ impl VulkanRuntime {
                 std::slice::from_ref(&descriptor_set),
                 &[],
             );
-            if push.len() * 4 > 24 {
+            if push.len() * 4 > 32 {
                 return Err(anyhow!("push constant payload too large: {}", push.len() * 4));
             }
             let push_bytes = std::slice::from_raw_parts(

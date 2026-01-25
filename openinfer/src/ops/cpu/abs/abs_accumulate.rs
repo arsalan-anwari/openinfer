@@ -1,37 +1,70 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 
-use crate::ops::cpu::packed::packed_unary_accumulate_signed;
-use crate::tensor::{I1, I2, I4, Tensor};
+use crate::ops::cpu::broadcast::{ensure_same_len_unary, ensure_same_shape_unary, is_contiguous};
+use crate::ops::cpu::packed::{packed_read, sign_extend, PackedByte};
+use crate::tensor::{numel, Tensor, I1, I2, I4};
 use crate::timer::Timer;
+
+fn abs_accumulate_unary<T, O, F>(
+    a: &Tensor<T>,
+    out: &mut Tensor<O>,
+    mut f: F,
+    thread_id: usize,
+) -> Result<()>
+where
+    T: Clone,
+    O: Clone,
+    F: FnMut(&T) -> O,
+{
+    ensure_same_shape_unary(a, out)?;
+    if !is_contiguous(a.shape(), a.strides()) || !is_contiguous(out.shape(), out.strides()) {
+        return Err(anyhow!("abs accumulate requires contiguous tensors"));
+    }
+    ensure_same_len_unary(a, out)?;
+    Timer::start(thread_id);
+    for (idx, value) in a.data.iter().enumerate() {
+        out.data[idx] = f(value);
+    }
+    Timer::stop(thread_id);
+    Ok(())
+}
+
+fn abs_accumulate_packed_signed<T: PackedByte + Copy, O, F>(
+    bits: u8,
+    a: &Tensor<T>,
+    out: &mut Tensor<O>,
+    mut f: F,
+    thread_id: usize,
+) -> Result<()>
+where
+    O: Clone,
+    F: FnMut(i8) -> O,
+{
+    ensure_same_shape_unary(a, out)?;
+    if !is_contiguous(a.shape(), a.strides()) || !is_contiguous(out.shape(), out.strides()) {
+        return Err(anyhow!("abs accumulate requires contiguous packed tensors"));
+    }
+    let logical_len = numel(a.shape());
+    if out.data.len() != logical_len {
+        return Err(anyhow!("abs accumulate packed output length mismatch"));
+    }
+    Timer::start(thread_id);
+    for idx in 0..logical_len {
+        let x = sign_extend(packed_read(&a.data, idx, bits), bits);
+        out.data[idx] = f(x);
+    }
+    Timer::stop(thread_id);
+    Ok(())
+}
 
 macro_rules! abs_accumulate_signed {
     ($name:ident, $in:ty, $out:ty) => {
-        pub fn $name(
-            a: &[$in],
-            output: Option<&mut [$out]>,
-            thread_id: usize,
-        ) -> Result<Option<Vec<$out>>> {
-            Timer::start(thread_id);
-            if let Some(out) = output {
-                if out.len() != a.len() {
-                    return Err(anyhow::anyhow!("abs op output shape mismatch"));
-                }
-                for (idx, value) in a.iter().enumerate() {
-                    let v = *value as i64;
-                    let y = if v < 0 { -v } else { v };
-                    out[idx] = y as $out;
-                }
-                Timer::stop(thread_id);
-                return Ok(None);
-            }
-            let mut out = vec![0 as $out; a.len()];
-            for (idx, value) in a.iter().enumerate() {
+        pub fn $name(a: &Tensor<$in>, out: &mut Tensor<$out>, thread_id: usize) -> Result<()> {
+            abs_accumulate_unary(a, out, |value| {
                 let v = *value as i64;
                 let y = if v < 0 { -v } else { v };
-                out[idx] = y as $out;
-            }
-            Timer::stop(thread_id);
-            Ok(Some(out))
+                y as $out
+            }, thread_id)
         }
     };
 }
@@ -45,32 +78,11 @@ abs_accumulate_signed!(abs_i32_i64, i32, i64);
 
 macro_rules! abs_packed_signed_accumulate {
     ($name:ident, $in:ty, $bits:expr, $out:ty) => {
-        pub fn $name(
-            a: &Tensor<$in>,
-            output: Option<&mut [$out]>,
-            thread_id: usize,
-        ) -> Result<Option<Vec<$out>>> {
-            let logical_len = a.numel();
-            Timer::start(thread_id);
-            if let Some(out) = output {
-                if out.len() != logical_len {
-                    return Err(anyhow::anyhow!("abs op output shape mismatch"));
-                }
-                for idx in 0..logical_len {
-                    let raw = crate::ops::cpu::packed::packed_read(&a.data, idx, $bits);
-                    let x = crate::ops::cpu::packed::sign_extend(raw, $bits);
-                    let v = if x < 0 { -x } else { x };
-                    out[idx] = v as $out;
-                }
-                Timer::stop(thread_id);
-                return Ok(None);
-            }
-            let out = packed_unary_accumulate_signed($bits, &a.data, logical_len, |x| {
+        pub fn $name(a: &Tensor<$in>, out: &mut Tensor<$out>, thread_id: usize) -> Result<()> {
+            abs_accumulate_packed_signed($bits, a, out, |x| {
                 let v = if x < 0 { -x } else { x };
                 v as $out
-            });
-            Timer::stop(thread_id);
-            Ok(Some(out))
+            }, thread_id)
         }
     };
 }

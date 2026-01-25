@@ -11,3 +11,8 @@ pub use matmul::*;
 pub use matmul_accumulate::*;
 #[allow(unused_imports)]
 pub use matmul_inplace::*;
+
+#[allow(dead_code)]
+pub fn supports_broadcast() -> bool {
+    false
+}

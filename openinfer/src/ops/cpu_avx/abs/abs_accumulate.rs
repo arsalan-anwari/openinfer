@@ -1,47 +1,15 @@
 use anyhow::Result;
 use std::arch::x86_64::*;
 
-use crate::timer::Timer;
+use crate::ops::cpu::data_helper::OutputBuf;
 use crate::ops::cpu_avx::packed::{get_i2_value, get_i4_value};
-use crate::tensor::{I2, I4};
-
-enum OutputBuf<'a, T>
-where
-    T: Default + Copy,
-{
-    Borrowed(&'a mut [T]),
-    Owned(Vec<T>),
-}
-
-impl<'a, T> OutputBuf<'a, T>
-where
-    T: Default + Copy,
-{
-    fn new(len: usize, output: Option<&'a mut [T]>, err: &'static str) -> Result<Self> {
-        if let Some(out) = output {
-            if out.len() != len {
-                return Err(anyhow::anyhow!(err));
-            }
-            Ok(Self::Borrowed(out))
-        } else {
-            Ok(Self::Owned(vec![T::default(); len]))
-        }
-    }
-
-    fn as_mut_slice(&mut self) -> &mut [T] {
-        match self {
-            Self::Borrowed(slice) => slice,
-            Self::Owned(vec) => vec.as_mut_slice(),
-        }
-    }
-
-    fn into_result(self) -> Option<Vec<T>> {
-        match self {
-            Self::Borrowed(_) => None,
-            Self::Owned(vec) => Some(vec),
-        }
-    }
-}
+use crate::ops::cpu_avx::registry_helpers::{
+    ensure_same_len_unary,
+    ensure_same_shape_unary,
+    is_contiguous,
+};
+use crate::tensor::{I2, I4, Tensor};
+use crate::timer::Timer;
 
 pub fn abs_i8_i16(
     a: &[i8],
@@ -205,3 +173,58 @@ abs_packed_signed_widen!(abs_i2_i8_packed, I2, get_i2_value, i8);
 abs_packed_signed_widen!(abs_i2_i16_packed, I2, get_i2_value, i16);
 abs_packed_signed_widen!(abs_i2_i32_packed, I2, get_i2_value, i32);
 abs_packed_signed_widen!(abs_i2_i64_packed, I2, get_i2_value, i64);
+
+macro_rules! abs_accumulate_tensor {
+    ($name:ident, $slice:ident, $in:ty, $out:ty) => {
+        pub fn $name(a: &Tensor<$in>, out: &mut Tensor<$out>, thread_id: usize) -> Result<()> {
+            ensure_same_shape_unary(a, out)?;
+            if !is_contiguous(a.shape(), a.strides()) || !is_contiguous(out.shape(), out.strides()) {
+                return Err(anyhow::anyhow!("abs accumulate requires contiguous tensors"));
+            }
+            ensure_same_len_unary(a, out)?;
+            let result = $slice(&a.data, Some(out.data.as_mut_slice()), thread_id)?;
+            if let Some(vec) = result {
+                out.data.copy_from_slice(&vec);
+            }
+            Ok(())
+        }
+    };
+}
+
+macro_rules! abs_accumulate_tensor_packed {
+    ($name:ident, $slice:ident, $in:ty, $out:ty) => {
+        pub fn $name(a: &Tensor<$in>, out: &mut Tensor<$out>, thread_id: usize) -> Result<()> {
+            ensure_same_shape_unary(a, out)?;
+            if !is_contiguous(a.shape(), a.strides()) || !is_contiguous(out.shape(), out.strides()) {
+                return Err(anyhow::anyhow!("abs accumulate requires contiguous packed tensors"));
+            }
+            let logical_len = a.numel();
+            let result = $slice(
+                &a.data,
+                logical_len,
+                Some(out.data.as_mut_slice()),
+                thread_id,
+            )?;
+            if let Some(vec) = result {
+                out.data.copy_from_slice(&vec);
+            }
+            Ok(())
+        }
+    };
+}
+
+abs_accumulate_tensor!(abs_i8_i16_tensor, abs_i8_i16, i8, i16);
+abs_accumulate_tensor!(abs_i16_i32_tensor, abs_i16_i32, i16, i32);
+abs_accumulate_tensor!(abs_i8_i32_tensor, abs_i8_i32, i8, i32);
+abs_accumulate_tensor!(abs_i8_i64_tensor, abs_i8_i64, i8, i64);
+abs_accumulate_tensor!(abs_i16_i64_tensor, abs_i16_i64, i16, i64);
+abs_accumulate_tensor!(abs_i32_i64_tensor, abs_i32_i64, i32, i64);
+
+abs_accumulate_tensor_packed!(abs_i4_i8_packed_tensor, abs_i4_i8_packed, I4, i8);
+abs_accumulate_tensor_packed!(abs_i4_i16_packed_tensor, abs_i4_i16_packed, I4, i16);
+abs_accumulate_tensor_packed!(abs_i4_i32_packed_tensor, abs_i4_i32_packed, I4, i32);
+abs_accumulate_tensor_packed!(abs_i4_i64_packed_tensor, abs_i4_i64_packed, I4, i64);
+abs_accumulate_tensor_packed!(abs_i2_i8_packed_tensor, abs_i2_i8_packed, I2, i8);
+abs_accumulate_tensor_packed!(abs_i2_i16_packed_tensor, abs_i2_i16_packed, I2, i16);
+abs_accumulate_tensor_packed!(abs_i2_i32_packed_tensor, abs_i2_i32_packed, I2, i32);
+abs_accumulate_tensor_packed!(abs_i2_i64_packed_tensor, abs_i2_i64_packed, I2, i64);

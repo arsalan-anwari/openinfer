@@ -1,177 +1,672 @@
+==> /home/arsalan/Workspace/open-infer/.venv/bin/python /home/arsalan/Workspace/open-infer/examples/python/ops_broadcast_variants_oinf.py
+Wrote /home/arsalan/Workspace/open-infer/res/models/ops_broadcast_variants_model.oinf
+==> /home/arsalan/Workspace/open-infer/.venv/bin/python /home/arsalan/Workspace/open-infer/openinfer-oinf/verify_oinf.py /home/arsalan/Workspace/open-infer/res/models/ops_broadcast_variants_model.oinf
+B := 2
+K := 3
+M := 2
+N := 3
+S := 1
+V := 8
+
+==> RUST_BACKTRACE=1 OPENINFER_TRACE=1 OPENINFER_VULKAN_TRACE=1 cargo run --package openinfer --example ops_broadcast_variants --features vulkan -- --target vulkan
    Compiling openinfer v0.1.0 (/home/arsalan/Workspace/open-infer/openinfer)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 6.73s
-     Running `target/debug/examples/ops_accumulate_inplace --target=avx2`
-add_i8 = {-5, -3 ... 7, 9}
-add_i16 = {-5, -3 ... 7, 9}
-add_i32 = {-5, -3 ... 7, 9}
-add_i64 = {-5, -3 ... 7, 9}
-add_u8 = {1, 3 ... 13, 15}
-add_u16 = {1, 3 ... 13, 15}
-add_u32 = {1, 3 ... 13, 15}
-add_u64 = {1, 3 ... 13, 15}
-add_f16 = {F16 { bits: 48640 }, F16 { bits: 47104 } ... F16 { bits: 17536 }, F16 { bits: 17792 }}
-add_bf16 = {-1.50, -0.50 ... 4.50, 5.50}
-add_f8 = {-1.50, -0.50 ... 5.00, 6.00}
-add_f32 = {-1.50, -0.50 ... 4.50, 5.50}
-add_f64 = {-1.50, -0.50 ... 4.50, 5.50}
-add_bool = {true, false ... true, false}
-add_bitset = {Bitset { bits: 0 }, Bitset { bits: 8 } ... Bitset { bits: 48 }, Bitset { bits: 56 }}
-add_i4 = {0xb9, 0xe1, 0x04, 0x3a}
-add_i2 = {0xff, 0xff}
-add_i1 = {0xff}
-add_u4 = {0x31, 0x75, 0x64, 0x20}
-add_u2 = {0xff, 0xff}
-add_u1 = {0xff}
-mul_i8 = {4, 0 ... 10, 18}
-mul_i16 = {4, 0 ... 10, 18}
-mul_i32 = {4, 0 ... 10, 18}
-mul_i64 = {4, 0 ... 10, 18}
-mul_u8 = {0, 2 ... 42, 56}
-mul_u16 = {0, 2 ... 42, 56}
-mul_u32 = {0, 2 ... 42, 56}
-mul_u64 = {0, 2 ... 42, 56}
-mul_f16 = {F16 { bits: 48128 }, F16 { bits: 48640 } ... F16 { bits: 17152 }, F16 { bits: 17920 }}
-mul_bf16 = {-1.00, -1.50 ... 3.50, 6.00}
-mul_f8 = {-1.00, -1.50 ... 3.50, 6.00}
-mul_f32 = {-1.00, -1.50 ... 3.50, 6.00}
-mul_f64 = {-1.00, -1.50 ... 3.50, 6.00}
-mul_bool = {true, false ... true, false}
-mul_bitset = {Bitset { bits: 0 }, Bitset { bits: 15 } ... Bitset { bits: 28 }, Bitset { bits: 223 }}
-mul_i4 = {0x48, 0x0e, 0x73, 0x48}
-mul_i2 = {0x82, 0x82}
-mul_i1 = {0x00}
-mul_u4 = {0x20, 0xc6, 0x50, 0xdc}
-mul_u2 = {0x28, 0x28}
-mul_u1 = {0x00}
-abs_i8 = {4, 3 ... 2, 3}
-abs_i16 = {4, 3 ... 2, 3}
-abs_i32 = {4, 3 ... 2, 3}
-abs_i64 = {4, 3 ... 2, 3}
-abs_f16 = {F16 { bits: 16384 }, F16 { bits: 15872 } ... F16 { bits: 15360 }, F16 { bits: 15872 }}
-abs_bf16 = {2.00, 1.50 ... 1.00, 1.50}
-abs_f8 = {2.00, 1.50 ... 1.00, 1.50}
-abs_f32 = {2.00, 1.50 ... 1.00, 1.50}
-abs_f64 = {2.00, 1.50 ... 1.00, 1.50}
-abs_i4 = {0x48, 0x01, 0x31, 0x76}
-abs_i2 = {0x46, 0x46}
-abs_i1 = {0x55}
-relu_i8 = {0, 0 ... 2, 2}
-relu_i16 = {0, 0 ... 2, 2}
-relu_i32 = {0, 0 ... 2, 2}
-relu_i64 = {0, 0 ... 2, 2}
-relu_f16 = {F16 { bits: 45670 }, F16 { bits: 45261 } ... F16 { bits: 15360 }, F16 { bits: 15872 }}
-relu_bf16 = {-0.20, -0.15 ... 1.00, 1.50}
-relu_f8 = {-0.19, -0.16 ... 1.00, 1.50}
-relu_f32 = {-0.20, -0.15 ... 1.00, 1.50}
-relu_f64 = {-0.20, -0.15 ... 1.00, 1.50}
-relu_i4 = {0x00, 0x00, 0x21, 0x22}
-fill_i8 = {1, 1 ... 1, 1}
-fill_i16 = {1, 1 ... 1, 1}
-fill_i32 = {1, 1 ... 1, 1}
-fill_i64 = {1, 1 ... 1, 1}
-fill_u8 = {1, 1 ... 1, 1}
-fill_u16 = {1, 1 ... 1, 1}
-fill_u32 = {1, 1 ... 1, 1}
-fill_u64 = {1, 1 ... 1, 1}
-fill_f16 = {F16 { bits: 15360 }, F16 { bits: 15360 } ... F16 { bits: 15360 }, F16 { bits: 15360 }}
-fill_bf16 = {1.00, 1.00 ... 1.00, 1.00}
-fill_f8 = {1.00, 1.00 ... 1.00, 1.00}
-fill_f32 = {1.00, 1.00 ... 1.00, 1.00}
-fill_f64 = {1.00, 1.00 ... 1.00, 1.00}
-fill_bool = {true, true ... true, true}
-fill_bitset = {Bitset { bits: 255 }, Bitset { bits: 255 } ... Bitset { bits: 255 }, Bitset { bits: 255 }}
-fill_i4 = {0x11, 0x11, 0x11, 0x11}
-fill_i2 = {0x55, 0x55}
-fill_i1 = {0x00}
-fill_u4 = {0x11, 0x11, 0x11, 0x11}
-fill_u2 = {0x55, 0x55}
-fill_u1 = {0xff}
-finite_f16 = {true}
-finite_bf16 = {true}
-finite_f8 = {true}
-finite_f32 = {true}
-finite_f64 = {true}
-mm_i8 = {0, -3 ... -55, 14}
-mm_i16 = {0, -3 ... 201, 270}
-mm_i32 = {0, -3 ... 201, 270}
-mm_i64 = {0, -3 ... 201, 270}
-mm_u8 = {18, 21 ... 65, 140}
-mm_u16 = {18, 21 ... 321, 396}
-mm_u32 = {18, 21 ... 321, 396}
-mm_u64 = {18, 21 ... 321, 396}
-mm_f16 = {F16 { bits: 49376 }, F16 { bits: 49664 } ... F16 { bits: 18608 }, F16 { bits: 19464 }}
-mm_f32 = {-2.44, -3.00 ... 9.38, 16.12}
-mm_f64 = {-2.44, -3.00 ... 9.38, 16.12}
-mm_bool = {true, false ... false, true}
-mm_bitset = {Bitset { bits: 210 }, Bitset { bits: 252 } ... Bitset { bits: 104 }, Bitset { bits: 4 }}
-add_acc_i8 = {-5, -3 ... 7, 9}
-add_acc_i16 = {-5, -3 ... 7, 9}
-add_acc_i32 = {-5, -3 ... 7, 9}
-add_acc_u8 = {1, 3 ... 13, 15}
-add_acc_u16 = {1, 3 ... 13, 15}
-add_acc_u32 = {1, 3 ... 13, 15}
-add_acc_i4 = {-7, -5 ... 10, 3}
-add_acc_i2 = {-1, -1 ... -1, -1}
-add_acc_i1 = {-1, -1 ... -1, -1}
-add_acc_u4 = {1, 3 ... 16, 18}
-add_acc_u2 = {3, 3 ... 3, 3}
-add_acc_u1 = {1, 1 ... 1, 1}
-mul_acc_i8 = {4, 0 ... 10, 18}
-mul_acc_i16 = {4, 0 ... 10, 18}
-mul_acc_i32 = {4, 0 ... 10, 18}
-mul_acc_u8 = {0, 2 ... 42, 56}
-mul_acc_u16 = {0, 2 ... 42, 56}
-mul_acc_u32 = {0, 2 ... 42, 56}
-mul_acc_i4 = {-8, 4 ... 24, -28}
-mul_acc_i2 = {-2, 0 ... 0, -2}
-mul_acc_i1 = {0, 0 ... 0, 0}
-mul_acc_u4 = {0, 2 ... 28, 45}
-mul_acc_u2 = {0, 2 ... 2, 0}
-mul_acc_u1 = {0, 0 ... 0, 0}
-abs_acc_i8 = {4, 3 ... 2, 3}
-abs_acc_i16 = {4, 3 ... 2, 3}
-abs_acc_i32 = {4, 3 ... 2, 3}
-abs_acc_i4 = {8, 4 ... 6, 7}
-abs_acc_i2 = {2, 1 ... 0, 1}
-abs_acc_i1 = {1, 0 ... 1, 0}
-mm_acc_i8 = {0, -3 ... 201, 270}
-mm_acc_i16 = {0, -3 ... 201, 270}
-mm_acc_i32 = {0, -3 ... 201, 270}
-mm_acc_u8 = {18, 21 ... 321, 396}
-mm_acc_u16 = {18, 21 ... 321, 396}
-mm_acc_u32 = {18, 21 ... 321, 396}
-in_i8 = {1, 1 ... 1, 1}
-in_i16 = {1, 1 ... 1, 1}
-in_i32 = {1, 1 ... 1, 1}
-in_i64 = {1, 1 ... 1, 1}
-in_u8 = {1, 1 ... 1, 1}
-in_u16 = {1, 1 ... 1, 1}
-in_u32 = {1, 1 ... 1, 1}
-in_u64 = {1, 1 ... 1, 1}
-in_f16 = {F16 { bits: 15360 }, F16 { bits: 15360 } ... F16 { bits: 15360 }, F16 { bits: 15360 }}
-in_bf16 = {1.00, 1.00 ... 1.00, 1.00}
-in_f8 = {1.00, 1.00 ... 1.00, 1.00}
-in_f32 = {1.00, 1.00 ... 1.00, 1.00}
-in_f64 = {1.00, 1.00 ... 1.00, 1.00}
-in_bool = {true, true ... true, true}
-in_bitset = {Bitset { bits: 1 }, Bitset { bits: 1 } ... Bitset { bits: 1 }, Bitset { bits: 1 }}
-in_i4 = {0x11, 0x11, 0x11, 0x11}
-in_i2 = {0x55, 0x55}
-in_i1 = {0x00}
-in_u4 = {0x11, 0x11, 0x11, 0x11}
-in_u2 = {0x55, 0x55}
-in_u1 = {0xff}
-in_ma_i8 = {0, -3 ... -55, 14}
-in_ma_i16 = {0, -3 ... 201, 270}
-in_ma_i32 = {0, -3 ... 201, 270}
-in_ma_i64 = {0, -3 ... 201, 270}
-in_ma_u8 = {18, 21 ... 65, 140}
-in_ma_u16 = {18, 21 ... 321, 396}
-in_ma_u32 = {18, 21 ... 321, 396}
-in_ma_u64 = {18, 21 ... 321, 396}
-in_ma_f16 = {F16 { bits: 49376 }, F16 { bits: 49664 } ... F16 { bits: 18608 }, F16 { bits: 19464 }}
-in_ma_f32 = {-2.44, -3.00 ... 9.38, 16.12}
-in_ma_f64 = {-2.44, -3.00 ... 9.38, 16.12}
-in_ma_bool = {true, false ... false, true}
-in_ma_bitset = {Bitset { bits: 210 }, Bitset { bits: 252 } ... Bitset { bits: 104 }, Bitset { bits: 4 }}
-ops_accumulate_inplace completed on CpuAvx2
+warning: function `build_metadata` is never used
+  --> openinfer/src/ops/vulkan/broadcast.rs:14:15
+   |
+14 | pub(crate) fn build_metadata(
+   |               ^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `openinfer` (lib) generated 1 warning
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.73s
+     Running `target/debug/examples/ops_broadcast_variants --target vulkan`
+04:29:49 [0m[34m[INFO] [0mvulkan init: creating instance
+04:29:49 [0m[34m[INFO] [0mvulkan init: enumerate physical devices
+04:29:49 [0m[34m[INFO] [0mvulkan init: create device
+04:29:49 [0m[34m[INFO] [0mvulkan init: create command pool
+04:29:49 [0m[34m[INFO] [0mvulkan init: create descriptor pool
+04:29:49 [0m[34m[INFO] [0mvulkan init: create descriptor set layout
+04:29:49 [0m[34m[INFO] [0mvulkan init: create pipeline layout (set_layouts=8)
+04:29:49 [0m[33m[WARN] [0mvulkan fallback: upload F64 on CPU (vulkan device does not support f64 (shader_float64))
+04:29:49 [0m[33m[WARN] [0mvulkan fallback: upload F64 on CPU (vulkan device does not support f64 (shader_float64))
+04:29:49 [0m[33m[WARN] [0mvulkan fallback: upload F64 on CPU (vulkan device does not support f64 (shader_float64))
+04:29:49 [0m[33m[WARN] [0mvulkan fallback: upload F64 on CPU (vulkan device does not support f64 (shader_float64))
+04:29:49 [0m[33m[WARN] [0mvulkan fallback: upload F64 on CPU (vulkan device does not support f64 (shader_float64))
+04:29:49 [0m[33m[WARN] [0mvulkan fallback: upload F64 on CPU (vulkan device does not support f64 (shader_float64))
+04:29:49 [0m[33m[WARN] [0mvulkan fallback: upload F64 on CPU (vulkan device does not support f64 (shader_float64))
+04:29:49 [0m[33m[WARN] [0mvulkan fallback: upload F64 on CPU (vulkan device does not support f64 (shader_float64))
+04:29:49 [0m[33m[WARN] [0mvulkan fallback: upload F64 on CPU (vulkan device does not support f64 (shader_float64))
+04:29:49 [0m[33m[WARN] [0mvulkan fallback: upload F64 on CPU (vulkan device does not support f64 (shader_float64))
+04:29:49 [0m[33m[WARN] [0mvulkan fallback: upload F64 on CPU (vulkan device does not support f64 (shader_float64))
+04:29:49 [0m[33m[WARN] [0mvulkan fallback: upload F64 on CPU (vulkan device does not support f64 (shader_float64))
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=I8 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=I8 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=I8 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=I8 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=I8 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=I8 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=I8 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=I8 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=I16 entry=main len=8 push=[8, 0, 0, 0] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=I16 entry=main len=8 push=[8, 0, 0, 0] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=I16 entry=main len=8 push=[8, 0, 0, 0] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=I16 entry=main len=8 push=[8, 0, 0, 0] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=I16 entry=main len=8 push=[8, 0, 0, 0] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=I16 entry=main len=8 push=[8, 0, 0, 0] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=I16 entry=main len=8 push=[8, 0, 0, 0] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=I16 entry=main len=8 push=[8, 0, 0, 0] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=I32 entry=main len=8 push=[8, 0, 0, 0] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=I32 entry=main len=8 push=[8, 0, 0, 0] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=I32 entry=main len=8 push=[8, 0, 0, 0] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=I32 entry=main len=8 push=[8, 0, 0, 0] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=I32 entry=main len=8 push=[8, 0, 0, 0] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=I32 entry=main len=8 push=[8, 0, 0, 0] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=I32 entry=main len=8 push=[8, 0, 0, 0] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=I32 entry=main len=8 push=[8, 0, 0, 0] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=I64 entry=main len=8 push=[8, 0, 0, 0] set=3
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=I64 entry=main len=8 push=[8, 0, 0, 0] set=3
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=I64 entry=main len=8 push=[8, 0, 0, 0] set=3
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=I64 entry=main len=8 push=[8, 0, 0, 0] set=3
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=I64 entry=main len=8 push=[8, 0, 0, 0] set=3
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=I64 entry=main len=8 push=[8, 0, 0, 0] set=3
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=I64 entry=main len=8 push=[8, 0, 0, 0] set=3
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=I64 entry=main len=8 push=[8, 0, 0, 0] set=3
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=U8 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=U8 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=U8 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=U8 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=U8 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=U8 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=U8 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=U8 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=U16 entry=main len=8 push=[8, 0, 0, 0] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=U16 entry=main len=8 push=[8, 0, 0, 0] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=U16 entry=main len=8 push=[8, 0, 0, 0] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=U16 entry=main len=8 push=[8, 0, 0, 0] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=U16 entry=main len=8 push=[8, 0, 0, 0] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=U16 entry=main len=8 push=[8, 0, 0, 0] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=U16 entry=main len=8 push=[8, 0, 0, 0] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=U16 entry=main len=8 push=[8, 0, 0, 0] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=U32 entry=main len=8 push=[8, 0, 0, 0] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=U32 entry=main len=8 push=[8, 0, 0, 0] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=U32 entry=main len=8 push=[8, 0, 0, 0] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=U32 entry=main len=8 push=[8, 0, 0, 0] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=U32 entry=main len=8 push=[8, 0, 0, 0] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=U32 entry=main len=8 push=[8, 0, 0, 0] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=U32 entry=main len=8 push=[8, 0, 0, 0] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=U32 entry=main len=8 push=[8, 0, 0, 0] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=U64 entry=main len=8 push=[8, 0, 0, 0] set=3
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=U64 entry=main len=8 push=[8, 0, 0, 0] set=3
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=U64 entry=main len=8 push=[8, 0, 0, 0] set=3
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=U64 entry=main len=8 push=[8, 0, 0, 0] set=3
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=U64 entry=main len=8 push=[8, 0, 0, 0] set=3
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=U64 entry=main len=8 push=[8, 0, 0, 0] set=3
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=U64 entry=main len=8 push=[8, 0, 0, 0] set=3
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=U64 entry=main len=8 push=[8, 0, 0, 0] set=3
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=F16 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=F16 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=F16 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=F16 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=F16 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=F16 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=F16 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=F16 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=BF16 entry=main len=8 push=[8, 0, 0, 0] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=BF16 entry=main len=8 push=[8, 0, 0, 0] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=BF16 entry=main len=8 push=[8, 0, 0, 0] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=BF16 entry=main len=8 push=[8, 0, 0, 0] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=BF16 entry=main len=8 push=[8, 0, 0, 0] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=BF16 entry=main len=8 push=[8, 0, 0, 0] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=BF16 entry=main len=8 push=[8, 0, 0, 0] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=BF16 entry=main len=8 push=[8, 0, 0, 0] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=F8E5M2 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=F8E5M2 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=F8E5M2 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=F8E5M2 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=F8E5M2 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=F8E5M2 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=F8E5M2 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=F8E5M2 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=F32 entry=main len=8 push=[8, 0, 0, 0] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=F32 entry=main len=8 push=[8, 0, 0, 0] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=F32 entry=main len=8 push=[8, 0, 0, 0] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=F32 entry=main len=8 push=[8, 0, 0, 0] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=F32 entry=main len=8 push=[8, 0, 0, 0] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=F32 entry=main len=8 push=[8, 0, 0, 0] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=F32 entry=main len=8 push=[8, 0, 0, 0] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=F32 entry=main len=8 push=[8, 0, 0, 0] set=1
+04:29:49 [0m[33m[WARN] [0mvulkan fallback: alloc F64 on CPU (vulkan device does not support f64 (shader_float64))
+04:29:49 [0m[33m[WARN] [0mvulkan fallback: running add on CPU (vulkan device does not support f64 (shader_float64)), keeping host output
+04:29:49 [0m[33m[WARN] [0mvulkan fallback: alloc F64 on CPU (vulkan device does not support f64 (shader_float64))
+04:29:49 [0m[33m[WARN] [0mvulkan fallback: running add on CPU (vulkan device does not support f64 (shader_float64)), keeping host output
+04:29:49 [0m[33m[WARN] [0mvulkan fallback: alloc F64 on CPU (vulkan device does not support f64 (shader_float64))
+04:29:49 [0m[33m[WARN] [0mvulkan fallback: running mul on CPU (vulkan device does not support f64 (shader_float64)), keeping host output
+04:29:49 [0m[33m[WARN] [0mvulkan fallback: alloc F64 on CPU (vulkan device does not support f64 (shader_float64))
+04:29:49 [0m[33m[WARN] [0mvulkan fallback: running mul on CPU (vulkan device does not support f64 (shader_float64)), keeping host output
+04:29:49 [0m[33m[WARN] [0mvulkan fallback: running add inplace on CPU (vulkan device does not support f64 (shader_float64)), keeping host output
+04:29:49 [0m[33m[WARN] [0mvulkan fallback: running add inplace on CPU (vulkan device does not support f64 (shader_float64)), keeping host output
+04:29:49 [0m[33m[WARN] [0mvulkan fallback: running mul inplace on CPU (vulkan device does not support f64 (shader_float64)), keeping host output
+04:29:49 [0m[33m[WARN] [0mvulkan fallback: running mul inplace on CPU (vulkan device does not support f64 (shader_float64)), keeping host output
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=Bool entry=main len=8 push=[8, 0, 0, 0] set=4
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=Bool entry=main len=8 push=[8, 0, 0, 0] set=4
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=Bool entry=main len=8 push=[8, 0, 0, 0] set=4
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=Bool entry=main len=8 push=[8, 0, 0, 0] set=4
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=Bool entry=main len=8 push=[8, 0, 0, 0] set=4
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=Bool entry=main len=8 push=[8, 0, 0, 0] set=4
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=Bool entry=main len=8 push=[8, 0, 0, 0] set=4
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=Bool entry=main len=8 push=[8, 0, 0, 0] set=4
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=Bitset entry=main len=8 push=[8, 0, 0, 0] set=5
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=Bitset entry=main len=8 push=[8, 0, 0, 0] set=5
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=Bitset entry=main len=8 push=[8, 0, 0, 0] set=5
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=Bitset entry=main len=8 push=[8, 0, 0, 0] set=5
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=Bitset entry=main len=8 push=[8, 0, 0, 0] set=5
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=Bitset entry=main len=8 push=[8, 0, 0, 0] set=5
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=Bitset entry=main len=8 push=[8, 0, 0, 0] set=5
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=Bitset entry=main len=8 push=[8, 0, 0, 0] set=5
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=I4 entry=main len=8 push=[8, 0, 0, 0] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=I4 entry=main len=8 push=[8, 0, 0, 0] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=I4 entry=main len=8 push=[8, 0, 0, 0] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=I4 entry=main len=8 push=[8, 0, 0, 0] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=I4 entry=main len=8 push=[8, 0, 0, 0] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=I4 entry=main len=8 push=[8, 0, 0, 0] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=I4 entry=main len=8 push=[8, 0, 0, 0] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=I4 entry=main len=8 push=[8, 0, 0, 0] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=I2 entry=main len=8 push=[8, 0, 0, 0] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=I2 entry=main len=8 push=[8, 0, 0, 0] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=I2 entry=main len=8 push=[8, 0, 0, 0] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=I2 entry=main len=8 push=[8, 0, 0, 0] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=I2 entry=main len=8 push=[8, 0, 0, 0] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=I2 entry=main len=8 push=[8, 0, 0, 0] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=I2 entry=main len=8 push=[8, 0, 0, 0] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=I2 entry=main len=8 push=[8, 0, 0, 0] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=I1 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=I1 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=I1 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=I1 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=I1 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=I1 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=I1 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=I1 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=U4 entry=main len=8 push=[8, 0, 0, 0] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=U4 entry=main len=8 push=[8, 0, 0, 0] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=U4 entry=main len=8 push=[8, 0, 0, 0] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=U4 entry=main len=8 push=[8, 0, 0, 0] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=U4 entry=main len=8 push=[8, 0, 0, 0] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=U4 entry=main len=8 push=[8, 0, 0, 0] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=U4 entry=main len=8 push=[8, 0, 0, 0] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=U4 entry=main len=8 push=[8, 0, 0, 0] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=U2 entry=main len=8 push=[8, 0, 0, 0] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=U2 entry=main len=8 push=[8, 0, 0, 0] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=U2 entry=main len=8 push=[8, 0, 0, 0] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=U2 entry=main len=8 push=[8, 0, 0, 0] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=U2 entry=main len=8 push=[8, 0, 0, 0] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=U2 entry=main len=8 push=[8, 0, 0, 0] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=U2 entry=main len=8 push=[8, 0, 0, 0] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=U2 entry=main len=8 push=[8, 0, 0, 0] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=U1 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=U1 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=U1 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=U1 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=U1 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=U1 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=U1 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=U1 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=I8 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=I8 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=I8 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=I8 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=I8 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=I8 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=I8 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=I8 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=I16 entry=main len=6 push=[6, 2, 3, 3] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=I16 entry=main len=6 push=[6, 2, 3, 3] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=I16 entry=main len=6 push=[6, 2, 3, 3] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=I16 entry=main len=6 push=[6, 2, 3, 3] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=I16 entry=main len=6 push=[6, 2, 3, 3] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=I16 entry=main len=6 push=[6, 2, 3, 3] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=I16 entry=main len=6 push=[6, 2, 3, 3] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=I16 entry=main len=6 push=[6, 2, 3, 3] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=I32 entry=main len=6 push=[6, 2, 3, 3] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=I32 entry=main len=6 push=[6, 2, 3, 3] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=I32 entry=main len=6 push=[6, 2, 3, 3] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=I32 entry=main len=6 push=[6, 2, 3, 3] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=I32 entry=main len=6 push=[6, 2, 3, 3] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=I32 entry=main len=6 push=[6, 2, 3, 3] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=I32 entry=main len=6 push=[6, 2, 3, 3] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=I32 entry=main len=6 push=[6, 2, 3, 3] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=I64 entry=main len=6 push=[6, 2, 3, 3] set=3
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=I64 entry=main len=6 push=[6, 2, 3, 3] set=3
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=I64 entry=main len=6 push=[6, 2, 3, 3] set=3
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=I64 entry=main len=6 push=[6, 2, 3, 3] set=3
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=I64 entry=main len=6 push=[6, 2, 3, 3] set=3
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=I64 entry=main len=6 push=[6, 2, 3, 3] set=3
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=I64 entry=main len=6 push=[6, 2, 3, 3] set=3
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=I64 entry=main len=6 push=[6, 2, 3, 3] set=3
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=U8 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=U8 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=U8 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=U8 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=U8 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=U8 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=U8 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=U8 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=U16 entry=main len=6 push=[6, 2, 3, 3] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=U16 entry=main len=6 push=[6, 2, 3, 3] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=U16 entry=main len=6 push=[6, 2, 3, 3] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=U16 entry=main len=6 push=[6, 2, 3, 3] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=U16 entry=main len=6 push=[6, 2, 3, 3] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=U16 entry=main len=6 push=[6, 2, 3, 3] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=U16 entry=main len=6 push=[6, 2, 3, 3] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=U16 entry=main len=6 push=[6, 2, 3, 3] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=U32 entry=main len=6 push=[6, 2, 3, 3] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=U32 entry=main len=6 push=[6, 2, 3, 3] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=U32 entry=main len=6 push=[6, 2, 3, 3] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=U32 entry=main len=6 push=[6, 2, 3, 3] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=U32 entry=main len=6 push=[6, 2, 3, 3] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=U32 entry=main len=6 push=[6, 2, 3, 3] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=U32 entry=main len=6 push=[6, 2, 3, 3] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=U32 entry=main len=6 push=[6, 2, 3, 3] set=2
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=U64 entry=main len=6 push=[6, 2, 3, 3] set=3
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=U64 entry=main len=6 push=[6, 2, 3, 3] set=3
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=U64 entry=main len=6 push=[6, 2, 3, 3] set=3
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=U64 entry=main len=6 push=[6, 2, 3, 3] set=3
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=U64 entry=main len=6 push=[6, 2, 3, 3] set=3
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=U64 entry=main len=6 push=[6, 2, 3, 3] set=3
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=U64 entry=main len=6 push=[6, 2, 3, 3] set=3
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=U64 entry=main len=6 push=[6, 2, 3, 3] set=3
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=F16 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=F16 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=F16 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=F16 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=F16 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=F16 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=F16 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=F16 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=F32 entry=main len=6 push=[6, 2, 3, 3] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=F32 entry=main len=6 push=[6, 2, 3, 3] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=F32 entry=main len=6 push=[6, 2, 3, 3] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=F32 entry=main len=6 push=[6, 2, 3, 3] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=F32 entry=main len=6 push=[6, 2, 3, 3] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=F32 entry=main len=6 push=[6, 2, 3, 3] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=F32 entry=main len=6 push=[6, 2, 3, 3] set=1
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=F32 entry=main len=6 push=[6, 2, 3, 3] set=1
+04:29:49 [0m[33m[WARN] [0mvulkan fallback: alloc F64 on CPU (vulkan device does not support f64 (shader_float64))
+04:29:49 [0m[33m[WARN] [0mvulkan fallback: running matmul on CPU (vulkan device does not support f64 (shader_float64)), keeping host output
+04:29:49 [0m[33m[WARN] [0mvulkan fallback: alloc F64 on CPU (vulkan device does not support f64 (shader_float64))
+04:29:49 [0m[33m[WARN] [0mvulkan fallback: running matmul on CPU (vulkan device does not support f64 (shader_float64)), keeping host output
+04:29:49 [0m[33m[WARN] [0mvulkan fallback: running matmul inplace on CPU (vulkan device does not support f64 (shader_float64)), keeping host output
+04:29:49 [0m[33m[WARN] [0mvulkan fallback: running matmul inplace on CPU (vulkan device does not support f64 (shader_float64)), keeping host output
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=Bool entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=Bool entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=Bool entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=Bool entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=Bool entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=Bool entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=Bool entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=Bool entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=Bitset entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=Bitset entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=Bitset entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=Bitset entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=Bitset entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=Bitset entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=Bitset entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=Bitset entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=I16 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=I16 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=I32 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=I32 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=I64 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=I64 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=U16 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=U16 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=U32 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=U32 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=U64 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=U64 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=I8 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=I8 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=I8 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=I8 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=I8 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=I8 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=U8 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=U8 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=U8 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=U8 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=U8 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=add dtype=U8 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=I16 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=I16 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=I32 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=I32 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=I64 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=I64 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=U16 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=U16 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=U32 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=U32 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=U64 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=U64 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=I8 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=I8 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:49 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=I8 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:50 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=I8 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:50 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=I8 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:50 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=I8 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:50 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=U8 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:50 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=U8 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:50 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=U8 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:50 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=U8 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:50 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=U8 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:50 [0m[34m[INFO] [0mvulkan dispatch op=mul dtype=U8 entry=main len=8 push=[8, 0, 0, 0] set=0
+04:29:50 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=I16 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:50 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=I16 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:50 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=I16 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:50 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=I16 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:50 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=I32 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:50 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=I32 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:50 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=I32 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:50 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=I32 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:50 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=I64 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:50 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=I64 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:50 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=I64 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:50 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=I64 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:50 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=U16 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:50 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=U16 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:50 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=U16 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:50 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=U16 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:50 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=U32 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:50 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=U32 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:50 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=U32 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:50 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=U32 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:50 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=U64 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:50 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=U64 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:50 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=U64 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:50 [0m[34m[INFO] [0mvulkan dispatch op=matmul dtype=U64 entry=main len=6 push=[6, 2, 3, 3] set=0
+04:29:50 [0m[34m[INFO] [0m⚠️ == Pass but drift. ✅ == Pass with no drift. ❌ == Fail
+04:29:50 [0m[34m[INFO] [0m[✅] add_i8 = {-5, -3 ... 7, 9} -- ref = {-5, -3 ... 7, 9}
+04:29:50 [0m[34m[INFO] [0m[✅] add_b_i8 = {-5, -4 ... 1, 2} -- ref = {-5, -4 ... 1, 2}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_i8 = {4, 0 ... 10, 18} -- ref = {4, 0 ... 10, 18}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_b_i8 = {4, 3 ... -2, -3} -- ref = {4, 3 ... -2, -3}
+04:29:50 [0m[34m[INFO] [0m[✅] in_add_i8 = {-5, -3 ... 7, 9} -- ref = {-5, -3 ... 7, 9}
+04:29:50 [0m[34m[INFO] [0m[✅] in_add_b_i8 = {-5, -4 ... 1, 2} -- ref = {-5, -4 ... 1, 2}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mul_i8 = {4, 0 ... 10, 18} -- ref = {4, 0 ... 10, 18}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mul_b_i8 = {4, 3 ... -2, -3} -- ref = {4, 3 ... -2, -3}
+04:29:50 [0m[34m[INFO] [0m[✅] mm_i8 = {0, -3 ... -55, 14} -- ref = {0, -3 ... -55, 14}
+04:29:50 [0m[34m[INFO] [0m[✅] mm_b_i8 = {0, -3 ... 66, 54} -- ref = {0, -3 ... 66, 54}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mm_i8 = {0, -3 ... -55, 14} -- ref = {0, -3 ... -55, 14}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mm_b_i8 = {0, -3 ... 66, 54} -- ref = {0, -3 ... 66, 54}
+04:29:50 [0m[34m[INFO] [0m[✅] add_acc_i4 = {-7, -5 ... 10, 3} -- ref = {-7, -5 ... 10, 3}
+04:29:50 [0m[34m[INFO] [0m[✅] add_acc_b_i4 = {-7, -3 ... 7, 8} -- ref = {-7, -3 ... 7, 8}
+04:29:50 [0m[34m[INFO] [0m[✅] add_acc_i2 = {-1, -1 ... -1, -1} -- ref = {-1, -1 ... -1, -1}
+04:29:50 [0m[34m[INFO] [0m[✅] add_acc_b_i2 = {-1, 0 ... 1, 2} -- ref = {-1, 0 ... 1, 2}
+04:29:50 [0m[34m[INFO] [0m[✅] add_acc_i1 = {-1, -1 ... -1, -1} -- ref = {-1, -1 ... -1, -1}
+04:29:50 [0m[34m[INFO] [0m[✅] add_acc_b_i1 = {-1, 0 ... -1, 0} -- ref = {-1, 0 ... -1, 0}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_acc_i4 = {-8, 4 ... 24, -28} -- ref = {-8, 4 ... 24, -28}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_acc_b_i4 = {-8, -4 ... 6, 7} -- ref = {-8, -4 ... 6, 7}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_acc_i2 = {-2, 0 ... 0, -2} -- ref = {-2, 0 ... 0, -2}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_acc_b_i2 = {-2, -1 ... 0, 1} -- ref = {-2, -1 ... 0, 1}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_acc_i1 = {0, 0 ... 0, 0} -- ref = {0, 0 ... 0, 0}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_acc_b_i1 = {0, 0 ... 0, 0} -- ref = {0, 0 ... 0, 0}
+04:29:50 [0m[34m[INFO] [0m[✅] add_i16 = {-5, -3 ... 7, 9} -- ref = {-5, -3 ... 7, 9}
+04:29:50 [0m[34m[INFO] [0m[✅] add_b_i16 = {-5, -4 ... 1, 2} -- ref = {-5, -4 ... 1, 2}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_i16 = {4, 0 ... 10, 18} -- ref = {4, 0 ... 10, 18}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_b_i16 = {4, 3 ... -2, -3} -- ref = {4, 3 ... -2, -3}
+04:29:50 [0m[34m[INFO] [0m[✅] in_add_i16 = {-5, -3 ... 7, 9} -- ref = {-5, -3 ... 7, 9}
+04:29:50 [0m[34m[INFO] [0m[✅] in_add_b_i16 = {-5, -4 ... 1, 2} -- ref = {-5, -4 ... 1, 2}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mul_i16 = {4, 0 ... 10, 18} -- ref = {4, 0 ... 10, 18}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mul_b_i16 = {4, 3 ... -2, -3} -- ref = {4, 3 ... -2, -3}
+04:29:50 [0m[34m[INFO] [0m[✅] mm_i16 = {0, -3 ... 201, 270} -- ref = {0, -3 ... 201, 270}
+04:29:50 [0m[34m[INFO] [0m[✅] mm_b_i16 = {0, -3 ... 66, 54} -- ref = {0, -3 ... 66, 54}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mm_i16 = {0, -3 ... 201, 270} -- ref = {0, -3 ... 201, 270}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mm_b_i16 = {0, -3 ... 66, 54} -- ref = {0, -3 ... 66, 54}
+04:29:50 [0m[34m[INFO] [0m[✅] add_acc_i8 = {-5, -3 ... 7, 9} -- ref = {-5, -3 ... 7, 9}
+04:29:50 [0m[34m[INFO] [0m[✅] add_acc_b_i8 = {-5, -4 ... 1, 2} -- ref = {-5, -4 ... 1, 2}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_acc_i8 = {4, 0 ... 10, 18} -- ref = {4, 0 ... 10, 18}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_acc_b_i8 = {4, 3 ... -2, -3} -- ref = {4, 3 ... -2, -3}
+04:29:50 [0m[34m[INFO] [0m[✅] mm_acc_i8 = {0, -3 ... 201, 270} -- ref = {0, -3 ... 201, 270}
+04:29:50 [0m[34m[INFO] [0m[✅] mm_acc_b_i8 = {0, -3 ... 66, 54} -- ref = {0, -3 ... 66, 54}
+04:29:50 [0m[34m[INFO] [0m[✅] add_i32 = {-5, -3 ... 7, 9} -- ref = {-5, -3 ... 7, 9}
+04:29:50 [0m[34m[INFO] [0m[✅] add_b_i32 = {-5, -4 ... 1, 2} -- ref = {-5, -4 ... 1, 2}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_i32 = {4, 0 ... 10, 18} -- ref = {4, 0 ... 10, 18}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_b_i32 = {4, 3 ... -2, -3} -- ref = {4, 3 ... -2, -3}
+04:29:50 [0m[34m[INFO] [0m[✅] in_add_i32 = {-5, -3 ... 7, 9} -- ref = {-5, -3 ... 7, 9}
+04:29:50 [0m[34m[INFO] [0m[✅] in_add_b_i32 = {-5, -4 ... 1, 2} -- ref = {-5, -4 ... 1, 2}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mul_i32 = {4, 0 ... 10, 18} -- ref = {4, 0 ... 10, 18}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mul_b_i32 = {4, 3 ... -2, -3} -- ref = {4, 3 ... -2, -3}
+04:29:50 [0m[34m[INFO] [0m[✅] mm_i32 = {0, -3 ... 201, 270} -- ref = {0, -3 ... 201, 270}
+04:29:50 [0m[34m[INFO] [0m[✅] mm_b_i32 = {0, -3 ... 66, 54} -- ref = {0, -3 ... 66, 54}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mm_i32 = {0, -3 ... 201, 270} -- ref = {0, -3 ... 201, 270}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mm_b_i32 = {0, -3 ... 66, 54} -- ref = {0, -3 ... 66, 54}
+04:29:50 [0m[34m[INFO] [0m[✅] add_acc_i16 = {-5, -3 ... 7, 9} -- ref = {-5, -3 ... 7, 9}
+04:29:50 [0m[34m[INFO] [0m[✅] add_acc_b_i16 = {-5, -4 ... 1, 2} -- ref = {-5, -4 ... 1, 2}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_acc_i16 = {4, 0 ... 10, 18} -- ref = {4, 0 ... 10, 18}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_acc_b_i16 = {4, 3 ... -2, -3} -- ref = {4, 3 ... -2, -3}
+04:29:50 [0m[34m[INFO] [0m[✅] mm_acc_i16 = {0, -3 ... 201, 270} -- ref = {0, -3 ... 201, 270}
+04:29:50 [0m[34m[INFO] [0m[✅] mm_acc_b_i16 = {0, -3 ... 66, 54} -- ref = {0, -3 ... 66, 54}
+04:29:50 [0m[34m[INFO] [0m[✅] add_i64 = {-5, -3 ... 7, 9} -- ref = {-5, -3 ... 7, 9}
+04:29:50 [0m[34m[INFO] [0m[✅] add_b_i64 = {-5, -4 ... 1, 2} -- ref = {-5, -4 ... 1, 2}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_i64 = {4, 0 ... 10, 18} -- ref = {4, 0 ... 10, 18}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_b_i64 = {4, 3 ... -2, -3} -- ref = {4, 3 ... -2, -3}
+04:29:50 [0m[34m[INFO] [0m[✅] in_add_i64 = {-5, -3 ... 7, 9} -- ref = {-5, -3 ... 7, 9}
+04:29:50 [0m[34m[INFO] [0m[✅] in_add_b_i64 = {-5, -4 ... 1, 2} -- ref = {-5, -4 ... 1, 2}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mul_i64 = {4, 0 ... 10, 18} -- ref = {4, 0 ... 10, 18}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mul_b_i64 = {4, 3 ... -2, -3} -- ref = {4, 3 ... -2, -3}
+04:29:50 [0m[34m[INFO] [0m[✅] mm_i64 = {0, -3 ... 201, 270} -- ref = {0, -3 ... 201, 270}
+04:29:50 [0m[34m[INFO] [0m[✅] mm_b_i64 = {0, -3 ... 66, 54} -- ref = {0, -3 ... 66, 54}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mm_i64 = {0, -3 ... 201, 270} -- ref = {0, -3 ... 201, 270}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mm_b_i64 = {0, -3 ... 66, 54} -- ref = {0, -3 ... 66, 54}
+04:29:50 [0m[34m[INFO] [0m[✅] add_acc_i32 = {-5, -3 ... 7, 9} -- ref = {-5, -3 ... 7, 9}
+04:29:50 [0m[34m[INFO] [0m[✅] add_acc_b_i32 = {-5, -4 ... 1, 2} -- ref = {-5, -4 ... 1, 2}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_acc_i32 = {4, 0 ... 10, 18} -- ref = {4, 0 ... 10, 18}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_acc_b_i32 = {4, 3 ... -2, -3} -- ref = {4, 3 ... -2, -3}
+04:29:50 [0m[34m[INFO] [0m[✅] mm_acc_i32 = {0, -3 ... 201, 270} -- ref = {0, -3 ... 201, 270}
+04:29:50 [0m[34m[INFO] [0m[✅] mm_acc_b_i32 = {0, -3 ... 66, 54} -- ref = {0, -3 ... 66, 54}
+04:29:50 [0m[34m[INFO] [0m[✅] add_u8 = {1, 3 ... 13, 15} -- ref = {1, 3 ... 13, 15}
+04:29:50 [0m[34m[INFO] [0m[✅] add_b_u8 = {1, 2 ... 7, 8} -- ref = {1, 2 ... 7, 8}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_u8 = {0, 2 ... 42, 56} -- ref = {0, 2 ... 42, 56}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_b_u8 = {0, 1 ... 6, 7} -- ref = {0, 1 ... 6, 7}
+04:29:50 [0m[34m[INFO] [0m[✅] in_add_u8 = {1, 3 ... 13, 15} -- ref = {1, 3 ... 13, 15}
+04:29:50 [0m[34m[INFO] [0m[✅] in_add_b_u8 = {1, 2 ... 7, 8} -- ref = {1, 2 ... 7, 8}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mul_u8 = {0, 2 ... 42, 56} -- ref = {0, 2 ... 42, 56}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mul_b_u8 = {0, 1 ... 6, 7} -- ref = {0, 1 ... 6, 7}
+04:29:50 [0m[34m[INFO] [0m[✅] mm_u8 = {18, 21 ... 65, 140} -- ref = {18, 21 ... 65, 140}
+04:29:50 [0m[34m[INFO] [0m[✅] mm_b_u8 = {18, 21 ... 132, 126} -- ref = {18, 21 ... 132, 126}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mm_u8 = {18, 21 ... 65, 140} -- ref = {18, 21 ... 65, 140}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mm_b_u8 = {18, 21 ... 132, 126} -- ref = {18, 21 ... 132, 126}
+04:29:50 [0m[34m[INFO] [0m[✅] add_acc_u4 = {1, 3 ... 16, 18} -- ref = {1, 3 ... 16, 18}
+04:29:50 [0m[34m[INFO] [0m[✅] add_acc_b_u4 = {1, 2 ... 15, 16} -- ref = {1, 2 ... 15, 16}
+04:29:50 [0m[34m[INFO] [0m[✅] add_acc_u2 = {3, 3 ... 3, 3} -- ref = {3, 3 ... 3, 3}
+04:29:50 [0m[34m[INFO] [0m[✅] add_acc_b_u2 = {3, 4 ... 5, 6} -- ref = {3, 4 ... 5, 6}
+04:29:50 [0m[34m[INFO] [0m[✅] add_acc_u1 = {1, 1 ... 1, 1} -- ref = {1, 1 ... 1, 1}
+04:29:50 [0m[34m[INFO] [0m[✅] add_acc_b_u1 = {1, 2 ... 2, 1} -- ref = {1, 2 ... 2, 1}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_acc_u4 = {0, 2 ... 28, 45} -- ref = {0, 2 ... 28, 45}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_acc_b_u4 = {0, 1 ... 14, 15} -- ref = {0, 1 ... 14, 15}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_acc_u2 = {0, 2 ... 2, 0} -- ref = {0, 2 ... 2, 0}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_acc_b_u2 = {0, 3 ... 6, 9} -- ref = {0, 3 ... 6, 9}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_acc_u1 = {0, 0 ... 0, 0} -- ref = {0, 0 ... 0, 0}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_acc_b_u1 = {0, 1 ... 1, 0} -- ref = {0, 1 ... 1, 0}
+04:29:50 [0m[34m[INFO] [0m[✅] add_u16 = {1, 3 ... 13, 15} -- ref = {1, 3 ... 13, 15}
+04:29:50 [0m[34m[INFO] [0m[✅] add_b_u16 = {1, 2 ... 7, 8} -- ref = {1, 2 ... 7, 8}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_u16 = {0, 2 ... 42, 56} -- ref = {0, 2 ... 42, 56}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_b_u16 = {0, 1 ... 6, 7} -- ref = {0, 1 ... 6, 7}
+04:29:50 [0m[34m[INFO] [0m[✅] in_add_u16 = {1, 3 ... 13, 15} -- ref = {1, 3 ... 13, 15}
+04:29:50 [0m[34m[INFO] [0m[✅] in_add_b_u16 = {1, 2 ... 7, 8} -- ref = {1, 2 ... 7, 8}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mul_u16 = {0, 2 ... 42, 56} -- ref = {0, 2 ... 42, 56}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mul_b_u16 = {0, 1 ... 6, 7} -- ref = {0, 1 ... 6, 7}
+04:29:50 [0m[34m[INFO] [0m[✅] mm_u16 = {18, 21 ... 321, 396} -- ref = {18, 21 ... 321, 396}
+04:29:50 [0m[34m[INFO] [0m[✅] mm_b_u16 = {18, 21 ... 132, 126} -- ref = {18, 21 ... 132, 126}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mm_u16 = {18, 21 ... 321, 396} -- ref = {18, 21 ... 321, 396}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mm_b_u16 = {18, 21 ... 132, 126} -- ref = {18, 21 ... 132, 126}
+04:29:50 [0m[34m[INFO] [0m[✅] add_acc_u8 = {1, 3 ... 13, 15} -- ref = {1, 3 ... 13, 15}
+04:29:50 [0m[34m[INFO] [0m[✅] add_acc_b_u8 = {1, 2 ... 7, 8} -- ref = {1, 2 ... 7, 8}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_acc_u8 = {0, 2 ... 42, 56} -- ref = {0, 2 ... 42, 56}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_acc_b_u8 = {0, 1 ... 6, 7} -- ref = {0, 1 ... 6, 7}
+04:29:50 [0m[34m[INFO] [0m[✅] mm_acc_u8 = {18, 21 ... 321, 396} -- ref = {18, 21 ... 321, 396}
+04:29:50 [0m[34m[INFO] [0m[✅] mm_acc_b_u8 = {18, 21 ... 132, 126} -- ref = {18, 21 ... 132, 126}
+04:29:50 [0m[34m[INFO] [0m[✅] add_u32 = {1, 3 ... 13, 15} -- ref = {1, 3 ... 13, 15}
+04:29:50 [0m[34m[INFO] [0m[✅] add_b_u32 = {1, 2 ... 7, 8} -- ref = {1, 2 ... 7, 8}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_u32 = {0, 2 ... 42, 56} -- ref = {0, 2 ... 42, 56}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_b_u32 = {0, 1 ... 6, 7} -- ref = {0, 1 ... 6, 7}
+04:29:50 [0m[34m[INFO] [0m[✅] in_add_u32 = {1, 3 ... 13, 15} -- ref = {1, 3 ... 13, 15}
+04:29:50 [0m[34m[INFO] [0m[✅] in_add_b_u32 = {1, 2 ... 7, 8} -- ref = {1, 2 ... 7, 8}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mul_u32 = {0, 2 ... 42, 56} -- ref = {0, 2 ... 42, 56}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mul_b_u32 = {0, 1 ... 6, 7} -- ref = {0, 1 ... 6, 7}
+04:29:50 [0m[34m[INFO] [0m[✅] mm_u32 = {18, 21 ... 321, 396} -- ref = {18, 21 ... 321, 396}
+04:29:50 [0m[34m[INFO] [0m[✅] mm_b_u32 = {18, 21 ... 132, 126} -- ref = {18, 21 ... 132, 126}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mm_u32 = {18, 21 ... 321, 396} -- ref = {18, 21 ... 321, 396}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mm_b_u32 = {18, 21 ... 132, 126} -- ref = {18, 21 ... 132, 126}
+04:29:50 [0m[34m[INFO] [0m[✅] add_acc_u16 = {1, 3 ... 13, 15} -- ref = {1, 3 ... 13, 15}
+04:29:50 [0m[34m[INFO] [0m[✅] add_acc_b_u16 = {1, 2 ... 7, 8} -- ref = {1, 2 ... 7, 8}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_acc_u16 = {0, 2 ... 42, 56} -- ref = {0, 2 ... 42, 56}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_acc_b_u16 = {0, 1 ... 6, 7} -- ref = {0, 1 ... 6, 7}
+04:29:50 [0m[34m[INFO] [0m[✅] mm_acc_u16 = {18, 21 ... 321, 396} -- ref = {18, 21 ... 321, 396}
+04:29:50 [0m[34m[INFO] [0m[✅] mm_acc_b_u16 = {18, 21 ... 132, 126} -- ref = {18, 21 ... 132, 126}
+04:29:50 [0m[34m[INFO] [0m[✅] add_u64 = {1, 3 ... 13, 15} -- ref = {1, 3 ... 13, 15}
+04:29:50 [0m[34m[INFO] [0m[✅] add_b_u64 = {1, 2 ... 7, 8} -- ref = {1, 2 ... 7, 8}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_u64 = {0, 2 ... 42, 56} -- ref = {0, 2 ... 42, 56}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_b_u64 = {0, 1 ... 6, 7} -- ref = {0, 1 ... 6, 7}
+04:29:50 [0m[34m[INFO] [0m[✅] in_add_u64 = {1, 3 ... 13, 15} -- ref = {1, 3 ... 13, 15}
+04:29:50 [0m[34m[INFO] [0m[✅] in_add_b_u64 = {1, 2 ... 7, 8} -- ref = {1, 2 ... 7, 8}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mul_u64 = {0, 2 ... 42, 56} -- ref = {0, 2 ... 42, 56}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mul_b_u64 = {0, 1 ... 6, 7} -- ref = {0, 1 ... 6, 7}
+04:29:50 [0m[34m[INFO] [0m[✅] mm_u64 = {18, 21 ... 321, 396} -- ref = {18, 21 ... 321, 396}
+04:29:50 [0m[34m[INFO] [0m[✅] mm_b_u64 = {18, 21 ... 132, 126} -- ref = {18, 21 ... 132, 126}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mm_u64 = {18, 21 ... 321, 396} -- ref = {18, 21 ... 321, 396}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mm_b_u64 = {18, 21 ... 132, 126} -- ref = {18, 21 ... 132, 126}
+04:29:50 [0m[34m[INFO] [0m[✅] add_acc_u32 = {1, 3 ... 13, 15} -- ref = {1, 3 ... 13, 15}
+04:29:50 [0m[34m[INFO] [0m[✅] add_acc_b_u32 = {1, 2 ... 7, 8} -- ref = {1, 2 ... 7, 8}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_acc_u32 = {0, 2 ... 42, 56} -- ref = {0, 2 ... 42, 56}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_acc_b_u32 = {0, 1 ... 6, 7} -- ref = {0, 1 ... 6, 7}
+04:29:50 [0m[34m[INFO] [0m[✅] mm_acc_u32 = {18, 21 ... 321, 396} -- ref = {18, 21 ... 321, 396}
+04:29:50 [0m[34m[INFO] [0m[✅] mm_acc_b_u32 = {18, 21 ... 132, 126} -- ref = {18, 21 ... 132, 126}
+04:29:50 [0m[34m[INFO] [0m[✅] add_bool = {true, false ... true, false} -- ref = {true, false ... true, false}
+04:29:50 [0m[34m[INFO] [0m[✅] add_b_bool = {true, true ... true, true} -- ref = {true, true ... true, true}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_bool = {true, false ... true, false} -- ref = {true, false ... true, false}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_b_bool = {true, false ... true, false} -- ref = {true, false ... true, false}
+04:29:50 [0m[34m[INFO] [0m[✅] in_add_bool = {true, false ... true, false} -- ref = {true, false ... true, false}
+04:29:50 [0m[34m[INFO] [0m[✅] in_add_b_bool = {true, true ... true, true} -- ref = {true, true ... true, true}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mul_bool = {true, false ... true, false} -- ref = {true, false ... true, false}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mul_b_bool = {true, false ... true, false} -- ref = {true, false ... true, false}
+04:29:50 [0m[34m[INFO] [0m[✅] mm_bool = {true, false ... false, true} -- ref = {true, false ... false, true}
+04:29:50 [0m[34m[INFO] [0m[✅] mm_b_bool = {true, false ... false, true} -- ref = {true, false ... false, true}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mm_bool = {true, false ... false, true} -- ref = {true, false ... false, true}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mm_b_bool = {true, false ... false, true} -- ref = {true, false ... false, true}
+04:29:50 [0m[34m[INFO] [0m[✅] add_bitset = {Bitset { bits: 0 }, Bitset { bits: 8 } ... Bitset { bits: 48 }, Bitset { bits: 56 }} -- ref = {Bitset { bits: 0 }, Bitset { bits: 8 } ... Bitset { bits: 48 }, Bitset { bits: 56 }}
+04:29:50 [0m[34m[INFO] [0m[✅] add_b_bitset = {Bitset { bits: 0 }, Bitset { bits: 3 } ... Bitset { bits: 18 }, Bitset { bits: 21 }} -- ref = {Bitset { bits: 0 }, Bitset { bits: 3 } ... Bitset { bits: 18 }, Bitset { bits: 21 }}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_bitset = {Bitset { bits: 0 }, Bitset { bits: 15 } ... Bitset { bits: 28 }, Bitset { bits: 223 }} -- ref = {Bitset { bits: 0 }, Bitset { bits: 15 } ... Bitset { bits: 28 }, Bitset { bits: 223 }}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_b_bitset = {Bitset { bits: 0 }, Bitset { bits: 0 } ... Bitset { bits: 0 }, Bitset { bits: 0 }} -- ref = {Bitset { bits: 0 }, Bitset { bits: 0 } ... Bitset { bits: 0 }, Bitset { bits: 0 }}
+04:29:50 [0m[34m[INFO] [0m[✅] in_add_bitset = {Bitset { bits: 0 }, Bitset { bits: 8 } ... Bitset { bits: 48 }, Bitset { bits: 56 }} -- ref = {Bitset { bits: 0 }, Bitset { bits: 8 } ... Bitset { bits: 48 }, Bitset { bits: 56 }}
+04:29:50 [0m[34m[INFO] [0m[✅] in_add_b_bitset = {Bitset { bits: 0 }, Bitset { bits: 3 } ... Bitset { bits: 18 }, Bitset { bits: 21 }} -- ref = {Bitset { bits: 0 }, Bitset { bits: 3 } ... Bitset { bits: 18 }, Bitset { bits: 21 }}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mul_bitset = {Bitset { bits: 0 }, Bitset { bits: 15 } ... Bitset { bits: 28 }, Bitset { bits: 223 }} -- ref = {Bitset { bits: 0 }, Bitset { bits: 15 } ... Bitset { bits: 28 }, Bitset { bits: 223 }}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mul_b_bitset = {Bitset { bits: 0 }, Bitset { bits: 0 } ... Bitset { bits: 0 }, Bitset { bits: 0 }} -- ref = {Bitset { bits: 0 }, Bitset { bits: 0 } ... Bitset { bits: 0 }, Bitset { bits: 0 }}
+04:29:50 [0m[34m[INFO] [0m[✅] mm_bitset = {Bitset { bits: 210 }, Bitset { bits: 252 } ... Bitset { bits: 104 }, Bitset { bits: 4 }} -- ref = {Bitset { bits: 210 }, Bitset { bits: 252 } ... Bitset { bits: 104 }, Bitset { bits: 4 }}
+04:29:50 [0m[34m[INFO] [0m[✅] mm_b_bitset = {Bitset { bits: 210 }, Bitset { bits: 252 } ... Bitset { bits: 18 }, Bitset { bits: 64 }} -- ref = {Bitset { bits: 210 }, Bitset { bits: 252 } ... Bitset { bits: 18 }, Bitset { bits: 64 }}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mm_bitset = {Bitset { bits: 210 }, Bitset { bits: 252 } ... Bitset { bits: 104 }, Bitset { bits: 4 }} -- ref = {Bitset { bits: 210 }, Bitset { bits: 252 } ... Bitset { bits: 104 }, Bitset { bits: 4 }}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mm_b_bitset = {Bitset { bits: 210 }, Bitset { bits: 252 } ... Bitset { bits: 18 }, Bitset { bits: 64 }} -- ref = {Bitset { bits: 210 }, Bitset { bits: 252 } ... Bitset { bits: 18 }, Bitset { bits: 64 }}
+04:29:50 [0m[34m[INFO] [0m[✅] add_i4 = {0xb9, 0xe1, 0x04, 0x3a} -- ref = {0xb9, 0xe1, 0x04, 0x3a}
+04:29:50 [0m[34m[INFO] [0m[✅] add_b_i4 = {0xd9, 0x10, 0x42, 0x87} -- ref = {0xd9, 0x10, 0x42, 0x87}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_i4 = {0x48, 0x0e, 0x73, 0x48} -- ref = {0x48, 0x0e, 0x73, 0x48}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_b_i4 = {0xc8, 0x0f, 0x31, 0x76} -- ref = {0xc8, 0x0f, 0x31, 0x76}
+04:29:50 [0m[34m[INFO] [0m[✅] in_add_i4 = {0xb9, 0xe1, 0x04, 0x3a} -- ref = {0xb9, 0xe1, 0x04, 0x3a}
+04:29:50 [0m[34m[INFO] [0m[✅] in_add_b_i4 = {0xd9, 0x10, 0x42, 0x87} -- ref = {0xd9, 0x10, 0x42, 0x87}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mul_i4 = {0x48, 0x0e, 0x73, 0x48} -- ref = {0x48, 0x0e, 0x73, 0x48}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mul_b_i4 = {0xc8, 0x0f, 0x31, 0x76} -- ref = {0xc8, 0x0f, 0x31, 0x76}
+04:29:50 [0m[34m[INFO] [0m[✅] add_i2 = {0xff, 0xff} -- ref = {0xff, 0xff}
+04:29:50 [0m[34m[INFO] [0m[✅] add_b_i2 = {0x93, 0x93} -- ref = {0x93, 0x93}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_i2 = {0x82, 0x82} -- ref = {0x82, 0x82}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_b_i2 = {0x4e, 0x4e} -- ref = {0x4e, 0x4e}
+04:29:50 [0m[34m[INFO] [0m[✅] in_add_i2 = {0xff, 0xff} -- ref = {0xff, 0xff}
+04:29:50 [0m[34m[INFO] [0m[✅] in_add_b_i2 = {0x93, 0x93} -- ref = {0x93, 0x93}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mul_i2 = {0x82, 0x82} -- ref = {0x82, 0x82}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mul_b_i2 = {0x4e, 0x4e} -- ref = {0x4e, 0x4e}
+04:29:50 [0m[34m[INFO] [0m[✅] add_i1 = {0xff} -- ref = {0xff}
+04:29:50 [0m[34m[INFO] [0m[✅] add_b_i1 = {0x55} -- ref = {0x55}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_i1 = {0x00} -- ref = {0x00}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_b_i1 = {0x00} -- ref = {0x00}
+04:29:50 [0m[34m[INFO] [0m[✅] in_add_i1 = {0xff} -- ref = {0xff}
+04:29:50 [0m[34m[INFO] [0m[✅] in_add_b_i1 = {0x55} -- ref = {0x55}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mul_i1 = {0x00} -- ref = {0x00}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mul_b_i1 = {0x00} -- ref = {0x00}
+04:29:50 [0m[34m[INFO] [0m[✅] add_u4 = {0x31, 0x75, 0x64, 0x20} -- ref = {0x31, 0x75, 0x64, 0x20}
+04:29:50 [0m[34m[INFO] [0m[✅] add_b_u4 = {0x21, 0x43, 0x65, 0x0f} -- ref = {0x21, 0x43, 0x65, 0x0f}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_u4 = {0x20, 0xc6, 0x50, 0xdc} -- ref = {0x20, 0xc6, 0x50, 0xdc}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_b_u4 = {0x10, 0x32, 0x54, 0xfe} -- ref = {0x10, 0x32, 0x54, 0xfe}
+04:29:50 [0m[34m[INFO] [0m[✅] in_add_u4 = {0x31, 0x75, 0x64, 0x20} -- ref = {0x31, 0x75, 0x64, 0x20}
+04:29:50 [0m[34m[INFO] [0m[✅] in_add_b_u4 = {0x21, 0x43, 0x65, 0x0f} -- ref = {0x21, 0x43, 0x65, 0x0f}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mul_u4 = {0x20, 0xc6, 0x50, 0xdc} -- ref = {0x20, 0xc6, 0x50, 0xdc}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mul_b_u4 = {0x10, 0x32, 0x54, 0xfe} -- ref = {0x10, 0x32, 0x54, 0xfe}
+04:29:50 [0m[34m[INFO] [0m[✅] add_u2 = {0xff, 0xff} -- ref = {0xff, 0xff}
+04:29:50 [0m[34m[INFO] [0m[✅] add_b_u2 = {0x93, 0x93} -- ref = {0x93, 0x93}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_u2 = {0x28, 0x28} -- ref = {0x28, 0x28}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_b_u2 = {0x6c, 0x6c} -- ref = {0x6c, 0x6c}
+04:29:50 [0m[34m[INFO] [0m[✅] in_add_u2 = {0xff, 0xff} -- ref = {0xff, 0xff}
+04:29:50 [0m[34m[INFO] [0m[✅] in_add_b_u2 = {0x93, 0x93} -- ref = {0x93, 0x93}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mul_u2 = {0x28, 0x28} -- ref = {0x28, 0x28}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mul_b_u2 = {0x6c, 0x6c} -- ref = {0x6c, 0x6c}
+04:29:50 [0m[34m[INFO] [0m[✅] add_u1 = {0xff} -- ref = {0xff}
+04:29:50 [0m[34m[INFO] [0m[✅] add_b_u1 = {0xa5} -- ref = {0xa5}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_u1 = {0x00} -- ref = {0x00}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_b_u1 = {0x5a} -- ref = {0x5a}
+04:29:50 [0m[34m[INFO] [0m[✅] in_add_u1 = {0xff} -- ref = {0xff}
+04:29:50 [0m[34m[INFO] [0m[✅] in_add_b_u1 = {0xa5} -- ref = {0xa5}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mul_u1 = {0x00} -- ref = {0x00}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mul_b_u1 = {0x5a} -- ref = {0x5a}
+04:29:50 [0m[34m[INFO] [0m[✅] add_f16 = {F16 { bits: 48640 }, F16 { bits: 47104 } ... F16 { bits: 17536 }, F16 { bits: 17792 }} -- ref = {F16 { bits: 48640 }, F16 { bits: 47104 } ... F16 { bits: 17536 }, F16 { bits: 17792 }}
+04:29:50 [0m[34m[INFO] [0m[✅] add_b_f16 = {F16 { bits: 48640 }, F16 { bits: 48128 } ... F16 { bits: 15872 }, F16 { bits: 16384 }} -- ref = {F16 { bits: 48640 }, F16 { bits: 48128 } ... F16 { bits: 15872 }, F16 { bits: 16384 }}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_f16 = {F16 { bits: 48128 }, F16 { bits: 48640 } ... F16 { bits: 17152 }, F16 { bits: 17920 }} -- ref = {F16 { bits: 48128 }, F16 { bits: 48640 } ... F16 { bits: 17152 }, F16 { bits: 17920 }}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_b_f16 = {F16 { bits: 48128 }, F16 { bits: 47616 } ... F16 { bits: 14336 }, F16 { bits: 14848 }} -- ref = {F16 { bits: 48128 }, F16 { bits: 47616 } ... F16 { bits: 14336 }, F16 { bits: 14848 }}
+04:29:50 [0m[34m[INFO] [0m[✅] in_add_f16 = {F16 { bits: 48640 }, F16 { bits: 47104 } ... F16 { bits: 17536 }, F16 { bits: 17792 }} -- ref = {F16 { bits: 48640 }, F16 { bits: 47104 } ... F16 { bits: 17536 }, F16 { bits: 17792 }}
+04:29:50 [0m[34m[INFO] [0m[✅] in_add_b_f16 = {F16 { bits: 48640 }, F16 { bits: 48128 } ... F16 { bits: 15872 }, F16 { bits: 16384 }} -- ref = {F16 { bits: 48640 }, F16 { bits: 48128 } ... F16 { bits: 15872 }, F16 { bits: 16384 }}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mul_f16 = {F16 { bits: 48128 }, F16 { bits: 48640 } ... F16 { bits: 17152 }, F16 { bits: 17920 }} -- ref = {F16 { bits: 48128 }, F16 { bits: 48640 } ... F16 { bits: 17152 }, F16 { bits: 17920 }}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mul_b_f16 = {F16 { bits: 48128 }, F16 { bits: 47616 } ... F16 { bits: 14336 }, F16 { bits: 14848 }} -- ref = {F16 { bits: 48128 }, F16 { bits: 47616 } ... F16 { bits: 14336 }, F16 { bits: 14848 }}
+04:29:50 [0m[34m[INFO] [0m[✅] mm_f16 = {F16 { bits: 49376 }, F16 { bits: 49664 } ... F16 { bits: 18608 }, F16 { bits: 19464 }} -- ref = {F16 { bits: 49376 }, F16 { bits: 49664 } ... F16 { bits: 18608 }, F16 { bits: 19464 }}
+04:29:50 [0m[34m[INFO] [0m[✅] mm_b_f16 = {F16 { bits: 49376 }, F16 { bits: 49664 } ... F16 { bits: 17488 }, F16 { bits: 17920 }} -- ref = {F16 { bits: 49376 }, F16 { bits: 49664 } ... F16 { bits: 17488 }, F16 { bits: 17920 }}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mm_f16 = {F16 { bits: 49376 }, F16 { bits: 49664 } ... F16 { bits: 18608 }, F16 { bits: 19464 }} -- ref = {F16 { bits: 49376 }, F16 { bits: 49664 } ... F16 { bits: 18608 }, F16 { bits: 19464 }}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mm_b_f16 = {F16 { bits: 49376 }, F16 { bits: 49664 } ... F16 { bits: 17488 }, F16 { bits: 17920 }} -- ref = {F16 { bits: 49376 }, F16 { bits: 49664 } ... F16 { bits: 17488 }, F16 { bits: 17920 }}
+04:29:50 [0m[34m[INFO] [0m[✅] add_bf16 = {-1.50, -0.50 ... 4.50, 5.50} -- ref = {-1.50, -0.50 ... 4.50, 5.50}
+04:29:50 [0m[34m[INFO] [0m[✅] add_b_bf16 = {-1.50, -1.00 ... 1.50, 2.00} -- ref = {-1.50, -1.00 ... 1.50, 2.00}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_bf16 = {-1.00, -1.50 ... 3.50, 6.00} -- ref = {-1.00, -1.50 ... 3.50, 6.00}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_b_bf16 = {-1.00, -0.75 ... 0.50, 0.75} -- ref = {-1.00, -0.75 ... 0.50, 0.75}
+04:29:50 [0m[34m[INFO] [0m[✅] in_add_bf16 = {-1.50, -0.50 ... 4.50, 5.50} -- ref = {-1.50, -0.50 ... 4.50, 5.50}
+04:29:50 [0m[34m[INFO] [0m[✅] in_add_b_bf16 = {-1.50, -1.00 ... 1.50, 2.00} -- ref = {-1.50, -1.00 ... 1.50, 2.00}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mul_bf16 = {-1.00, -1.50 ... 3.50, 6.00} -- ref = {-1.00, -1.50 ... 3.50, 6.00}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mul_b_bf16 = {-1.00, -0.75 ... 0.50, 0.75} -- ref = {-1.00, -0.75 ... 0.50, 0.75}
+04:29:50 [0m[34m[INFO] [0m[✅] add_f8 = {-1.50, -0.50 ... 5.00, 6.00} -- ref = {-1.50, -0.50 ... 5.00, 6.00}
+04:29:50 [0m[34m[INFO] [0m[✅] add_b_f8 = {-1.50, -1.00 ... 1.50, 2.00} -- ref = {-1.50, -1.00 ... 1.50, 2.00}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_f8 = {-1.00, -1.50 ... 3.50, 6.00} -- ref = {-1.00, -1.50 ... 3.50, 6.00}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_b_f8 = {-1.00, -0.75 ... 0.50, 0.75} -- ref = {-1.00, -0.75 ... 0.50, 0.75}
+04:29:50 [0m[34m[INFO] [0m[✅] in_add_f8 = {-1.50, -0.50 ... 5.00, 6.00} -- ref = {-1.50, -0.50 ... 5.00, 6.00}
+04:29:50 [0m[34m[INFO] [0m[✅] in_add_b_f8 = {-1.50, -1.00 ... 1.50, 2.00} -- ref = {-1.50, -1.00 ... 1.50, 2.00}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mul_f8 = {-1.00, -1.50 ... 3.50, 6.00} -- ref = {-1.00, -1.50 ... 3.50, 6.00}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mul_b_f8 = {-1.00, -0.75 ... 0.50, 0.75} -- ref = {-1.00, -0.75 ... 0.50, 0.75}
+04:29:50 [0m[34m[INFO] [0m[✅] add_f32 = {-1.50, -0.50 ... 4.50, 5.50} -- ref = {-1.50, -0.50 ... 4.50, 5.50}
+04:29:50 [0m[34m[INFO] [0m[✅] add_b_f32 = {-1.50, -1.00 ... 1.50, 2.00} -- ref = {-1.50, -1.00 ... 1.50, 2.00}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_f32 = {-1.00, -1.50 ... 3.50, 6.00} -- ref = {-1.00, -1.50 ... 3.50, 6.00}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_b_f32 = {-1.00, -0.75 ... 0.50, 0.75} -- ref = {-1.00, -0.75 ... 0.50, 0.75}
+04:29:50 [0m[34m[INFO] [0m[✅] in_add_f32 = {-1.50, -0.50 ... 4.50, 5.50} -- ref = {-1.50, -0.50 ... 4.50, 5.50}
+04:29:50 [0m[34m[INFO] [0m[✅] in_add_b_f32 = {-1.50, -1.00 ... 1.50, 2.00} -- ref = {-1.50, -1.00 ... 1.50, 2.00}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mul_f32 = {-1.00, -1.50 ... 3.50, 6.00} -- ref = {-1.00, -1.50 ... 3.50, 6.00}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mul_b_f32 = {-1.00, -0.75 ... 0.50, 0.75} -- ref = {-1.00, -0.75 ... 0.50, 0.75}
+04:29:50 [0m[34m[INFO] [0m[✅] mm_f32 = {-2.44, -3.00 ... 9.38, 16.12} -- ref = {-2.44, -3.00 ... 9.38, 16.12}
+04:29:50 [0m[34m[INFO] [0m[✅] mm_b_f32 = {-2.44, -3.00 ... 4.31, 6.00} -- ref = {-2.44, -3.00 ... 4.31, 6.00}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mm_f32 = {-2.44, -3.00 ... 9.38, 16.12} -- ref = {-2.44, -3.00 ... 9.38, 16.12}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mm_b_f32 = {-2.44, -3.00 ... 4.31, 6.00} -- ref = {-2.44, -3.00 ... 4.31, 6.00}
+04:29:50 [0m[34m[INFO] [0m[✅] add_f64 = {-1.50, -0.50 ... 4.50, 5.50} -- ref = {-1.50, -0.50 ... 4.50, 5.50}
+04:29:50 [0m[34m[INFO] [0m[✅] add_b_f64 = {-1.50, -1.00 ... 1.50, 2.00} -- ref = {-1.50, -1.00 ... 1.50, 2.00}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_f64 = {-1.00, -1.50 ... 3.50, 6.00} -- ref = {-1.00, -1.50 ... 3.50, 6.00}
+04:29:50 [0m[34m[INFO] [0m[✅] mul_b_f64 = {-1.00, -0.75 ... 0.50, 0.75} -- ref = {-1.00, -0.75 ... 0.50, 0.75}
+04:29:50 [0m[34m[INFO] [0m[✅] in_add_f64 = {-1.50, -0.50 ... 4.50, 5.50} -- ref = {-1.50, -0.50 ... 4.50, 5.50}
+04:29:50 [0m[34m[INFO] [0m[✅] in_add_b_f64 = {-1.50, -1.00 ... 1.50, 2.00} -- ref = {-1.50, -1.00 ... 1.50, 2.00}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mul_f64 = {-1.00, -1.50 ... 3.50, 6.00} -- ref = {-1.00, -1.50 ... 3.50, 6.00}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mul_b_f64 = {-1.00, -0.75 ... 0.50, 0.75} -- ref = {-1.00, -0.75 ... 0.50, 0.75}
+04:29:50 [0m[34m[INFO] [0m[✅] mm_f64 = {-2.44, -3.00 ... 9.38, 16.12} -- ref = {-2.44, -3.00 ... 9.38, 16.12}
+04:29:50 [0m[34m[INFO] [0m[✅] mm_b_f64 = {-2.44, -3.00 ... 4.31, 6.00} -- ref = {-2.44, -3.00 ... 4.31, 6.00}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mm_f64 = {-2.44, -3.00 ... 9.38, 16.12} -- ref = {-2.44, -3.00 ... 9.38, 16.12}
+04:29:50 [0m[34m[INFO] [0m[✅] in_mm_b_f64 = {-2.44, -3.00 ... 4.31, 6.00} -- ref = {-2.44, -3.00 ... 4.31, 6.00}
+04:29:50 [0m[34m[INFO] [0mops_broadcast_variants completed on Vulkan
+
+Example completed successfully.

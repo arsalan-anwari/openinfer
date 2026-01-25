@@ -10,3 +10,8 @@ pub use relu::*;
 pub use relu_accumulate::*;
 #[allow(unused_imports)]
 pub use relu_inplace::*;
+
+#[allow(dead_code)]
+pub fn supports_broadcast() -> bool {
+    false
+}

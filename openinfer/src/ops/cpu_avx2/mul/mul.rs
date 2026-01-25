@@ -13,15 +13,24 @@ use crate::ops::cpu_avx2::packed::{
     get_i2_value, get_i4_value, get_u2_value, get_u4_value, set_i2_value, set_i4_value,
     set_u2_value, set_u4_value,
 };
-use crate::tensor::{I2, I4, U2, U4};
+use crate::ops::cpu_avx2::registry_helpers::{
+    ensure_same_len,
+    ensure_same_shape,
+    is_contiguous,
+    needs_broadcast,
+    BroadcastVariant,
+};
+use crate::tensor::{I2, I4, U2, U4, Tensor};
 
 
-pub fn mul_f32(a: &[f32], b: &[f32], thread_id: usize) -> Result<Vec<f32>> {
+fn mul_f32_slice(a: &[f32], b: &[f32], out: &mut [f32], thread_id: usize) -> Result<()> {
     if a.len() != b.len() {
         return Err(anyhow!("mul op shape mismatch"));
     }
     let len = a.len();
-    let mut out = vec![0.0f32; len];
+    if out.len() != len {
+        return Err(anyhow!("mul op output length mismatch"));
+    }
     Timer::start(thread_id);
     unsafe {
         let mut i = 0usize;
@@ -39,15 +48,17 @@ pub fn mul_f32(a: &[f32], b: &[f32], thread_id: usize) -> Result<Vec<f32>> {
         }
     }
     Timer::stop(thread_id);
-    Ok(out)
+    Ok(())
 }
 
-pub fn mul_i8(a: &[i8], b: &[i8], thread_id: usize) -> Result<Vec<i8>> {
+fn mul_i8_slice(a: &[i8], b: &[i8], out: &mut [i8], thread_id: usize) -> Result<()> {
     if a.len() != b.len() {
         return Err(anyhow!("mul op shape mismatch"));
     }
     let len = a.len();
-    let mut out = vec![0i8; len];
+    if out.len() != len {
+        return Err(anyhow!("mul op output length mismatch"));
+    }
     Timer::start(thread_id);
     unsafe {
         let mut i = 0usize;
@@ -77,15 +88,17 @@ pub fn mul_i8(a: &[i8], b: &[i8], thread_id: usize) -> Result<Vec<i8>> {
         }
     }
     Timer::stop(thread_id);
-    Ok(out)
+    Ok(())
 }
 
-pub fn mul_i16(a: &[i16], b: &[i16], thread_id: usize) -> Result<Vec<i16>> {
+fn mul_i16_slice(a: &[i16], b: &[i16], out: &mut [i16], thread_id: usize) -> Result<()> {
     if a.len() != b.len() {
         return Err(anyhow!("mul op shape mismatch"));
     }
     let len = a.len();
-    let mut out = vec![0i16; len];
+    if out.len() != len {
+        return Err(anyhow!("mul op output length mismatch"));
+    }
     Timer::start(thread_id);
     unsafe {
         let mut i = 0usize;
@@ -103,15 +116,17 @@ pub fn mul_i16(a: &[i16], b: &[i16], thread_id: usize) -> Result<Vec<i16>> {
         }
     }
     Timer::stop(thread_id);
-    Ok(out)
+    Ok(())
 }
 
-pub fn mul_f64(a: &[f64], b: &[f64], thread_id: usize) -> Result<Vec<f64>> {
+fn mul_f64_slice(a: &[f64], b: &[f64], out: &mut [f64], thread_id: usize) -> Result<()> {
     if a.len() != b.len() {
         return Err(anyhow!("mul op shape mismatch"));
     }
     let len = a.len();
-    let mut out = vec![0.0f64; len];
+    if out.len() != len {
+        return Err(anyhow!("mul op output length mismatch"));
+    }
     Timer::start(thread_id);
     unsafe {
         let mut i = 0usize;
@@ -129,15 +144,17 @@ pub fn mul_f64(a: &[f64], b: &[f64], thread_id: usize) -> Result<Vec<f64>> {
         }
     }
     Timer::stop(thread_id);
-    Ok(out)
+    Ok(())
 }
 
-pub fn mul_u8(a: &[u8], b: &[u8], thread_id: usize) -> Result<Vec<u8>> {
+fn mul_u8_slice(a: &[u8], b: &[u8], out: &mut [u8], thread_id: usize) -> Result<()> {
     if a.len() != b.len() {
         return Err(anyhow!("mul op shape mismatch"));
     }
     let len = a.len();
-    let mut out = vec![0u8; len];
+    if out.len() != len {
+        return Err(anyhow!("mul op output length mismatch"));
+    }
     Timer::start(thread_id);
     unsafe {
         let mut i = 0usize;
@@ -165,15 +182,17 @@ pub fn mul_u8(a: &[u8], b: &[u8], thread_id: usize) -> Result<Vec<u8>> {
         }
     }
     Timer::stop(thread_id);
-    Ok(out)
+    Ok(())
 }
 
-pub fn mul_u16(a: &[u16], b: &[u16], thread_id: usize) -> Result<Vec<u16>> {
+fn mul_u16_slice(a: &[u16], b: &[u16], out: &mut [u16], thread_id: usize) -> Result<()> {
     if a.len() != b.len() {
         return Err(anyhow!("mul op shape mismatch"));
     }
     let len = a.len();
-    let mut out = vec![0u16; len];
+    if out.len() != len {
+        return Err(anyhow!("mul op output length mismatch"));
+    }
     Timer::start(thread_id);
     unsafe {
         let mut i = 0usize;
@@ -191,83 +210,117 @@ pub fn mul_u16(a: &[u16], b: &[u16], thread_id: usize) -> Result<Vec<u16>> {
         }
     }
     Timer::stop(thread_id);
-    Ok(out)
+    Ok(())
 }
 
-pub fn mul_i4_packed(a: &[I4], b: &[I4], logical_len: usize, thread_id: usize) -> Result<Vec<I4>> {
+fn mul_i4_packed_slice(
+    a: &[I4],
+    b: &[I4],
+    logical_len: usize,
+    out: &mut [I4],
+    thread_id: usize,
+) -> Result<()> {
     if a.len() != b.len() {
         return Err(anyhow!("mul op shape mismatch"));
     }
     let storage_len = (logical_len + 1) / 2;
-    let mut out = vec![I4 { bits: 0 }; storage_len];
+    if out.len() != storage_len {
+        return Err(anyhow!("mul op output length mismatch"));
+    }
     Timer::start(thread_id);
     for idx in 0..logical_len {
         let av = get_i4_value(a, idx);
         let bv = get_i4_value(b, idx);
         let prod = av.wrapping_mul(bv);
-        set_i4_value(&mut out, idx, prod);
+        set_i4_value(out, idx, prod);
     }
     Timer::stop(thread_id);
-    Ok(out)
+    Ok(())
 }
 
-pub fn mul_i2_packed(a: &[I2], b: &[I2], logical_len: usize, thread_id: usize) -> Result<Vec<I2>> {
+fn mul_i2_packed_slice(
+    a: &[I2],
+    b: &[I2],
+    logical_len: usize,
+    out: &mut [I2],
+    thread_id: usize,
+) -> Result<()> {
     if a.len() != b.len() {
         return Err(anyhow!("mul op shape mismatch"));
     }
     let storage_len = (logical_len + 3) / 4;
-    let mut out = vec![I2 { bits: 0 }; storage_len];
+    if out.len() != storage_len {
+        return Err(anyhow!("mul op output length mismatch"));
+    }
     Timer::start(thread_id);
     for idx in 0..logical_len {
         let av = get_i2_value(a, idx);
         let bv = get_i2_value(b, idx);
         let prod = av.wrapping_mul(bv);
-        set_i2_value(&mut out, idx, prod);
+        set_i2_value(out, idx, prod);
     }
     Timer::stop(thread_id);
-    Ok(out)
+    Ok(())
 }
 
-pub fn mul_u4_packed(a: &[U4], b: &[U4], logical_len: usize, thread_id: usize) -> Result<Vec<U4>> {
+fn mul_u4_packed_slice(
+    a: &[U4],
+    b: &[U4],
+    logical_len: usize,
+    out: &mut [U4],
+    thread_id: usize,
+) -> Result<()> {
     if a.len() != b.len() {
         return Err(anyhow!("mul op shape mismatch"));
     }
     let storage_len = (logical_len + 1) / 2;
-    let mut out = vec![U4 { bits: 0 }; storage_len];
+    if out.len() != storage_len {
+        return Err(anyhow!("mul op output length mismatch"));
+    }
     Timer::start(thread_id);
     for idx in 0..logical_len {
         let av = get_u4_value(a, idx);
         let bv = get_u4_value(b, idx);
         let prod = av.wrapping_mul(bv);
-        set_u4_value(&mut out, idx, prod);
+        set_u4_value(out, idx, prod);
     }
     Timer::stop(thread_id);
-    Ok(out)
+    Ok(())
 }
 
-pub fn mul_u2_packed(a: &[U2], b: &[U2], logical_len: usize, thread_id: usize) -> Result<Vec<U2>> {
+fn mul_u2_packed_slice(
+    a: &[U2],
+    b: &[U2],
+    logical_len: usize,
+    out: &mut [U2],
+    thread_id: usize,
+) -> Result<()> {
     if a.len() != b.len() {
         return Err(anyhow!("mul op shape mismatch"));
     }
     let storage_len = (logical_len + 3) / 4;
-    let mut out = vec![U2 { bits: 0 }; storage_len];
+    if out.len() != storage_len {
+        return Err(anyhow!("mul op output length mismatch"));
+    }
     Timer::start(thread_id);
     for idx in 0..logical_len {
         let av = get_u2_value(a, idx);
         let bv = get_u2_value(b, idx);
         let prod = av.wrapping_mul(bv);
-        set_u2_value(&mut out, idx, prod);
+        set_u2_value(out, idx, prod);
     }
     Timer::stop(thread_id);
-    Ok(out)
+    Ok(())
 }
 
-pub fn mul_i32(a: &[i32], b: &[i32], thread_id: usize) -> Result<Vec<i32>> {
+fn mul_i32_slice(a: &[i32], b: &[i32], out: &mut [i32], thread_id: usize) -> Result<()> {
     if a.len() != b.len() {
         return Err(anyhow!("mul op shape mismatch"));
     }
     let len = a.len();
-    let mut out = vec![0i32; len];
+    if out.len() != len {
+        return Err(anyhow!("mul op output length mismatch"));
+    }
     Timer::start(thread_id);
     unsafe {
         let mut i = 0usize;
@@ -285,15 +338,17 @@ pub fn mul_i32(a: &[i32], b: &[i32], thread_id: usize) -> Result<Vec<i32>> {
         }
     }
     Timer::stop(thread_id);
-    Ok(out)
+    Ok(())
 }
 
-pub fn mul_i64(a: &[i64], b: &[i64], thread_id: usize) -> Result<Vec<i64>> {
+fn mul_i64_slice(a: &[i64], b: &[i64], out: &mut [i64], thread_id: usize) -> Result<()> {
     if a.len() != b.len() {
         return Err(anyhow!("mul op shape mismatch"));
     }
     let len = a.len();
-    let mut out = vec![0i64; len];
+    if out.len() != len {
+        return Err(anyhow!("mul op output length mismatch"));
+    }
     Timer::start(thread_id);
     unsafe {
         let mut i = 0usize;
@@ -318,15 +373,17 @@ pub fn mul_i64(a: &[i64], b: &[i64], thread_id: usize) -> Result<Vec<i64>> {
         }
     }
     Timer::stop(thread_id);
-    Ok(out)
+    Ok(())
 }
 
-pub fn mul_u32(a: &[u32], b: &[u32], thread_id: usize) -> Result<Vec<u32>> {
+fn mul_u32_slice(a: &[u32], b: &[u32], out: &mut [u32], thread_id: usize) -> Result<()> {
     if a.len() != b.len() {
         return Err(anyhow!("mul op shape mismatch"));
     }
     let len = a.len();
-    let mut out = vec![0u32; len];
+    if out.len() != len {
+        return Err(anyhow!("mul op output length mismatch"));
+    }
     Timer::start(thread_id);
     unsafe {
         let mut i = 0usize;
@@ -344,15 +401,17 @@ pub fn mul_u32(a: &[u32], b: &[u32], thread_id: usize) -> Result<Vec<u32>> {
         }
     }
     Timer::stop(thread_id);
-    Ok(out)
+    Ok(())
 }
 
-pub fn mul_u64(a: &[u64], b: &[u64], thread_id: usize) -> Result<Vec<u64>> {
+fn mul_u64_slice(a: &[u64], b: &[u64], out: &mut [u64], thread_id: usize) -> Result<()> {
     if a.len() != b.len() {
         return Err(anyhow!("mul op shape mismatch"));
     }
     let len = a.len();
-    let mut out = vec![0u64; len];
+    if out.len() != len {
+        return Err(anyhow!("mul op output length mismatch"));
+    }
     Timer::start(thread_id);
     unsafe {
         let mut i = 0usize;
@@ -377,15 +436,17 @@ pub fn mul_u64(a: &[u64], b: &[u64], thread_id: usize) -> Result<Vec<u64>> {
         }
     }
     Timer::stop(thread_id);
-    Ok(out)
+    Ok(())
 }
 
-pub fn mul_bool(a: &[bool], b: &[bool], thread_id: usize) -> Result<Vec<bool>> {
+fn mul_bool_slice(a: &[bool], b: &[bool], out: &mut [bool], thread_id: usize) -> Result<()> {
     if a.len() != b.len() {
         return Err(anyhow!("mul op shape mismatch"));
     }
     let len = a.len();
-    let mut out = vec![false; len];
+    if out.len() != len {
+        return Err(anyhow!("mul op output length mismatch"));
+    }
     Timer::start(thread_id);
     unsafe {
         let mut i = 0usize;
@@ -403,6 +464,231 @@ pub fn mul_bool(a: &[bool], b: &[bool], thread_id: usize) -> Result<Vec<bool>> {
         }
     }
     Timer::stop(thread_id);
-    Ok(out)
+    Ok(())
+}
+
+pub fn mul_f32(a: &Tensor<f32>, b: &Tensor<f32>, out: &mut Tensor<f32>, thread_id: usize) -> Result<()> {
+    if needs_broadcast(a, b, out, Some(BroadcastVariant::Standard)) {
+        return crate::ops::cpu::mul::mul_f32_broadcast(a, b, out, thread_id);
+    }
+    ensure_same_shape(a, b, out)?;
+    if !is_contiguous(a.shape(), a.strides())
+        || !is_contiguous(b.shape(), b.strides())
+        || !is_contiguous(out.shape(), out.strides())
+    {
+        return Err(anyhow!("mul op requires contiguous tensors"));
+    }
+    ensure_same_len(a, b, out)?;
+    mul_f32_slice(&a.data, &b.data, &mut out.data, thread_id)
+}
+
+pub fn mul_i8(a: &Tensor<i8>, b: &Tensor<i8>, out: &mut Tensor<i8>, thread_id: usize) -> Result<()> {
+    if needs_broadcast(a, b, out, Some(BroadcastVariant::Standard)) {
+        return crate::ops::cpu::mul::mul_i8_broadcast(a, b, out, thread_id);
+    }
+    ensure_same_shape(a, b, out)?;
+    if !is_contiguous(a.shape(), a.strides())
+        || !is_contiguous(b.shape(), b.strides())
+        || !is_contiguous(out.shape(), out.strides())
+    {
+        return Err(anyhow!("mul op requires contiguous tensors"));
+    }
+    ensure_same_len(a, b, out)?;
+    mul_i8_slice(&a.data, &b.data, &mut out.data, thread_id)
+}
+
+pub fn mul_i16(a: &Tensor<i16>, b: &Tensor<i16>, out: &mut Tensor<i16>, thread_id: usize) -> Result<()> {
+    if needs_broadcast(a, b, out, Some(BroadcastVariant::Standard)) {
+        return crate::ops::cpu::mul::mul_i16_broadcast(a, b, out, thread_id);
+    }
+    ensure_same_shape(a, b, out)?;
+    if !is_contiguous(a.shape(), a.strides())
+        || !is_contiguous(b.shape(), b.strides())
+        || !is_contiguous(out.shape(), out.strides())
+    {
+        return Err(anyhow!("mul op requires contiguous tensors"));
+    }
+    ensure_same_len(a, b, out)?;
+    mul_i16_slice(&a.data, &b.data, &mut out.data, thread_id)
+}
+
+pub fn mul_f64(a: &Tensor<f64>, b: &Tensor<f64>, out: &mut Tensor<f64>, thread_id: usize) -> Result<()> {
+    if needs_broadcast(a, b, out, Some(BroadcastVariant::Standard)) {
+        return crate::ops::cpu::mul::mul_f64_broadcast(a, b, out, thread_id);
+    }
+    ensure_same_shape(a, b, out)?;
+    if !is_contiguous(a.shape(), a.strides())
+        || !is_contiguous(b.shape(), b.strides())
+        || !is_contiguous(out.shape(), out.strides())
+    {
+        return Err(anyhow!("mul op requires contiguous tensors"));
+    }
+    ensure_same_len(a, b, out)?;
+    mul_f64_slice(&a.data, &b.data, &mut out.data, thread_id)
+}
+
+pub fn mul_u8(a: &Tensor<u8>, b: &Tensor<u8>, out: &mut Tensor<u8>, thread_id: usize) -> Result<()> {
+    if needs_broadcast(a, b, out, Some(BroadcastVariant::Standard)) {
+        return crate::ops::cpu::mul::mul_u8_broadcast(a, b, out, thread_id);
+    }
+    ensure_same_shape(a, b, out)?;
+    if !is_contiguous(a.shape(), a.strides())
+        || !is_contiguous(b.shape(), b.strides())
+        || !is_contiguous(out.shape(), out.strides())
+    {
+        return Err(anyhow!("mul op requires contiguous tensors"));
+    }
+    ensure_same_len(a, b, out)?;
+    mul_u8_slice(&a.data, &b.data, &mut out.data, thread_id)
+}
+
+pub fn mul_u16(a: &Tensor<u16>, b: &Tensor<u16>, out: &mut Tensor<u16>, thread_id: usize) -> Result<()> {
+    if needs_broadcast(a, b, out, Some(BroadcastVariant::Standard)) {
+        return crate::ops::cpu::mul::mul_u16_broadcast(a, b, out, thread_id);
+    }
+    ensure_same_shape(a, b, out)?;
+    if !is_contiguous(a.shape(), a.strides())
+        || !is_contiguous(b.shape(), b.strides())
+        || !is_contiguous(out.shape(), out.strides())
+    {
+        return Err(anyhow!("mul op requires contiguous tensors"));
+    }
+    ensure_same_len(a, b, out)?;
+    mul_u16_slice(&a.data, &b.data, &mut out.data, thread_id)
+}
+
+pub fn mul_i4_packed(a: &Tensor<I4>, b: &Tensor<I4>, out: &mut Tensor<I4>, thread_id: usize) -> Result<()> {
+    if needs_broadcast(a, b, out, Some(BroadcastVariant::Standard)) {
+        return crate::ops::cpu::mul::mul_i4_broadcast(a, b, out, thread_id);
+    }
+    ensure_same_shape(a, b, out)?;
+    if !is_contiguous(a.shape(), a.strides())
+        || !is_contiguous(b.shape(), b.strides())
+        || !is_contiguous(out.shape(), out.strides())
+    {
+        return Err(anyhow!("mul op requires contiguous packed tensors"));
+    }
+    let logical_len = a.numel();
+    mul_i4_packed_slice(&a.data, &b.data, logical_len, &mut out.data, thread_id)
+}
+
+pub fn mul_i2_packed(a: &Tensor<I2>, b: &Tensor<I2>, out: &mut Tensor<I2>, thread_id: usize) -> Result<()> {
+    if needs_broadcast(a, b, out, Some(BroadcastVariant::Standard)) {
+        return crate::ops::cpu::mul::mul_i2_broadcast(a, b, out, thread_id);
+    }
+    ensure_same_shape(a, b, out)?;
+    if !is_contiguous(a.shape(), a.strides())
+        || !is_contiguous(b.shape(), b.strides())
+        || !is_contiguous(out.shape(), out.strides())
+    {
+        return Err(anyhow!("mul op requires contiguous packed tensors"));
+    }
+    let logical_len = a.numel();
+    mul_i2_packed_slice(&a.data, &b.data, logical_len, &mut out.data, thread_id)
+}
+
+pub fn mul_u4_packed(a: &Tensor<U4>, b: &Tensor<U4>, out: &mut Tensor<U4>, thread_id: usize) -> Result<()> {
+    if needs_broadcast(a, b, out, Some(BroadcastVariant::Standard)) {
+        return crate::ops::cpu::mul::mul_u4_broadcast(a, b, out, thread_id);
+    }
+    ensure_same_shape(a, b, out)?;
+    if !is_contiguous(a.shape(), a.strides())
+        || !is_contiguous(b.shape(), b.strides())
+        || !is_contiguous(out.shape(), out.strides())
+    {
+        return Err(anyhow!("mul op requires contiguous packed tensors"));
+    }
+    let logical_len = a.numel();
+    mul_u4_packed_slice(&a.data, &b.data, logical_len, &mut out.data, thread_id)
+}
+
+pub fn mul_u2_packed(a: &Tensor<U2>, b: &Tensor<U2>, out: &mut Tensor<U2>, thread_id: usize) -> Result<()> {
+    if needs_broadcast(a, b, out, Some(BroadcastVariant::Standard)) {
+        return crate::ops::cpu::mul::mul_u2_broadcast(a, b, out, thread_id);
+    }
+    ensure_same_shape(a, b, out)?;
+    if !is_contiguous(a.shape(), a.strides())
+        || !is_contiguous(b.shape(), b.strides())
+        || !is_contiguous(out.shape(), out.strides())
+    {
+        return Err(anyhow!("mul op requires contiguous packed tensors"));
+    }
+    let logical_len = a.numel();
+    mul_u2_packed_slice(&a.data, &b.data, logical_len, &mut out.data, thread_id)
+}
+
+pub fn mul_i32(a: &Tensor<i32>, b: &Tensor<i32>, out: &mut Tensor<i32>, thread_id: usize) -> Result<()> {
+    if needs_broadcast(a, b, out, Some(BroadcastVariant::Standard)) {
+        return crate::ops::cpu::mul::mul_i32_broadcast(a, b, out, thread_id);
+    }
+    ensure_same_shape(a, b, out)?;
+    if !is_contiguous(a.shape(), a.strides())
+        || !is_contiguous(b.shape(), b.strides())
+        || !is_contiguous(out.shape(), out.strides())
+    {
+        return Err(anyhow!("mul op requires contiguous tensors"));
+    }
+    ensure_same_len(a, b, out)?;
+    mul_i32_slice(&a.data, &b.data, &mut out.data, thread_id)
+}
+
+pub fn mul_i64(a: &Tensor<i64>, b: &Tensor<i64>, out: &mut Tensor<i64>, thread_id: usize) -> Result<()> {
+    if needs_broadcast(a, b, out, Some(BroadcastVariant::Standard)) {
+        return crate::ops::cpu::mul::mul_i64_broadcast(a, b, out, thread_id);
+    }
+    ensure_same_shape(a, b, out)?;
+    if !is_contiguous(a.shape(), a.strides())
+        || !is_contiguous(b.shape(), b.strides())
+        || !is_contiguous(out.shape(), out.strides())
+    {
+        return Err(anyhow!("mul op requires contiguous tensors"));
+    }
+    ensure_same_len(a, b, out)?;
+    mul_i64_slice(&a.data, &b.data, &mut out.data, thread_id)
+}
+
+pub fn mul_u32(a: &Tensor<u32>, b: &Tensor<u32>, out: &mut Tensor<u32>, thread_id: usize) -> Result<()> {
+    if needs_broadcast(a, b, out, Some(BroadcastVariant::Standard)) {
+        return crate::ops::cpu::mul::mul_u32_broadcast(a, b, out, thread_id);
+    }
+    ensure_same_shape(a, b, out)?;
+    if !is_contiguous(a.shape(), a.strides())
+        || !is_contiguous(b.shape(), b.strides())
+        || !is_contiguous(out.shape(), out.strides())
+    {
+        return Err(anyhow!("mul op requires contiguous tensors"));
+    }
+    ensure_same_len(a, b, out)?;
+    mul_u32_slice(&a.data, &b.data, &mut out.data, thread_id)
+}
+
+pub fn mul_u64(a: &Tensor<u64>, b: &Tensor<u64>, out: &mut Tensor<u64>, thread_id: usize) -> Result<()> {
+    if needs_broadcast(a, b, out, Some(BroadcastVariant::Standard)) {
+        return crate::ops::cpu::mul::mul_u64_broadcast(a, b, out, thread_id);
+    }
+    ensure_same_shape(a, b, out)?;
+    if !is_contiguous(a.shape(), a.strides())
+        || !is_contiguous(b.shape(), b.strides())
+        || !is_contiguous(out.shape(), out.strides())
+    {
+        return Err(anyhow!("mul op requires contiguous tensors"));
+    }
+    ensure_same_len(a, b, out)?;
+    mul_u64_slice(&a.data, &b.data, &mut out.data, thread_id)
+}
+
+pub fn mul_bool(a: &Tensor<bool>, b: &Tensor<bool>, out: &mut Tensor<bool>, thread_id: usize) -> Result<()> {
+    if needs_broadcast(a, b, out, Some(BroadcastVariant::Standard)) {
+        return crate::ops::cpu::mul::mul_bool_broadcast(a, b, out, thread_id);
+    }
+    ensure_same_shape(a, b, out)?;
+    if !is_contiguous(a.shape(), a.strides())
+        || !is_contiguous(b.shape(), b.strides())
+        || !is_contiguous(out.shape(), out.strides())
+    {
+        return Err(anyhow!("mul op requires contiguous tensors"));
+    }
+    ensure_same_len(a, b, out)?;
+    mul_bool_slice(&a.data, &b.data, &mut out.data, thread_id)
 }
 

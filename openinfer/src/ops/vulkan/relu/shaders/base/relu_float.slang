@@ -1,10 +1,9 @@
 struct PushConsts {
     uint len;
-    uint alpha_lo;
-    uint alpha_hi;
-    uint clamp_lo;
-    uint clamp_hi;
-    uint flags;
+    float alpha_f32;
+    float clamp_f32;
+    double alpha_f64;
+    double clamp_f64;
 };
 
 [[vk::push_constant]] PushConsts pc;
@@ -40,7 +39,7 @@ void relu_f16_native(uint3 tid : SV_DispatchThreadID, uniform PushConsts pc) {
     uint i = tid.x;
     if (i < pc.len) {
         half x = gRelu_f16_native.input0[i];
-        float y = relu_float((float)x, asfloat(pc.alpha_lo), asfloat(pc.clamp_lo));
+        float y = relu_float((float)x, pc.alpha_f32, pc.clamp_f32);
         gRelu_f16_native.output0[i] = (half)y;
     }
 }
@@ -51,7 +50,7 @@ void relu_f32(uint3 tid : SV_DispatchThreadID, uniform PushConsts pc) {
     uint i = tid.x;
     if (i < pc.len) {
         float x = gRelu_f32.input0[i];
-        float y = relu_float(x, asfloat(pc.alpha_lo), asfloat(pc.clamp_lo));
+        float y = relu_float(x, pc.alpha_f32, pc.clamp_f32);
         gRelu_f32.output0[i] = y;
     }
 }
@@ -62,14 +61,6 @@ void relu_f64(uint3 tid : SV_DispatchThreadID, uniform PushConsts pc) {
     uint i = tid.x;
     if (i < pc.len) {
         double x = gRelu_f64.input0[i];
-        double alpha = (double)asfloat(pc.alpha_lo);
-        double clamp_max = (double)asfloat(pc.clamp_lo);
-        if ((pc.flags & 1u) != 0u) {
-            alpha = asdouble(pc.alpha_lo, pc.alpha_hi);
-        }
-        if ((pc.flags & 2u) != 0u) {
-            clamp_max = asdouble(pc.clamp_lo, pc.clamp_hi);
-        }
-        gRelu_f64.output0[i] = relu_double(x, alpha, clamp_max);
+        gRelu_f64.output0[i] = relu_double(x, pc.alpha_f64, pc.clamp_f64);
     }
 }
