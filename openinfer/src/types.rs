@@ -4,8 +4,6 @@ use crate::tensor::{BF16, Bitset, DType, F16, F8E5M2, I1, I2, I4, T1, T2, U1, U2
 use anyhow::{anyhow, Result};
 
 pub mod cpu;
-#[cfg(feature = "vulkan")]
-pub mod vulkan;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ScalarValue {

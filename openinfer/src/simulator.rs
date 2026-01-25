@@ -1,16 +1,11 @@
 use anyhow::{anyhow, Result};
 
-use crate::backend::cpu::CpuBackend;
-
 #[allow(unused_imports)]
 use crate::graph::{Graph, OpAttrs};
 
 use crate::model_loader::ModelLoader;
 use std::sync::Arc;
 use crate::tensor::DType;
-
-#[cfg(feature = "vulkan")]
-use crate::backend::vulkan::VulkanBackend;
 
 mod validation;
 pub(crate) mod executor;
@@ -23,7 +18,6 @@ pub enum Device {
     Cpu,
     CpuAvx,
     CpuAvx2,
-    Vulkan,
 }
 
 impl Device {
@@ -32,7 +26,6 @@ impl Device {
             Device::Cpu => true,
             Device::CpuAvx => cfg!(feature = "avx"),
             Device::CpuAvx2 => cfg!(feature = "avx2"),
-            Device::Vulkan => cfg!(feature = "vulkan"),
         }
     }
 }
@@ -48,29 +41,27 @@ pub(crate) trait DeviceBackend: Send + Sync {
         op: crate::graph::OpKind,
         attrs: &crate::graph::OpAttrs,
         output_dtype: DType,
-        tensors: &[crate::backend::TensorStorage],
-        output: Option<crate::backend::TensorStorage>,
+        tensors: &[&crate::backend::TensorStorage],
+        output: &mut crate::backend::TensorStorage,
         thread_id: usize,
-    ) -> Result<crate::backend::TensorStorage>;
+        is_inplace: bool,
+    ) -> Result<()>;
+
     fn exec_op_inplace(
         &self,
         op: crate::graph::OpKind,
         attrs: &crate::graph::OpAttrs,
         output_dtype: DType,
-        tensors: &[crate::backend::TensorStorage],
+        output: &mut crate::backend::TensorStorage,
+        inputs: &[&crate::backend::TensorStorage],
         thread_id: usize,
-    ) -> Result<crate::backend::TensorStorage>;
+    ) -> Result<()>;
 }
 
 pub(crate) fn backend_for(device: Device, force_simulated_float: bool) -> Result<Arc<dyn DeviceBackend>> {
-    #[cfg(not(feature = "vulkan"))]
     let _ = force_simulated_float;
     match device {
-        Device::Cpu | Device::CpuAvx | Device::CpuAvx2 => Ok(Arc::new(CpuBackend::new(device))),
-        #[cfg(feature = "vulkan")]
-        Device::Vulkan => Ok(Arc::new(VulkanBackend::new_with_settings(force_simulated_float))),
-        #[cfg(not(feature = "vulkan"))]
-        Device::Vulkan => Err(anyhow!("vulkan feature not enabled for this build")),
+        Device::Cpu | Device::CpuAvx | Device::CpuAvx2 => Ok(Arc::new(device)),
     }
 }
 
