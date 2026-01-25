@@ -1,8 +1,9 @@
 pub use openinfer_dsl::graph;
 
 mod simulator;
-mod backend;
 mod graph;
+mod registry;
+mod runtime;
 mod macros;
 mod model_loader;
 mod tensor;
@@ -14,8 +15,8 @@ mod random;
 
 pub use simulator::{Device, Executor, Fetchable, Simulator, TraceEvent, TraceEventKind};
 pub use graph::{
-    AttrValue, Block, CacheAccess, CacheIndexExpr, CacheIndexValue, Graph, Node, NodeKind, OpAttrs,
-    OpKind,
+    AttrValue, Block, CacheAccess, CacheIndexExpr, CacheIndexValue, Graph, MemoryKind, Node,
+    NodeKind, OpAttr, OpAttrs, VarDecl,
 };
 pub use graph_serde::{GraphDeserialize, GraphSerialize};
 pub use model_loader::ModelLoader;
@@ -23,7 +24,7 @@ pub use tensor::{
     BF16, Bitset, DType, F16, F8E5M2, I1, I2, I4, T1, T2, U1, U2, U4, Tensor, TensorElement,
     TensorOptions, TensorValue,
 };
-pub use types::{MemoryKind, ScalarValue, VarDecl, VarInfo};
+pub use types::{ScalarValue, VarInfo};
 pub use timer::Timer;
 pub use formatting::{format_truncated, FormatValue};
 pub use random::Random;

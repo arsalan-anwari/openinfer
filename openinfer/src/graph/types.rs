@@ -5,32 +5,9 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::tensor::DType;
-use crate::types::{MemoryKind, ScalarValue, VarDecl};
+use crate::types::ScalarValue;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum OpKind {
-    Add,
-    Mul,
-    Abs,
-    Relu,
-    Matmul,
-    IsFinite,
-    Fill,
-}
-
-impl OpKind {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            OpKind::Add => "add",
-            OpKind::Mul => "mul",
-            OpKind::Abs => "abs",
-            OpKind::Relu => "relu",
-            OpKind::Matmul => "matmul",
-            OpKind::IsFinite => "is_finite",
-            OpKind::Fill => "fill",
-        }
-    }
-}
+use super::var::{MemoryKind, VarDecl};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum AttrValue {
@@ -40,6 +17,7 @@ pub enum AttrValue {
     UInt(u64),
     Bool(bool),
     Var(String),
+    DType(DType),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -65,25 +43,27 @@ pub struct CacheAccess {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum OpAttrs {
-    None,
-    Accumulate {
-        dtype: DType,
-    },
-    Relu {
-        alpha: AttrValue,
-        clamp_max: AttrValue,
-    },
-    Fill {
-        value: AttrValue,
-    },
+pub struct OpAttr {
+    pub name: String,
+    pub value: AttrValue,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OpAttrs {
+    pub items: Vec<OpAttr>,
+}
+
+impl OpAttrs {
+    pub fn none() -> Self {
+        Self { items: Vec::new() }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum NodeKind {
     Assign { name: String, dtype: DType, dims: Vec<String> },
     Op {
-        op: OpKind,
+        op: String,
         attrs: OpAttrs,
         inputs: Vec<String>,
         output: String,
@@ -261,100 +241,5 @@ impl Graph {
         self.blocks
             .get(name)
             .ok_or_else(|| anyhow!("missing block: {}", name))
-    }
-}
-
-pub fn describe_node(kind: &NodeKind) -> String {
-    match kind {
-        NodeKind::Assign { name, .. } => format!("assign {}", name),
-        NodeKind::Op {
-            op,
-            attrs: _,
-            inputs,
-            output,
-        } => {
-            format!("op {}({}) >> {}", op.as_str(), inputs.join(","), output)
-        }
-        NodeKind::CacheRead { src, dst } => {
-            let access = format_cache_access(src);
-            format!("cache.read {} >> {}", access, dst)
-        }
-        NodeKind::CacheWrite { src, dst } => {
-            let access = format_cache_access(dst);
-            format!("cache.write {} >> {}", src, access)
-        }
-        NodeKind::CacheIncrement { target, amount } => {
-            if *amount == 1 {
-                format!("cache.increment {}", target)
-            } else {
-                format!("cache.increment {} {}", amount, target)
-            }
-        }
-        NodeKind::CacheDecrement { target, amount } => {
-            if *amount == 1 {
-                format!("cache.decrement {}", target)
-            } else {
-                format!("cache.decrement {} {}", amount, target)
-            }
-        }
-        NodeKind::CacheReset { target } => {
-            let access = format_cache_access(target);
-            format!("cache.reset {}", access)
-        }
-        NodeKind::Yield { vars } => format!("yield {}", vars.join(", ")),
-        NodeKind::Await { vars } => format!("await {}", vars.join(", ")),
-        NodeKind::Loop {
-            name,
-            index,
-            start,
-            end,
-            ..
-        } => format!("loop {} ({} in {}..{})", name, index, start, end),
-        NodeKind::Branch {
-            cond,
-            then_block,
-            else_block,
-        } => match (cond, else_block) {
-            (Some(cond), Some(else_block)) => {
-                format!("branch {} {} {}", cond, then_block, else_block)
-            }
-            _ => format!("branch {}", then_block),
-        },
-        NodeKind::Return => "return".to_string(),
-    }
-}
-
-fn format_cache_access(access: &CacheAccess) -> String {
-    if !access.bracketed {
-        return access.base.clone();
-    }
-    if access.indices.is_empty() {
-        return format!("{}[]", access.base);
-    }
-    let rendered = access
-        .indices
-        .iter()
-        .map(|index| match index {
-            CacheIndexExpr::Single(value) => format_cache_value(value),
-            CacheIndexExpr::Slice { start, end } => {
-                let start = start.as_ref().map(format_cache_value);
-                let end = end.as_ref().map(format_cache_value);
-                match (start, end) {
-                    (Some(start), Some(end)) => format!("{}..{}", start, end),
-                    (Some(start), None) => format!("{}..", start),
-                    (None, Some(end)) => format!("..{}", end),
-                    (None, None) => String::new(),
-                }
-            }
-        })
-        .collect::<Vec<_>>()
-        .join(",");
-    format!("{}[{}]", access.base, rendered)
-}
-
-fn format_cache_value(value: &CacheIndexValue) -> String {
-    match value {
-        CacheIndexValue::Ident(name) => name.clone(),
-        CacheIndexValue::Lit(value) => value.to_string(),
     }
 }

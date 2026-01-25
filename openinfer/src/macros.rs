@@ -29,11 +29,8 @@ macro_rules! fetch_executor {
 #[macro_export]
 macro_rules! try_insert_executor {
     ($exec:expr, { $($name:ident : $value:expr),* $(,)? }) => {{
-        let mut res: Result<(), anyhow::Error> = Ok(());
-        $( if res.is_ok() {
-            res = $exec.insert_dynamic(stringify!($name), $value);
-        } )*
-        res
+        $( $exec.insert_dynamic(stringify!($name), $value)?; )*
+        Ok(())
     }};
 }
 

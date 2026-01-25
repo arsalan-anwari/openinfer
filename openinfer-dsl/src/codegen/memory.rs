@@ -188,6 +188,17 @@ pub(crate) fn init_expr(init: &Option<InitValue>, dtype: &Ident) -> syn::Result<
                 }
             }
         }
+        Some(InitValue::Bool { lit }) => {
+            match dtype_str.as_str() {
+                "bool" => quote! { Some(::openinfer::ScalarValue::Bool(#lit)) },
+                _ => {
+                    return Err(syn::Error::new(
+                        dtype.span(),
+                        "bool init requires bool dtype",
+                    ))
+                }
+            }
+        }
         None => quote! { None },
     };
     Ok(out)

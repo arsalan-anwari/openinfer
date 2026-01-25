@@ -22,7 +22,8 @@ fn insert_tensor<T: TensorElement>(
     shape: Vec<usize>,
 ) -> Result<()> {
     let tensor = tensor_with_shape(data, shape)?;
-    exec.insert_dynamic(name, <T as TensorElement>::into_value(tensor))
+    exec.insert_dynamic(name, <T as TensorElement>::into_value(tensor))?;
+    Ok(())
 }
 
 fn main() -> Result<()> {

@@ -1,6 +1,4 @@
 use quote::quote;
-use syn::Ident;
-
 use crate::codegen::cache::cache_access_expr;
 use crate::codegen::dims::dims_expr;
 use crate::codegen::memory::match_dtype;
@@ -112,7 +110,7 @@ fn assign_node_expr(assign: &AssignNode) -> syn::Result<proc_macro2::TokenStream
 }
 
 fn op_node_expr(op: &OpNode) -> syn::Result<proc_macro2::TokenStream> {
-    let kind = match_opkind(&op.name)?;
+    let op_name = op.name.to_string();
     let inputs = op.inputs.iter().map(|i| {
         let s = var_ref_string(i);
         quote! { #s.to_string() }
@@ -121,7 +119,7 @@ fn op_node_expr(op: &OpNode) -> syn::Result<proc_macro2::TokenStream> {
     let attrs = validation::ops::op_attrs_expr(&op.name, &op.settings)?;
     Ok(quote! {
         ::openinfer::NodeKind::Op {
-            op: #kind,
+            op: #op_name.to_string(),
             attrs: #attrs,
             inputs: vec![#(#inputs),*],
             output: #output.to_string(),
@@ -228,20 +226,6 @@ fn branch_node_expr(branch: &BranchNode) -> syn::Result<proc_macro2::TokenStream
             else_block: #else_block,
         }
     })
-}
-
-fn match_opkind(op: &Ident) -> syn::Result<proc_macro2::TokenStream> {
-    let s = op.to_string();
-    match s.as_str() {
-        "add" => Ok(quote! { ::openinfer::OpKind::Add }),
-        "mul" => Ok(quote! { ::openinfer::OpKind::Mul }),
-        "abs" => Ok(quote! { ::openinfer::OpKind::Abs }),
-        "relu" => Ok(quote! { ::openinfer::OpKind::Relu }),
-        "matmul" => Ok(quote! { ::openinfer::OpKind::Matmul }),
-        "is_finite" => Ok(quote! { ::openinfer::OpKind::IsFinite }),
-        "fill" => Ok(quote! { ::openinfer::OpKind::Fill }),
-        _ => Err(syn::Error::new(op.span(), "unsupported op")),
-    }
 }
 
 fn range_value_string(value: &RangeValue) -> String {

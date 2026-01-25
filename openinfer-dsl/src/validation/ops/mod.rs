@@ -4,85 +4,66 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::Ident;
 
+use crate::codegen::memory::match_dtype;
 use crate::types::{OpAttrValue, OpSetting};
 
-mod relu;
-mod fill;
-mod accumulate;
-
-type OpAttrHandler = fn(&Ident, &[OpSetting]) -> syn::Result<TokenStream>;
-
-pub(crate) fn op_attrs_expr(op: &Ident, settings: &[OpSetting]) -> syn::Result<TokenStream> {
-    let op_name = op.to_string();
-    if let Some(handler) = handler_for(&op_name) {
-        return handler(op, settings);
+pub(crate) fn op_attrs_expr(_op: &Ident, settings: &[OpSetting]) -> syn::Result<TokenStream> {
+    let mut map = SettingsMap::new(settings)?;
+    let mut items = Vec::new();
+    for (name, setting) in map.settings.drain() {
+        let name_literal = name.clone();
+        let value_expr = attr_value_expr(&setting)?;
+        items.push(quote! {
+            ::openinfer::OpAttr {
+                name: #name_literal.to_string(),
+                value: #value_expr,
+            }
+        });
     }
-
-    if settings.is_empty() {
-        Ok(quote! { ::openinfer::OpAttrs::None })
-    } else {
-        let setting = settings
-            .first()
-            .map(|s| s.name.span())
-            .unwrap_or_else(|| op.span());
-        Err(syn::Error::new(setting, "op does not support settings"))
-    }
-}
-
-fn handler_for(name: &str) -> Option<OpAttrHandler> {
-    const OPS: &[(&str, OpAttrHandler)] = &[
-        ("add", accumulate::build_attrs),
-        ("mul", accumulate::build_attrs),
-        ("abs", accumulate::build_attrs),
-        ("matmul", accumulate::build_attrs),
-        ("relu", relu::build_attrs),
-        ("fill", fill::build_attrs),
-    ];
-    OPS.iter()
-        .find_map(|(op_name, handler)| (*op_name == name).then_some(*handler))
+    Ok(quote! {
+        ::openinfer::OpAttrs { items: vec![#(#items),*] }
+    })
 }
 
 struct SettingsMap {
-    op: String,
     settings: HashMap<String, OpSetting>,
 }
 
 impl SettingsMap {
-    fn new(op: &Ident, settings: &[OpSetting]) -> syn::Result<Self> {
+    fn new(settings: &[OpSetting]) -> syn::Result<Self> {
         let mut map = HashMap::new();
         for setting in settings {
             let key = setting.name.to_string();
             if map.contains_key(&key) {
                 return Err(syn::Error::new(
                     setting.name.span(),
-                    format!("duplicate {} setting: {}", op, key),
+                    format!("duplicate setting: {}", key),
                 ));
             }
             map.insert(key, setting.clone());
         }
-        Ok(Self {
-            op: op.to_string(),
-            settings: map,
-        })
-    }
-
-    fn take_value(&mut self, key: &str) -> Option<OpAttrValue> {
-        self.settings.remove(key).map(|setting| setting.value)
-    }
-
-    fn ensure_empty(self) -> syn::Result<()> {
-        if let Some((key, setting)) = self.settings.into_iter().next() {
-            return Err(syn::Error::new(
-                setting.name.span(),
-                format!("unsupported {} setting: {}", self.op, key),
-            ));
-        }
-        Ok(())
+        Ok(Self { settings: map })
     }
 }
 
-fn attr_value_expr(value: &OpAttrValue) -> TokenStream {
-    match value {
+fn attr_value_expr(setting: &OpSetting) -> syn::Result<TokenStream> {
+    if setting.name == "acc" {
+        match &setting.value {
+            OpAttrValue::Var(ident) => {
+                let dtype = match_dtype(ident)?;
+                return Ok(quote! { ::openinfer::AttrValue::DType(#dtype) });
+            }
+            _ => {
+                return Err(syn::Error::new(
+                    setting.name.span(),
+                    "acc must be a dtype identifier",
+                ));
+            }
+        }
+    }
+
+    let value = &setting.value;
+    Ok(match value {
         OpAttrValue::Float(val) => {
             if val.is_infinite() {
                 if val.is_sign_negative() {
@@ -118,5 +99,5 @@ fn attr_value_expr(value: &OpAttrValue) -> TokenStream {
             let s = ident.to_string();
             quote! { ::openinfer::AttrValue::Var(#s.to_string()) }
         }
-    }
+    })
 }

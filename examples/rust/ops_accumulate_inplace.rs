@@ -129,7 +129,8 @@ fn tensor_packed_u1(values: &[u8], shape: Vec<usize>) -> anyhow::Result<Tensor<U
 }
 
 fn insert<T: TensorElement>(exec: &mut Executor, name: &str, tensor: Tensor<T>) -> anyhow::Result<()> {
-    exec.insert_dynamic(name, <T as TensorElement>::into_value(tensor))
+    exec.insert_dynamic(name, <T as TensorElement>::into_value(tensor))?;
+    Ok(())
 }
 
 fn format_tensor<T: TensorElement + FormatValue>(

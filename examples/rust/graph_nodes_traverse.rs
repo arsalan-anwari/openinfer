@@ -37,7 +37,8 @@ fn main() -> anyhow::Result<()> {
     let input = Random::<f32>::generate_with_seed(0, (-10.0, 10.0), len)?;
     insert_executor!(exec, { x: input });
 
-    for mut node in exec.iterate() {
+    for node in exec.iterate() {
+        let mut node = node?;
         let ev = node.event.clone();
         fetch_executor!(node, { y: Tensor<f32> });
         let y_str = format_truncated(&y.data);

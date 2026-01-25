@@ -554,6 +554,7 @@ pub fn compute_strides(shape: &[usize]) -> Vec<usize> {
     strides
 }
 
+#[allow(dead_code)]
 pub fn broadcast_shapes(a: &[usize], b: &[usize]) -> Result<Vec<usize>> {
     let rank = a.len().max(b.len());
     let mut out = Vec::with_capacity(rank);
@@ -659,6 +660,7 @@ pub fn broadcast_to_vec<T: Clone>(tensor: &Tensor<T>, out_shape: &[usize]) -> Re
     Ok(out)
 }
 
+#[allow(dead_code)]
 fn dim_from_end(shape: &[usize], idx_from_end: usize) -> Option<usize> {
     if idx_from_end >= shape.len() {
         return None;
