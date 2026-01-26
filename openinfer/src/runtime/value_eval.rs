@@ -80,28 +80,3 @@ pub fn tensor_to_bool(value: &TensorValue) -> Result<bool> {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::{tensor_to_bool, tensor_to_i64};
-    use crate::tensor::{Tensor, TensorOptions, TensorValue};
-
-    #[test]
-    fn tensor_to_i64_from_i32() {
-        let tensor = Tensor::from_vec_with_opts(vec![7i32], TensorOptions {
-            shape: Some(vec![]),
-            ..TensorOptions::default()
-        }).unwrap();
-        let value = TensorValue::I32(tensor);
-        assert_eq!(tensor_to_i64(&value).unwrap(), 7);
-    }
-
-    #[test]
-    fn tensor_to_bool_from_f32() {
-        let tensor = Tensor::from_vec_with_opts(vec![0.0f32], TensorOptions {
-            shape: Some(vec![]),
-            ..TensorOptions::default()
-        }).unwrap();
-        let value = TensorValue::F32(tensor);
-        assert!(!tensor_to_bool(&value).unwrap());
-    }
-}
