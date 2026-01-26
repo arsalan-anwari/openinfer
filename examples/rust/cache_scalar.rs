@@ -30,11 +30,11 @@ fn main() -> anyhow::Result<()> {
 
     exec.step()?;
     fetch_executor!(exec, { out_step: i32 });
-    log::info!("step 0 read = {}", out_step);
+    openinfer::trace!("step 0 read = {}", out_step);
 
     exec.step()?;
     fetch_executor!(exec, { out_step: i32 });
-    log::info!("step 1 read = {}", out_step);
+    openinfer::trace!("step 1 read = {}", out_step);
 
     Ok(())
 }

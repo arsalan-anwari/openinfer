@@ -19,7 +19,7 @@ fn main() -> anyhow::Result<()> {
         }
 
         block entry {
-            loop steps (l in 0..num_layers) {
+            loop steps (l in 0..2) {
                 op add(x, w) >> x;
             }
             return;
@@ -28,8 +28,7 @@ fn main() -> anyhow::Result<()> {
 
     let sim = Simulator::new(&model, &g, select_device()?)?
         .with_trace()
-        .with_timer()
-        .with_inplace(); // Disable this for true worst case
+        .with_timer();
 
     let mut exec = sim.make_executor()?;
 
@@ -47,8 +46,9 @@ fn main() -> anyhow::Result<()> {
     insert_executor!(exec, { x: input });
     exec.step()?;
 
+
     fetch_executor!(exec, { x: Tensor<f32> });
-    log::info!("x.len() = {}", x.len());
-    log::info!("x[0..100] = {:?}", &x.data[..100.min(x.len())]);
+    openinfer::trace!("x.len() = {}", x.len());
+    openinfer::trace!("x[0..100] = {:?}", &x.data[..100.min(x.len())]);
     Ok(())
 }

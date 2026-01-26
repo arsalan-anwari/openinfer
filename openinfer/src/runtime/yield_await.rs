@@ -24,7 +24,7 @@ pub fn handle_yield(
         state.insert_dynamic_shared(var, value.clone())?;
         snapshot.insert(var.clone(), value);
     }
-    println!(
+    crate::trace!(
         "async.snapshot block={} vars={} total_elems={}",
         block_name,
         vars.len(),

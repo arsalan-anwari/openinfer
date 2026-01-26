@@ -13,12 +13,12 @@ compatibility, constant mutation, scalar-only attributes, sizevar resolution),
 and `make_executor()` reuses the validated graph.
 
 By default, the simulator does not print trace output or time ops. Enable
-`with_trace()` for trace logging and `with_timer()` for timing data. Use
-`with_inplace()` to opt into in-place execution for supported ops when the
-output aliases an input (e.g. `op add(x, y) >> x`), which is useful for
-measuring allocation overhead vs. the standard out-of-place behavior. Use
-`with_simulated_float()` to force simulated float paths (e.g. f16 emulation)
-even when native support is available.
+`with_trace()` for trace logging and `with_timer()` for timing data. In-place
+execution is used automatically when the output aliases an input and the op
+supports it (e.g. `op add(x, y) >> x`), which is useful for measuring allocation
+overhead vs. the standard out-of-place behavior. Use `with_simulated_float()`
+to force simulated float paths (e.g. f16 emulation) even when native support is
+available.
 
 Yield/await blocks can execute concurrently on CPU and Vulkan; trace output
 will interleave block names to make concurrency visible (see `examples/rust/yield.rs`).

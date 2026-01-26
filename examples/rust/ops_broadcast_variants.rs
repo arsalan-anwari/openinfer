@@ -259,7 +259,7 @@ fn validate_tensor<T: TensorElement + FormatValue>(
     let formatted = format_tensor::<T>(exec, name)?;
     let ref_val = refs.get(name).cloned().unwrap_or_else(|| "<missing>".to_string());
     let status = if formatted == ref_val { "✅" } else { "❌" };
-    log::info!("[{}] {} = {} -- ref = {}", status, name, formatted, ref_val);
+    openinfer::trace!("[{}] {} = {} -- ref = {}", status, name, formatted, ref_val);
     Ok(())
 }
 
@@ -280,7 +280,7 @@ fn validate_tensor_float<T: TensorElement + FormatValue + Copy + ToF64>(
         }
         None => "❌",
     };
-    log::info!("[{}] {} = {} -- ref = {}", status, name, formatted, ref_val);
+    openinfer::trace!("[{}] {} = {} -- ref = {}", status, name, formatted, ref_val);
     Ok(())
 }
 
@@ -1749,7 +1749,7 @@ fn main() -> Result<()> {
     let n = model.size_of("N")?;
     let b = model.size_of("B")?;
 
-    let sim_cpu = Simulator::new(&model, &g, Device::Cpu)?.with_inplace();
+    let sim_cpu = Simulator::new(&model, &g, Device::Cpu)?;
     let mut exec_cpu = sim_cpu.make_executor()?;
     populate_exec(&mut exec_cpu, v, s, m, k, n, b)?;
     exec_cpu.step()?;
@@ -1778,12 +1778,12 @@ fn main() -> Result<()> {
     collect_named_float::<f32>(&mut refs, &mut float_refs, &mut exec_cpu, F32_OUTPUTS)?;
     collect_named_float::<f64>(&mut refs, &mut float_refs, &mut exec_cpu, F64_OUTPUTS)?;
 
-    let sim = Simulator::new(&model, &g, device)?.with_inplace();
+    let sim = Simulator::new(&model, &g, device)?;
     let mut exec = sim.make_executor()?;
     populate_exec(&mut exec, v, s, m, k, n, b)?;
     exec.step()?;
 
-    log::info!("⚠️ == Pass but drift. ✅ == Pass with no drift. ❌ == Fail");
+    openinfer::trace!("⚠️ == Pass but drift. ✅ == Pass with no drift. ❌ == Fail");
 
     validate_named::<i8>(&refs, &mut exec, I8_OUTPUTS)?;
     validate_named::<i16>(&refs, &mut exec, I16_OUTPUTS)?;
@@ -1807,7 +1807,7 @@ fn main() -> Result<()> {
     validate_named_float::<f32>(&refs, &float_refs, &mut exec, F32_OUTPUTS, FloatTol::f32())?;
     validate_named_float::<f64>(&refs, &float_refs, &mut exec, F64_OUTPUTS, FloatTol::f64())?;
 
-    log::info!("ops_broadcast_variants completed on {:?}", device);
+    openinfer::trace!("ops_broadcast_variants completed on {:?}", device);
 
     Ok(())
 }

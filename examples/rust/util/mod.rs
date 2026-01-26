@@ -1,17 +1,6 @@
 use anyhow::{anyhow, Result};
 use openinfer::Device;
-use simplelog::{ColorChoice, Config, LevelFilter, TermLogger, TerminalMode};
 use std::env;
-use std::sync::Once;
-
-static LOGGER_INIT: Once = Once::new();
-
-pub fn init_logging() {
-    LOGGER_INIT.call_once(|| {
-        let level = LevelFilter::Info;
-        let _ = TermLogger::init(level, Config::default(), TerminalMode::Mixed, ColorChoice::Auto);
-    });
-}
 
 fn default_device() -> Device {
     if cfg!(feature = "avx2") {
@@ -42,7 +31,6 @@ fn parse_example_target() -> Result<Option<String>> {
 }
 
 pub fn select_device() -> Result<Device> {
-    init_logging();
     let target = match parse_example_target()? {
         Some(target) => target,
         None => return Ok(default_device()),

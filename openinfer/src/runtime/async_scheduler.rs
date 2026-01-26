@@ -48,7 +48,7 @@ impl AsyncScheduler {
             let vars = vars.clone();
             let mut block_state = entry_state.fork_with_dynamic(snapshot.vars.clone());
             self.pool.spawn(move || {
-                println!(
+                crate::trace!(
                     "async.start block={} thread={:?}",
                     block_name,
                     std::thread::current().id()
@@ -60,7 +60,7 @@ impl AsyncScheduler {
                         yielded,
                         mutated,
                     });
-                println!(
+                crate::trace!(
                     "async.end block={} thread={:?}",
                     block_name,
                     std::thread::current().id()

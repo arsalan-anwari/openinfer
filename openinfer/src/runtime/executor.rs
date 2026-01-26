@@ -75,9 +75,14 @@ pub struct Executor {
 }
 
 impl Executor {
-    pub fn new(model: Arc<ModelLoader>, graph: Graph, trace_enabled: bool) -> Result<Self> {
+    pub fn new(
+        model: Arc<ModelLoader>,
+        graph: Graph,
+        trace_enabled: bool,
+        timer_enabled: bool,
+    ) -> Result<Self> {
         Ok(Self {
-            state: RuntimeState::new(model, graph, trace_enabled)?,
+            state: RuntimeState::new(model, graph, trace_enabled, timer_enabled)?,
         })
     }
 
@@ -98,10 +103,14 @@ impl Executor {
     }
 
     pub fn step(&mut self) -> Result<Option<TraceEvent>> {
+        let trace_enabled = self.state.trace_enabled();
         let mut iter = self.iterate();
         let mut last_event = None;
         while let Some(step) = iter.next() {
             let step = step?;
+            if trace_enabled {
+                log_trace_event(&step.event);
+            }
             last_event = Some(step.event);
         }
         Ok(last_event)
@@ -136,6 +145,17 @@ impl Executor {
             marker: PhantomData,
         }
     }
+}
+
+fn log_trace_event(event: &TraceEvent) {
+    crate::log!(
+        "{} {} [{}] -- {} -- ({})",
+        event.node_index,
+        event.node_uuid,
+        event.block_name,
+        event.node_desc,
+        event.micros
+    );
 }
 
 pub struct ExecutorIter<'a> {

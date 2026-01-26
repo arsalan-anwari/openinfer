@@ -2,7 +2,9 @@ use anyhow::Result;
 
 use crate::graph::Node;
 use crate::runtime::control_flow::{eval_branch_target, eval_loop_bounds};
-use crate::runtime::state::RuntimeState;
+use std::time::{Duration, Instant};
+
+use crate::runtime::state::{RuntimeState, TraceTiming};
 use crate::runtime::trace::{TraceEvent, TraceEventKind};
 use crate::runtime::yield_await::{handle_await, handle_yield, YieldSnapshot};
 
@@ -47,6 +49,7 @@ pub fn handle_node(
         crate::graph::NodeKind::Return => TraceEventKind::Return,
     };
 
+    let mut timing = None;
     let effect = match &node.kind {
         crate::graph::NodeKind::Assign { name, dtype, dims } => {
             state.register_assign(name, *dtype, dims)?;
@@ -58,8 +61,16 @@ pub fn handle_node(
             inputs,
             output,
         } => {
-            state.exec_op_node(op, attrs, inputs, output)?;
             state.ensure_output(output, attrs)?;
+            let duration = if state.timer_enabled() {
+                let start = Instant::now();
+                state.exec_op_node(*op, attrs, inputs, output)?;
+                Some(start.elapsed())
+            } else {
+                state.exec_op_node(*op, attrs, inputs, output)?;
+                None
+            };
+            timing = duration.map(format_trace_timing);
             NodeEffect::Continue
         }
         crate::graph::NodeKind::Branch {
@@ -120,6 +131,17 @@ pub fn handle_node(
         crate::graph::NodeKind::Return => NodeEffect::Return,
     };
 
-    let event = state.record_event(block_name, node, kind);
+    let event = state.record_event(block_name, node, kind, timing);
     Ok((effect, event))
+}
+
+fn format_trace_timing(duration: Duration) -> TraceTiming {
+    let total_ns = duration.as_nanos();
+    let ms = (total_ns / 1_000_000) as u64;
+    let us = ((total_ns / 1_000) % 1_000) as u64;
+    let ns = (total_ns % 1_000) as u64;
+    TraceTiming {
+        micros: format!("{ms}ms {us}us {ns}ns"),
+        micros_parts: [ms, us, ns],
+    }
 }

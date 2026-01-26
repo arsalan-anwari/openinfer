@@ -46,12 +46,12 @@ fn main() -> anyhow::Result<()> {
     insert_executor!(exec, { x: input.clone(), delta: delta.clone() });
     exec.step()?;
     fetch_executor!(exec, { out: Tensor<f32> });
-    log::info!("step 1 out[0..4] = {:?}", &out.data[..4.min(out.len())]);
+    openinfer::trace!("step 1 out[0..4] = {:?}", &out.data[..4.min(out.len())]);
 
     insert_executor!(exec, { x: input, delta: delta });
     exec.step()?;
     fetch_executor!(exec, { out: Tensor<f32> });
-    log::info!("step 2 out[0..4] = {:?}", &out.data[..4.min(out.len())]);
+    openinfer::trace!("step 2 out[0..4] = {:?}", &out.data[..4.min(out.len())]);
 
     Ok(())
 }

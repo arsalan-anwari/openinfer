@@ -11,15 +11,15 @@ fn format_slice<T: std::fmt::Debug>(data: &[T]) -> String {
 
 fn print_tensor_value(name: &str, value: TensorValue) {
     match value {
-        TensorValue::I8(t) => log::info!("{name}: i8 {}", format_slice(&t.data)),
-        TensorValue::I16(t) => log::info!("{name}: i16 {}", format_slice(&t.data)),
-        TensorValue::I32(t) => log::info!("{name}: i32 {}", format_slice(&t.data)),
-        TensorValue::I64(t) => log::info!("{name}: i64 {}", format_slice(&t.data)),
-        TensorValue::U8(t) => log::info!("{name}: u8 {}", format_slice(&t.data)),
-        TensorValue::U16(t) => log::info!("{name}: u16 {}", format_slice(&t.data)),
-        TensorValue::U32(t) => log::info!("{name}: u32 {}", format_slice(&t.data)),
-        TensorValue::U64(t) => log::info!("{name}: u64 {}", format_slice(&t.data)),
-        other => log::info!("{name}: dtype={:?}", other.dtype()),
+        TensorValue::I8(t) => openinfer::trace!("{name}: i8 {}", format_slice(&t.data)),
+        TensorValue::I16(t) => openinfer::trace!("{name}: i16 {}", format_slice(&t.data)),
+        TensorValue::I32(t) => openinfer::trace!("{name}: i32 {}", format_slice(&t.data)),
+        TensorValue::I64(t) => openinfer::trace!("{name}: i64 {}", format_slice(&t.data)),
+        TensorValue::U8(t) => openinfer::trace!("{name}: u8 {}", format_slice(&t.data)),
+        TensorValue::U16(t) => openinfer::trace!("{name}: u16 {}", format_slice(&t.data)),
+        TensorValue::U32(t) => openinfer::trace!("{name}: u32 {}", format_slice(&t.data)),
+        TensorValue::U64(t) => openinfer::trace!("{name}: u64 {}", format_slice(&t.data)),
+        other => openinfer::trace!("{name}: dtype={:?}", other.dtype()),
     }
 }
 

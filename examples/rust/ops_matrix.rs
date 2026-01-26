@@ -25,7 +25,9 @@ fn compare_line<T: std::fmt::Debug + PartialEq>(label: &str, cpu: &[T], device: 
     let cpu_preview = format!("{:?}", &cpu[..n]);
     let device_preview = format!("{:?}", &device[..n]);
     let ok = if cpu == device { "[✅]" } else { "[❌]" };
-    log::info!("{ok} {label}[0..{n}] = {device_preview} -- CPUref: {cpu_preview}");
+    openinfer::trace!(
+        "{ok} {label}[0..{n}] = {device_preview} -- CPUref: {cpu_preview}"
+    );
 }
 
 fn compare_row_line<T: std::fmt::Debug + PartialEq>(
@@ -38,12 +40,14 @@ fn compare_row_line<T: std::fmt::Debug + PartialEq>(
     let cpu_preview = format!("{:?}", &cpu[..n]);
     let device_preview = format!("{:?}", &device[..n]);
     let ok = if cpu == device { "[✅]" } else { "[❌]" };
-    log::info!("{ok} {label}[0..{n}] = {device_preview} -- CPUref: {cpu_preview}");
+    openinfer::trace!(
+        "{ok} {label}[0..{n}] = {device_preview} -- CPUref: {cpu_preview}"
+    );
 }
 
 fn compare_scalar(label: &str, cpu: bool, device: bool) {
     let ok = if cpu == device { "[✅]" } else { "[❌]" };
-    log::info!("{ok} {label} = {device} -- CPUref: {cpu}");
+    openinfer::trace!("{ok} {label} = {device} -- CPUref: {cpu}");
 }
 
 fn compare_group<T: TensorElement + std::fmt::Debug + PartialEq>(
@@ -64,7 +68,7 @@ fn compare_group<T: TensorElement + std::fmt::Debug + PartialEq>(
     let cpu_mm: Tensor<T> = cpu_exec.fetch(&format!("mm_{}", tag))?;
     let device_mm: Tensor<T> = device_exec.fetch(&format!("mm_{}", tag))?;
 
-    log::info!("=== {} ===", tag);
+    openinfer::trace!("=== {} ===", tag);
     compare_line("add", &cpu_add.data, &device_add.data);
     compare_line("mul", &cpu_mul.data, &device_mul.data);
     if has_abs {
@@ -84,7 +88,7 @@ fn compare_group<T: TensorElement + std::fmt::Debug + PartialEq>(
         compare_scalar("finite", cpu_finite, device_finite);
     }
     compare_row_line("mm", &cpu_mm.data, &device_mm.data, row_len);
-    log::info!("");
+    openinfer::trace!("");
     Ok(())
 }
 
@@ -645,7 +649,7 @@ fn main() -> anyhow::Result<()> {
     compare_group::<bool>(&mut cpu_exec, &mut exec, "bool", n, false, false, false)?;
     compare_group::<Bitset>(&mut cpu_exec, &mut exec, "bitset", n, false, false, false)?;
 
-    log::info!("ops_matrix completed");
+    openinfer::trace!("ops_matrix completed");
 
     Ok(())
 }

@@ -144,11 +144,9 @@ Notes and Limitations
 - Packed integer types (i1/i2/i4/u1/u2/u4) are stored as packed bits in buffers;
   Vulkan shaders decode/operate/encode in-place using byte-addressed buffers.
 - `t1`/`t2` are not supported in Vulkan.
-- The simulator defaults to out-of-place ops, which means every op allocates a
-  fresh output buffer. On Vulkan this can be noticeably slower because each
-  dispatch pays allocation and synchronization costs. Use
-  `Simulator::with_inplace()` to allow in-place kernels when output aliases an
-  input (e.g. `op add(x, w) >> x`) and compare performance.
+- The simulator uses in-place kernels automatically when output aliases an
+  input and the op supports it (e.g. `op add(x, w) >> x`). On Vulkan this can
+  be noticeably faster because it avoids extra allocations and synchronization.
 - If the device lacks `shader_int64` or `shader_float64`, Vulkan kernels fall
   back to CPU with a warning instead of erroring.
 - If you add a dtype or op, update:
