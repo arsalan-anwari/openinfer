@@ -56,7 +56,10 @@ pub fn describe_node(kind: &NodeKind) -> String {
             }
             _ => format!("branch {}", then_block),
         },
+        NodeKind::Barrier => "barrier".to_string(),
+        NodeKind::Dep { after, before } => format!("dep after({}) before({})", after, before),
         NodeKind::Return => "return".to_string(),
+        NodeKind::Transfer { src, dst } => format!("transfer {} >> {}", src, dst),
     }
 }
 

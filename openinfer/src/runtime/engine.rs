@@ -21,7 +21,7 @@ pub enum NodeEffect {
     PushBlock(String),
     PushLoop(LoopFrame),
     Yield(YieldSnapshot),
-    Await,
+    Await(Vec<String>),
 }
 
 pub fn handle_node(
@@ -39,6 +39,9 @@ pub fn handle_node(
         crate::graph::NodeKind::CacheIncrement { .. } => TraceEventKind::CacheIncrement,
         crate::graph::NodeKind::CacheDecrement { .. } => TraceEventKind::CacheDecrement,
         crate::graph::NodeKind::CacheReset { .. } => TraceEventKind::CacheReset,
+        crate::graph::NodeKind::Barrier => TraceEventKind::Barrier,
+        crate::graph::NodeKind::Dep { .. } => TraceEventKind::Dep,
+        crate::graph::NodeKind::Transfer { .. } => TraceEventKind::Transfer,
         crate::graph::NodeKind::Yield { .. } => TraceEventKind::Yield,
         crate::graph::NodeKind::Await { .. } => TraceEventKind::Await,
         crate::graph::NodeKind::Return => TraceEventKind::Return,
@@ -101,10 +104,18 @@ pub fn handle_node(
             state.cache_reset(target)?;
             NodeEffect::Continue
         }
-        crate::graph::NodeKind::Yield { vars } => NodeEffect::Yield(handle_yield(state, vars)?),
+        crate::graph::NodeKind::Barrier => NodeEffect::Continue,
+        crate::graph::NodeKind::Dep { .. } => NodeEffect::Continue,
+        crate::graph::NodeKind::Transfer { src, dst } => {
+            state.transfer_var(src, dst)?;
+            NodeEffect::Continue
+        }
+        crate::graph::NodeKind::Yield { vars } => {
+            NodeEffect::Yield(handle_yield(state, vars, block_name)?)
+        }
         crate::graph::NodeKind::Await { vars } => {
             handle_await(state, vars)?;
-            NodeEffect::Await
+            NodeEffect::Await(vars.clone())
         }
         crate::graph::NodeKind::Return => NodeEffect::Return,
     };

@@ -5,7 +5,7 @@ use crate::codegen::memory::match_dtype;
 use crate::types::{Node, RangeValue, VarRef};
 use crate::validation;
 
-use crate::types::{AssignNode, AwaitNode, BranchNode, LoopNode, OpNode, YieldNode};
+use crate::types::{AssignNode, AwaitNode, BranchNode, DepNode, LoopNode, OpNode, TransferNode, YieldNode};
 
 pub(crate) fn node_stmt(node: &Node, block_name: &str) -> syn::Result<proc_macro2::TokenStream> {
     match node {
@@ -41,6 +41,8 @@ pub(crate) fn node_kind_expr(node: &Node) -> syn::Result<proc_macro2::TokenStrea
         Node::Assign(assign) => assign_node_expr(assign),
         Node::Op(op) => op_node_expr(op),
         Node::Branch(branch) => branch_node_expr(branch),
+        Node::Barrier => Ok(quote! { ::openinfer::NodeKind::Barrier }),
+        Node::Dep(node) => dep_node_expr(node),
         Node::CacheRead(node) => {
             let src = cache_access_expr(&node.src)?;
             let dst = var_ref_string(&node.dst);
@@ -89,6 +91,7 @@ pub(crate) fn node_kind_expr(node: &Node) -> syn::Result<proc_macro2::TokenStrea
                 }
             })
         }
+        Node::Transfer(node) => transfer_node_expr(node),
         Node::Loop(loop_node) => loop_node_expr(loop_node),
         Node::Yield(node) => yield_node_expr(node),
         Node::Await(node) => await_node_expr(node),
@@ -224,6 +227,28 @@ fn branch_node_expr(branch: &BranchNode) -> syn::Result<proc_macro2::TokenStream
             cond: #cond,
             then_block: #then_block.to_string(),
             else_block: #else_block,
+        }
+    })
+}
+
+fn dep_node_expr(node: &DepNode) -> syn::Result<proc_macro2::TokenStream> {
+    let after = node.after.to_string();
+    let before = node.before.to_string();
+    Ok(quote! {
+        ::openinfer::NodeKind::Dep {
+            after: #after.to_string(),
+            before: #before.to_string(),
+        }
+    })
+}
+
+fn transfer_node_expr(node: &TransferNode) -> syn::Result<proc_macro2::TokenStream> {
+    let src = var_ref_string(&node.src);
+    let dst = var_ref_string(&node.dst);
+    Ok(quote! {
+        ::openinfer::NodeKind::Transfer {
+            src: #src.to_string(),
+            dst: #dst.to_string(),
         }
     })
 }

@@ -8,8 +8,8 @@ use crate::parsers::op::parse_op_arg;
 use crate::parsers::range::parse_range_value;
 use crate::parsers::var::parse_var_ref;
 use crate::types::{
-    AssignNode, BranchNode, CacheDecNode, CacheIncNode, CacheReadNode, CacheResetNode, CacheWriteNode, Node,
-    AwaitNode, LoopNode, OpArg, OpNode, YieldNode,
+    AssignNode, AwaitNode, BranchNode, CacheDecNode, CacheIncNode, CacheReadNode, CacheResetNode,
+    CacheWriteNode, DepNode, LoopNode, Node, OpArg, OpNode, TransferNode, YieldNode,
 };
 
 impl Parse for Node {
@@ -118,6 +118,22 @@ impl Parse for Node {
                     else_block: Some(third),
                 }))
             }
+        } else if input.peek(kw::barrier) {
+            input.parse::<kw::barrier>()?;
+            input.parse::<Token![;]>()?;
+            Ok(Node::Barrier)
+        } else if input.peek(kw::dep) {
+            input.parse::<kw::dep>()?;
+            input.parse::<kw::after>()?;
+            let after_content;
+            parenthesized!(after_content in input);
+            let after = after_content.parse()?;
+            input.parse::<kw::before>()?;
+            let before_content;
+            parenthesized!(before_content in input);
+            let before = before_content.parse()?;
+            input.parse::<Token![;]>()?;
+            Ok(Node::Dep(DepNode { after, before }))
         } else if input.peek(Token![loop]) {
             input.parse::<Token![loop]>()?;
             let name = input.parse()?;
@@ -173,6 +189,13 @@ impl Parse for Node {
             }
             input.parse::<Token![;]>()?;
             Ok(Node::Await(AwaitNode { vars }))
+        } else if input.peek(kw::transfer) {
+            input.parse::<kw::transfer>()?;
+            let src = parse_var_ref(input)?;
+            input.parse::<Token![>>]>()?;
+            let dst = parse_var_ref(input)?;
+            input.parse::<Token![;]>()?;
+            Ok(Node::Transfer(TransferNode { src, dst }))
         } else if input.peek(Token![return]) {
             input.parse::<Token![return]>()?;
             input.parse::<Token![;]>()?;

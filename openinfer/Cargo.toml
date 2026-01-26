@@ -13,6 +13,7 @@ rand = "0.8"
 log = "0.4.29"
 simplelog = "0.12.2"
 memmap2 = "0.9"
+rayon = "*"
 
 [dev-dependencies]
 
