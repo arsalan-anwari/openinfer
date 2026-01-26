@@ -4,9 +4,11 @@ use crate::graph::{AttrValue, OpAttrs, OpKind};
 use crate::ops::{lookup_kernel, OpKey, OpMode};
 use crate::registry::op_schema;
 use crate::runtime::state::SharedTensor;
+use crate::simulator::Device;
 use crate::tensor::{DType, TensorValue};
 
 pub fn exec_op(
+    device: Device,
     op: OpKind,
     attrs: &OpAttrs,
     inputs: &[TensorValue],
@@ -43,7 +45,7 @@ pub fn exec_op(
         out0: output_dtype,
     };
 
-    let kernel = lookup_kernel(crate::simulator::Device::Cpu, key)?;
+    let kernel = lookup_kernel(device, key)?;
     let mut output_guard = match output {
         Some(shared) => Some(
             shared

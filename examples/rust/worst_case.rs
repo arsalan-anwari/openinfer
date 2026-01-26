@@ -15,12 +15,13 @@ fn main() -> anyhow::Result<()> {
         }
 
         volatile {
+            x2: f32[D];
             w: f32[D];
         }
 
         block entry {
             loop steps (l in 0..2) {
-                op add(x, w) >> x;
+                op add(x, w) >> x2;
             }
             return;
         }
@@ -47,8 +48,11 @@ fn main() -> anyhow::Result<()> {
     exec.step()?;
 
 
-    fetch_executor!(exec, { x: Tensor<f32> });
+    fetch_executor!(exec, { x: Tensor<f32>, x2: Tensor<f32> });
     openinfer::trace!("x.len() = {}", x.len());
     openinfer::trace!("x[0..100] = {:?}", &x.data[..100.min(x.len())]);
+
+    openinfer::trace!("x2.len() = {}", x2.len());
+    openinfer::trace!("x2[0..100] = {:?}", &x2.data[..100.min(x2.len())]);
     Ok(())
 }

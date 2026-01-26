@@ -11,7 +11,11 @@ use crate::runtime::model_loader::ModelLoader;
 use crate::runtime::op_runner::exec_op;
 use crate::runtime::tensor_store::TensorRef;
 use crate::runtime::trace::{TraceEvent, TraceEventKind};
+use crate::simulator::Device;
 use crate::tensor::{DType, TensorElement, TensorValue};
+
+#[cfg(feature = "vulkan")]
+use crate::ops::vulkan::runtime::{get_vulkan_runtime, set_vulkan_runtime, VulkanCaps, VulkanRuntime};
 
 pub type SharedTensor = Arc<Mutex<TensorValue>>;
 
@@ -19,6 +23,7 @@ pub type SharedTensor = Arc<Mutex<TensorValue>>;
 pub struct RuntimeShared {
     model: Arc<ModelLoader>,
     graph: Graph,
+    device: Device,
     base_var_shapes: HashMap<String, Vec<usize>>,
     base_var_dtypes: HashMap<String, DType>,
     trace_events: Mutex<Vec<TraceEvent>>,
@@ -49,9 +54,24 @@ impl RuntimeState {
     pub fn new(
         model: Arc<ModelLoader>,
         graph: Graph,
+        device: Device,
         trace_enabled: bool,
         timer_enabled: bool,
     ) -> Result<Self> {
+        if device == Device::Vulkan {
+            #[cfg(feature = "vulkan")]
+            {
+                if get_vulkan_runtime().is_none() {
+                    let runtime = VulkanRuntime::new(VulkanCaps {
+                        int64: false,
+                        float64: false,
+                        float16: false,
+                        subgroup: false,
+                    })?;
+                    set_vulkan_runtime(runtime)?;
+                }
+            }
+        }
         let mut var_shapes = HashMap::new();
         let mut var_dtypes = HashMap::new();
         for (name, decl) in &graph.vars {
@@ -63,6 +83,7 @@ impl RuntimeState {
         let shared = Arc::new(RuntimeShared {
             model,
             graph,
+            device,
             base_var_shapes: var_shapes.clone(),
             base_var_dtypes: var_dtypes.clone(),
             trace_events: Mutex::new(Vec::new()),
@@ -107,6 +128,10 @@ impl RuntimeState {
 
     pub fn timer_enabled(&self) -> bool {
         self.shared.timer_enabled
+    }
+
+    pub fn device(&self) -> Device {
+        self.shared.device
     }
 
     pub fn fork_with_dynamic(&self, dynamic: HashMap<String, SharedTensor>) -> Self {
@@ -350,7 +375,14 @@ impl RuntimeState {
             .collect::<Result<Vec<_>>>()?;
         let output_tensor = self.get_tensor_shared(output)?;
         let is_inplace = inputs.iter().any(|name| name == output);
-        exec_op(op, attrs, &input_tensors, Some(&output_tensor), is_inplace)?;
+        exec_op(
+            self.device(),
+            op,
+            attrs,
+            &input_tensors,
+            Some(&output_tensor),
+            is_inplace,
+        )?;
         self.mark_mutated(output);
         Ok(())
     }

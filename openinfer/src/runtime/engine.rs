@@ -7,6 +7,7 @@ use std::time::{Duration, Instant};
 use crate::runtime::state::{RuntimeState, TraceTiming};
 use crate::runtime::trace::{TraceEvent, TraceEventKind};
 use crate::runtime::yield_await::{handle_await, handle_yield, YieldSnapshot};
+use crate::simulator::Device;
 
 #[derive(Debug, Clone)]
 pub struct LoopFrame {
@@ -65,7 +66,24 @@ pub fn handle_node(
             let duration = if state.timer_enabled() {
                 let start = Instant::now();
                 state.exec_op_node(*op, attrs, inputs, output)?;
-                Some(start.elapsed())
+                if state.device() == Device::Vulkan {
+                    #[cfg(feature = "vulkan")]
+                    {
+                        if let Some(duration) =
+                            crate::ops::vulkan::runtime::take_last_dispatch_duration()
+                        {
+                            Some(duration)
+                        } else {
+                            Some(start.elapsed())
+                        }
+                    }
+                    #[cfg(not(feature = "vulkan"))]
+                    {
+                        Some(start.elapsed())
+                    }
+                } else {
+                    Some(start.elapsed())
+                }
             } else {
                 state.exec_op_node(*op, attrs, inputs, output)?;
                 None

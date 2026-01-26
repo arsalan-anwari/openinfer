@@ -22,7 +22,7 @@ fn parse_example_target() -> Result<Option<String>> {
             return match args.next() {
                 Some(value) => Ok(Some(value)),
                 None => Err(anyhow!(
-                    "--target requires a value: cpu|avx|avx2"
+                    "--target requires a value: cpu|avx|avx2|vulkan"
                 )),
             };
         }
@@ -40,8 +40,9 @@ pub fn select_device() -> Result<Device> {
         "cpu" => Ok(Device::Cpu),
         "avx" => Ok(Device::CpuAvx),
         "avx2" => Ok(Device::CpuAvx2),
+        "vulkan" => Ok(Device::Vulkan),
         _ => Err(anyhow!(
-            "unknown --target value '{}'; expected cpu|avx|avx2",
+            "unknown --target value '{}'; expected cpu|avx|avx2|vulkan",
             target
         )),
     }

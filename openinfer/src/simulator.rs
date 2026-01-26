@@ -12,6 +12,7 @@ pub enum Device {
     Cpu,
     CpuAvx,
     CpuAvx2,
+    Vulkan,
 }
 
 impl Device {
@@ -20,6 +21,7 @@ impl Device {
             Device::Cpu => true,
             Device::CpuAvx => cfg!(feature = "avx"),
             Device::CpuAvx2 => cfg!(feature = "avx2"),
+            Device::Vulkan => cfg!(feature = "vulkan"),
         }
     }
 }
@@ -28,6 +30,7 @@ impl Device {
 pub struct Simulator {
     model: Arc<ModelLoader>,
     graph: Graph,
+    device: Device,
     trace_enabled: bool,
     timer_enabled: bool,
     force_simulated_float: bool,
@@ -42,6 +45,7 @@ impl Simulator {
         Ok(Self {
             model: Arc::new(model.clone()),
             graph: graph.clone(),
+            device,
             trace_enabled: false,
             timer_enabled: false,
             force_simulated_float: false,
@@ -67,6 +71,7 @@ impl Simulator {
         Executor::new(
             self.model.clone(),
             self.graph.clone(),
+            self.device,
             self.trace_enabled,
             self.timer_enabled,
         )

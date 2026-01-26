@@ -12,6 +12,7 @@ use crate::runtime::model_loader::ModelLoader;
 use crate::runtime::state::RuntimeState;
 use crate::runtime::trace::{TraceEvent, TraceEventKind};
 use crate::runtime::value_eval::{tensor_to_bool, tensor_to_i64};
+use crate::simulator::Device;
 use crate::tensor::{Tensor, TensorElement, TensorValue};
 
 pub trait Fetchable: Sized {
@@ -78,11 +79,12 @@ impl Executor {
     pub fn new(
         model: Arc<ModelLoader>,
         graph: Graph,
+        device: Device,
         trace_enabled: bool,
         timer_enabled: bool,
     ) -> Result<Self> {
         Ok(Self {
-            state: RuntimeState::new(model, graph, trace_enabled, timer_enabled)?,
+            state: RuntimeState::new(model, graph, device, trace_enabled, timer_enabled)?,
         })
     }
 
