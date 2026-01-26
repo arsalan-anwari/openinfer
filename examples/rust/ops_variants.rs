@@ -138,7 +138,7 @@ fn main() -> Result<()> {
     let mbi_b_vals: Vec<i32> = (0..mb_b_len).map(|i| i as i32 + 2).collect();
 
     let device = select_device()?;
-    let sim = Simulator::new(&model, &g, device)?.with_inplace();
+    let sim = Simulator::new(&model, &g, device)?;
     let mut exec = sim.make_executor()?;
 
     insert_tensor(&mut exec, "a", a_vals.clone(), vec![v])?;
@@ -169,7 +169,7 @@ fn main() -> Result<()> {
     insert_tensor(&mut exec, "in_mm_b", ma_vals, vec![b, m, k])?;
 
     exec.step()?;
-    log::info!("ops_variants completed on {:?}", device);
+    openinfer::trace!("ops_variants completed on {:?}", device);
 
     Ok(())
 }

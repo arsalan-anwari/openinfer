@@ -114,6 +114,10 @@ fn assign_node_expr(assign: &AssignNode) -> syn::Result<proc_macro2::TokenStream
 
 fn op_node_expr(op: &OpNode) -> syn::Result<proc_macro2::TokenStream> {
     let op_name = op.name.to_string();
+    let op_kind = quote! {
+        ::openinfer::OpKind::from_name(#op_name)
+            .expect("unknown op name")
+    };
     let inputs = op.inputs.iter().map(|i| {
         let s = var_ref_string(i);
         quote! { #s.to_string() }
@@ -122,7 +126,7 @@ fn op_node_expr(op: &OpNode) -> syn::Result<proc_macro2::TokenStream> {
     let attrs = validation::ops::op_attrs_expr(&op.name, &op.settings)?;
     Ok(quote! {
         ::openinfer::NodeKind::Op {
-            op: #op_name.to_string(),
+            op: #op_kind,
             attrs: #attrs,
             inputs: vec![#(#inputs),*],
             output: #output.to_string(),

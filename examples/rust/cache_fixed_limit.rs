@@ -40,10 +40,10 @@ fn main() -> anyhow::Result<()> {
     insert_executor!(exec, { bias: 1.0f32 });
     match exec.step() {
         Ok(_) => {
-            log::info!("Unexpected success: cache access should exceed @fixed limits.");
+            openinfer::trace!("Unexpected success: cache access should exceed @fixed limits.");
         }
         Err(err) => {
-            log::info!("Expected cache limit error: {err}");
+            openinfer::trace!("Expected cache limit error: {err}");
         }
     }
 

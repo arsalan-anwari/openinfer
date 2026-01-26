@@ -34,7 +34,7 @@ fn format_head_tail<T: FormatValue>(data: &[T], head: usize, tail: usize) -> Str
 }
 
 fn print_head_tail<T: FormatValue>(label: &str, data: &[T]) {
-    log::info!("{label} = {}", format_head_tail(data, 5, 5));
+    openinfer::trace!("{label} = {}", format_head_tail(data, 5, 5));
 }
 
 fn main() -> anyhow::Result<()> {
@@ -103,7 +103,7 @@ fn main() -> anyhow::Result<()> {
     exec.step()?;
 
     fetch_executor!(exec, { out: Tensor<f32> });
-    log::info!("out shape = {:?}", out.shape());
+    openinfer::trace!("out shape = {:?}", out.shape());
     print_head_tail("out", &out.to_vec());
 
     Ok(())

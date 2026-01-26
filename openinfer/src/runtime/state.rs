@@ -3,7 +3,9 @@ use std::sync::{Arc, Mutex};
 
 use anyhow::{anyhow, Result};
 
-use crate::graph::{describe_node, CacheAccess, Graph, MemoryKind, Node, NodeKind, OpAttrs};
+use crate::graph::{
+    describe_node, CacheAccess, Graph, MemoryKind, Node, NodeKind, OpAttrs, OpKind,
+};
 use crate::runtime::cache::CacheStore;
 use crate::runtime::model_loader::ModelLoader;
 use crate::runtime::op_runner::exec_op;
@@ -21,6 +23,7 @@ pub struct RuntimeShared {
     base_var_dtypes: HashMap<String, DType>,
     trace_events: Mutex<Vec<TraceEvent>>,
     trace_enabled: bool,
+    timer_enabled: bool,
     cache: Mutex<CacheStore>,
 }
 
@@ -36,8 +39,19 @@ pub struct RuntimeState {
     loop_vars: HashMap<String, i64>,
 }
 
+#[derive(Debug, Clone)]
+pub struct TraceTiming {
+    pub micros: String,
+    pub micros_parts: [u64; 3],
+}
+
 impl RuntimeState {
-    pub fn new(model: Arc<ModelLoader>, graph: Graph, trace_enabled: bool) -> Result<Self> {
+    pub fn new(
+        model: Arc<ModelLoader>,
+        graph: Graph,
+        trace_enabled: bool,
+        timer_enabled: bool,
+    ) -> Result<Self> {
         let mut var_shapes = HashMap::new();
         let mut var_dtypes = HashMap::new();
         for (name, decl) in &graph.vars {
@@ -53,6 +67,7 @@ impl RuntimeState {
             base_var_dtypes: var_dtypes.clone(),
             trace_events: Mutex::new(Vec::new()),
             trace_enabled,
+            timer_enabled,
             cache: Mutex::new(cache),
         });
         Ok(Self {
@@ -84,6 +99,14 @@ impl RuntimeState {
             .lock()
             .expect("trace_events lock poisoned")
             .clone()
+    }
+
+    pub fn trace_enabled(&self) -> bool {
+        self.shared.trace_enabled
+    }
+
+    pub fn timer_enabled(&self) -> bool {
+        self.shared.timer_enabled
     }
 
     pub fn fork_with_dynamic(&self, dynamic: HashMap<String, SharedTensor>) -> Self {
@@ -314,14 +337,20 @@ impl RuntimeState {
         })
     }
 
-    pub fn exec_op_node(&mut self, op: &str, attrs: &OpAttrs, inputs: &[String], output: &str) -> Result<()> {
+    pub fn exec_op_node(
+        &mut self,
+        op: OpKind,
+        attrs: &OpAttrs,
+        inputs: &[String],
+        output: &str,
+    ) -> Result<()> {
         let input_tensors = inputs
             .iter()
-            .map(|name| self.tensor_ref_for(name))
+            .map(|name| self.get_tensor(name))
             .collect::<Result<Vec<_>>>()?;
-        let output_tensor = self.tensor_ref_for(output)?;
-        let input_refs = input_tensors.iter().collect::<Vec<_>>();
-        exec_op(op, attrs, &input_refs, Some(&output_tensor))?;
+        let output_tensor = self.get_tensor_shared(output)?;
+        let is_inplace = inputs.iter().any(|name| name == output);
+        exec_op(op, attrs, &input_tensors, Some(&output_tensor), is_inplace)?;
         self.mark_mutated(output);
         Ok(())
     }
@@ -411,8 +440,14 @@ impl RuntimeState {
             )
     }
 
-    pub fn record_event(&mut self, block_name: &str, node: &Node, kind: TraceEventKind) -> TraceEvent {
-        let event = self.build_event(block_name, node, kind);
+    pub fn record_event(
+        &mut self,
+        block_name: &str,
+        node: &Node,
+        kind: TraceEventKind,
+        timing: Option<TraceTiming>,
+    ) -> TraceEvent {
+        let event = self.build_event(block_name, node, kind, timing);
         if self.shared.trace_enabled {
             self.shared
                 .trace_events
@@ -423,8 +458,17 @@ impl RuntimeState {
         event
     }
 
-    fn build_event(&self, block_name: &str, node: &Node, kind: TraceEventKind) -> TraceEvent {
+    fn build_event(
+        &self,
+        block_name: &str,
+        node: &Node,
+        kind: TraceEventKind,
+        timing: Option<TraceTiming>,
+    ) -> TraceEvent {
         let desc = describe_node(&node.kind);
+        let (micros, micros_parts) = timing
+            .map(|timing| (timing.micros, timing.micros_parts))
+            .unwrap_or_else(|| ("0ms 0us 0ns".to_string(), [0, 0, 0]));
         TraceEvent {
             kind,
             node_index: node.index,
@@ -434,8 +478,8 @@ impl RuntimeState {
             op_name: op_name(&node.kind),
             params: Vec::new(),
             output: Vec::new(),
-            micros: "0ms 0us 0ns".to_string(),
-            micros_parts: [0, 0, 0],
+            micros,
+            micros_parts,
         }
     }
 
@@ -460,7 +504,7 @@ impl RuntimeState {
 
 fn op_name(kind: &NodeKind) -> String {
     match kind {
-        NodeKind::Op { op, .. } => op.clone(),
+        NodeKind::Op { op, .. } => op.as_str().to_string(),
         _ => String::new(),
     }
 }

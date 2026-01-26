@@ -40,11 +40,11 @@ fn main() -> anyhow::Result<()> {
     exec.step()?;
 
     fetch_executor!(exec, { y: Tensor<f32>, alpha: f32, clamp_max: f32 });
-    log::info!(
+    openinfer::trace!(
         "relu settings: alpha={}, clamp_max={}",
         alpha, clamp_max
     );
-    log::info!("y[0..100] = {:?}", &y.data[..100.min(y.len())]);
+    openinfer::trace!("y[0..100] = {:?}", &y.data[..100.min(y.len())]);
 
     Ok(())
 }

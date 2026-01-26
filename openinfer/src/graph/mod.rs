@@ -5,6 +5,6 @@ mod var;
 pub use node::describe_node;
 pub use types::{
     AttrValue, Block, CacheAccess, CacheIndexExpr, CacheIndexValue, Graph, Node, NodeKind, OpAttr,
-    OpAttrs,
+    OpAttrs, OpKind,
 };
 pub use var::{MemoryKind, VarDecl};

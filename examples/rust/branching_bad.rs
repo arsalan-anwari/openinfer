@@ -70,8 +70,8 @@ fn main() -> anyhow::Result<()> {
     exec.step()?;
 
     fetch_executor!(exec, { h: Tensor<f32>, cond: bool });
-    log::info!("branch condition: {}", cond);
-    log::info!("h[0..100] = {:?}", &h.data[..100.min(h.len())]);
+    openinfer::trace!("branch condition: {}", cond);
+    openinfer::trace!("h[0..100] = {:?}", &h.data[..100.min(h.len())]);
 
     let trace = exec.trace();
     let out_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../examples/rust/out");

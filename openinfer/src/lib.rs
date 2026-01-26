@@ -12,11 +12,13 @@ mod timer;
 mod formatting;
 mod graph_serde;
 mod random;
+mod ops;
+pub mod logging;
 
 pub use simulator::{Device, Executor, Fetchable, Simulator, TraceEvent, TraceEventKind};
 pub use graph::{
     AttrValue, Block, CacheAccess, CacheIndexExpr, CacheIndexValue, Graph, MemoryKind, Node,
-    NodeKind, OpAttr, OpAttrs, VarDecl,
+    NodeKind, OpAttr, OpAttrs, OpKind, VarDecl,
 };
 pub use graph_serde::{GraphDeserialize, GraphSerialize};
 pub use model_loader::ModelLoader;

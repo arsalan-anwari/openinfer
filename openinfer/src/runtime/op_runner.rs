@@ -1,68 +1,68 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 
-use crate::graph::{AttrValue, OpAttrs};
-use crate::registry::op_def;
-use crate::runtime::tensor_store::TensorRef;
+use crate::graph::{AttrValue, OpAttrs, OpKind};
+use crate::ops::{lookup_kernel, OpKey, OpMode};
+use crate::registry::op_schema;
+use crate::runtime::state::SharedTensor;
+use crate::tensor::{DType, TensorValue};
 
 pub fn exec_op(
-    op: &str,
+    op: OpKind,
     attrs: &OpAttrs,
-    inputs: &[&TensorRef],
-    output: Option<&TensorRef>,
+    inputs: &[TensorValue],
+    output: Option<&SharedTensor>,
+    is_inplace: bool,
 ) -> Result<()> {
-    let def = op_def(op);
-    let is_inplace = def
-        .map(|def| def.supports_inplace)
-        .unwrap_or(false)
-        && inputs
-            .iter()
-            .any(|input| input.name == output.map(|out| out.name.clone()).unwrap_or_default());
-    let is_accumulate = attrs.items.iter().any(|attr| attr.name == "acc");
-    let is_broadcast = def
-        .map(|def| def.supports_broadcast)
-        .unwrap_or(false)
+    let schema = op_schema(op).ok_or_else(|| anyhow!("unsupported op {}", op))?;
+    let input_dtypes = inputs.iter().map(|tensor| tensor.dtype()).collect::<Vec<_>>();
+    let is_accumulate = schema.accumulate.allow() && attrs.items.iter().any(|attr| attr.name == "acc");
+    let is_broadcast = schema.broadcast.allow()
         && inputs
             .windows(2)
-            .any(|pair| pair[0].shape != pair[1].shape);
+            .any(|pair| pair[0].shape() != pair[1].shape());
+    let is_inplace = schema.inplace.allow() && is_inplace;
+    let output_dtype = if is_accumulate {
+        acc_dtype(attrs)?
+    } else {
+        schema.type_rule.output_dtype(&input_dtypes, attrs)?
+    };
+    let mode = if is_accumulate {
+        OpMode::Accumulate
+    } else if is_inplace {
+        OpMode::Inplace
+    } else {
+        OpMode::Normal
+    };
 
-    let input_desc = inputs
-        .iter()
-        .map(|tensor| tensor.describe())
-        .collect::<Vec<_>>()
-        .join(", ");
-    let output_desc = output
-        .map(|tensor| tensor.describe())
-        .unwrap_or_else(|| "<missing>".to_string());
-    let attr_desc = format_attrs(attrs);
+    let key = OpKey {
+        kind: op,
+        mode,
+        broadcast: is_broadcast,
+        in0: input_dtypes[0],
+        in1: input_dtypes.get(1).copied(),
+        out0: output_dtype,
+    };
 
-    println!(
-        "op={} inputs=[{}] output={} attrs={} broadcast={} accumulate={} inplace={}",
-        op, input_desc, output_desc, attr_desc, is_broadcast, is_accumulate, is_inplace
-    );
-    Ok(())
+    let kernel = lookup_kernel(crate::simulator::Device::Cpu, key)?;
+    let mut output_guard = match output {
+        Some(shared) => Some(
+            shared
+                .lock()
+                .map_err(|_| anyhow!("output tensor lock poisoned"))?,
+        ),
+        None => None,
+    };
+    kernel(attrs, inputs, output_guard.as_deref_mut())
 }
 
-fn format_attrs(attrs: &OpAttrs) -> String {
-    if attrs.items.is_empty() {
-        return "[]".to_string();
-    }
-    let rendered = attrs
+fn acc_dtype(attrs: &OpAttrs) -> Result<DType> {
+    attrs
         .items
         .iter()
-        .map(|attr| format!("{}={}", attr.name, format_attr_value(&attr.value)))
-        .collect::<Vec<_>>()
-        .join(", ");
-    format!("[{}]", rendered)
-}
-
-fn format_attr_value(value: &AttrValue) -> String {
-    match value {
-        AttrValue::Float(val) => val.to_string(),
-        AttrValue::Double(val) => val.to_string(),
-        AttrValue::Int(val) => val.to_string(),
-        AttrValue::UInt(val) => val.to_string(),
-        AttrValue::Bool(val) => val.to_string(),
-        AttrValue::Var(name) => name.clone(),
-        AttrValue::DType(dtype) => format!("{:?}", dtype),
-    }
+        .find(|attr| attr.name == "acc")
+        .ok_or_else(|| anyhow!("missing acc attribute"))
+        .and_then(|attr| match &attr.value {
+            AttrValue::DType(dtype) => Ok(*dtype),
+            _ => Err(anyhow!("acc attribute must be a dtype")),
+        })
 }

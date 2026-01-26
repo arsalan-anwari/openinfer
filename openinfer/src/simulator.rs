@@ -2,9 +2,9 @@ use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
 
-use crate::graph::{Graph, NodeKind, OpAttrs};
+use crate::graph::{Graph, NodeKind, OpAttrs, OpKind};
 use crate::model_loader::ModelLoader;
-use crate::registry::op_def;
+use crate::registry::op_schema;
 pub use crate::runtime::{Executor, Fetchable, TraceEvent, TraceEventKind};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -30,7 +30,6 @@ pub struct Simulator {
     graph: Graph,
     trace_enabled: bool,
     timer_enabled: bool,
-    inplace_enabled: bool,
     force_simulated_float: bool,
 }
 
@@ -45,7 +44,6 @@ impl Simulator {
             graph: graph.clone(),
             trace_enabled: false,
             timer_enabled: false,
-            inplace_enabled: false,
             force_simulated_float: false,
         })
     }
@@ -60,11 +58,6 @@ impl Simulator {
         self
     }
 
-    pub fn with_inplace(mut self) -> Self {
-        self.inplace_enabled = true;
-        self
-    }
-
     pub fn with_simulated_float(mut self) -> Self {
         self.force_simulated_float = true;
         self
@@ -75,6 +68,7 @@ impl Simulator {
             self.model.clone(),
             self.graph.clone(),
             self.trace_enabled,
+            self.timer_enabled,
         )
     }
 }
@@ -83,15 +77,19 @@ fn validate_graph(graph: &Graph) -> Result<()> {
     for block in graph.blocks.values() {
         for node in &block.nodes {
             if let NodeKind::Op { op, attrs, .. } = &node.kind {
-                let def = op_def(op).ok_or_else(|| anyhow!("unsupported op {}", op))?;
-                validate_attrs(op, attrs, def.attrs)?;
+                let def = op_schema(*op).ok_or_else(|| anyhow!("unsupported op {}", op))?;
+                validate_attrs(*op, attrs, def.attrs)?;
             }
         }
     }
     Ok(())
 }
 
-fn validate_attrs(op: &str, attrs: &OpAttrs, allowed: &[crate::registry::OpAttrDef]) -> Result<()> {
+fn validate_attrs(
+    op: OpKind,
+    attrs: &OpAttrs,
+    allowed: &[crate::registry::OpAttrDef],
+) -> Result<()> {
     for attr in &attrs.items {
         if !allowed.iter().any(|def| def.name == attr.name) {
             return Err(anyhow!("unsupported {} setting: {}", op, attr.name));

@@ -14,12 +14,16 @@ fn device_name(device: Device) -> &'static str {
 
 fn try_graph(label: &str, model: &ModelLoader, graph: &openinfer::Graph, device: Device) {
     if !device.is_supported() {
-        log::info!("{}: device {} not supported in this build", label, device_name(device));
+        openinfer::trace!(
+            "{}: device {} not supported in this build",
+            label,
+            device_name(device)
+        );
         return;
     }
     match Simulator::new(model, graph, device).and_then(|sim| sim.make_executor()) {
-        Ok(_) => log::info!("{}: ok", label),
-        Err(err) => log::info!("{}: error: {}", label, err),
+        Ok(_) => openinfer::trace!("{}: ok", label),
+        Err(err) => openinfer::trace!("{}: error: {}", label, err),
     }
 }
 
@@ -83,70 +87,75 @@ fn unpack_t1(bits: &[u8], count: usize) -> Vec<i8> {
 
 fn print_tensor(model: &ModelLoader, name: &str) -> anyhow::Result<()> {
     let tensor = model.load_tensor(name)?;
-    log::info!("{}: dtype={:?} shape={:?}", name, tensor.dtype(), tensor.shape());
+    openinfer::trace!(
+        "{}: dtype={:?} shape={:?}",
+        name,
+        tensor.dtype(),
+        tensor.shape()
+    );
     match tensor {
-        TensorValue::I8(t) => log::info!("  values={}", format_full(&t.data)),
-        TensorValue::I16(t) => log::info!("  values={}", format_full(&t.data)),
-        TensorValue::I32(t) => log::info!("  values={}", format_full(&t.data)),
-        TensorValue::I64(t) => log::info!("  values={}", format_full(&t.data)),
-        TensorValue::U8(t) => log::info!("  values={}", format_full(&t.data)),
-        TensorValue::U16(t) => log::info!("  values={}", format_full(&t.data)),
-        TensorValue::U32(t) => log::info!("  values={}", format_full(&t.data)),
-        TensorValue::U64(t) => log::info!("  values={}", format_full(&t.data)),
-        TensorValue::F16(t) => log::info!("  values={}", format_full(&t.data)),
-        TensorValue::BF16(t) => log::info!("  values={}", format_full(&t.data)),
-        TensorValue::F8E5M2(t) => log::info!("  values={}", format_full(&t.data)),
-        TensorValue::F32(t) => log::info!("  values={}", format_full(&t.data)),
-        TensorValue::F64(t) => log::info!("  values={}", format_full(&t.data)),
-        TensorValue::Bool(t) => log::info!("  values={}", format_full(&t.data)),
-        TensorValue::Bitset(t) => log::info!("  values={}", format_full(&t.data)),
+        TensorValue::I8(t) => openinfer::trace!("  values={}", format_full(&t.data)),
+        TensorValue::I16(t) => openinfer::trace!("  values={}", format_full(&t.data)),
+        TensorValue::I32(t) => openinfer::trace!("  values={}", format_full(&t.data)),
+        TensorValue::I64(t) => openinfer::trace!("  values={}", format_full(&t.data)),
+        TensorValue::U8(t) => openinfer::trace!("  values={}", format_full(&t.data)),
+        TensorValue::U16(t) => openinfer::trace!("  values={}", format_full(&t.data)),
+        TensorValue::U32(t) => openinfer::trace!("  values={}", format_full(&t.data)),
+        TensorValue::U64(t) => openinfer::trace!("  values={}", format_full(&t.data)),
+        TensorValue::F16(t) => openinfer::trace!("  values={}", format_full(&t.data)),
+        TensorValue::BF16(t) => openinfer::trace!("  values={}", format_full(&t.data)),
+        TensorValue::F8E5M2(t) => openinfer::trace!("  values={}", format_full(&t.data)),
+        TensorValue::F32(t) => openinfer::trace!("  values={}", format_full(&t.data)),
+        TensorValue::F64(t) => openinfer::trace!("  values={}", format_full(&t.data)),
+        TensorValue::Bool(t) => openinfer::trace!("  values={}", format_full(&t.data)),
+        TensorValue::Bitset(t) => openinfer::trace!("  values={}", format_full(&t.data)),
         TensorValue::I4(t) => {
             let bytes: Vec<u8> = t.data.iter().map(|v| v.bits).collect();
             let unpacked = unpack_signed(&bytes, 4, t.numel());
-            log::info!("  packed_bytes={}", format_full(&bytes));
-            log::info!("  values={}", format_full(&unpacked));
+            openinfer::trace!("  packed_bytes={}", format_full(&bytes));
+            openinfer::trace!("  values={}", format_full(&unpacked));
         }
         TensorValue::I2(t) => {
             let bytes: Vec<u8> = t.data.iter().map(|v| v.bits).collect();
             let unpacked = unpack_signed(&bytes, 2, t.numel());
-            log::info!("  packed_bytes={}", format_full(&bytes));
-            log::info!("  values={}", format_full(&unpacked));
+            openinfer::trace!("  packed_bytes={}", format_full(&bytes));
+            openinfer::trace!("  values={}", format_full(&unpacked));
         }
         TensorValue::I1(t) => {
             let bytes: Vec<u8> = t.data.iter().map(|v| v.bits).collect();
             let unpacked = unpack_signed(&bytes, 1, t.numel());
-            log::info!("  packed_bytes={}", format_full(&bytes));
-            log::info!("  values={}", format_full(&unpacked));
+            openinfer::trace!("  packed_bytes={}", format_full(&bytes));
+            openinfer::trace!("  values={}", format_full(&unpacked));
         }
         TensorValue::U4(t) => {
             let bytes: Vec<u8> = t.data.iter().map(|v| v.bits).collect();
             let unpacked = unpack_unsigned(&bytes, 4, t.numel());
-            log::info!("  packed_bytes={}", format_full(&bytes));
-            log::info!("  values={}", format_full(&unpacked));
+            openinfer::trace!("  packed_bytes={}", format_full(&bytes));
+            openinfer::trace!("  values={}", format_full(&unpacked));
         }
         TensorValue::U2(t) => {
             let bytes: Vec<u8> = t.data.iter().map(|v| v.bits).collect();
             let unpacked = unpack_unsigned(&bytes, 2, t.numel());
-            log::info!("  packed_bytes={}", format_full(&bytes));
-            log::info!("  values={}", format_full(&unpacked));
+            openinfer::trace!("  packed_bytes={}", format_full(&bytes));
+            openinfer::trace!("  values={}", format_full(&unpacked));
         }
         TensorValue::U1(t) => {
             let bytes: Vec<u8> = t.data.iter().map(|v| v.bits).collect();
             let unpacked = unpack_unsigned(&bytes, 1, t.numel());
-            log::info!("  packed_bytes={}", format_full(&bytes));
-            log::info!("  values={}", format_full(&unpacked));
+            openinfer::trace!("  packed_bytes={}", format_full(&bytes));
+            openinfer::trace!("  values={}", format_full(&unpacked));
         }
         TensorValue::T2(t) => {
             let bytes: Vec<u8> = t.data.iter().map(|v| v.bits).collect();
             let unpacked = unpack_signed(&bytes, 2, t.numel());
-            log::info!("  packed_bytes={}", format_full(&bytes));
-            log::info!("  values={}", format_full(&unpacked));
+            openinfer::trace!("  packed_bytes={}", format_full(&bytes));
+            openinfer::trace!("  values={}", format_full(&unpacked));
         }
         TensorValue::T1(t) => {
             let bytes: Vec<u8> = t.data.iter().map(|v| v.bits).collect();
             let unpacked = unpack_t1(&bytes, t.numel());
-            log::info!("  packed_bytes={}", format_full(&bytes));
-            log::info!("  values={}", format_full(&unpacked));
+            openinfer::trace!("  packed_bytes={}", format_full(&bytes));
+            openinfer::trace!("  values={}", format_full(&unpacked));
         }
     }
     Ok(())

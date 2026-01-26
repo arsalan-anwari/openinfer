@@ -59,11 +59,66 @@ impl OpAttrs {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OpKind {
+    Add,
+    Mul,
+    Abs,
+    Relu,
+    Matmul,
+    IsFinite,
+    Fill,
+}
+
+impl OpKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            OpKind::Add => "add",
+            OpKind::Mul => "mul",
+            OpKind::Abs => "abs",
+            OpKind::Relu => "relu",
+            OpKind::Matmul => "matmul",
+            OpKind::IsFinite => "is_finite",
+            OpKind::Fill => "fill",
+        }
+    }
+}
+
+impl std::fmt::Display for OpKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
+impl std::str::FromStr for OpKind {
+    type Err = anyhow::Error;
+
+    fn from_str(value: &str) -> Result<Self> {
+        match value {
+            "add" => Ok(OpKind::Add),
+            "mul" => Ok(OpKind::Mul),
+            "abs" => Ok(OpKind::Abs),
+            "relu" => Ok(OpKind::Relu),
+            "matmul" => Ok(OpKind::Matmul),
+            "is_finite" => Ok(OpKind::IsFinite),
+            "fill" => Ok(OpKind::Fill),
+            _ => Err(anyhow!("unsupported op {}", value)),
+        }
+    }
+}
+
+impl OpKind {
+    pub fn from_name(name: &str) -> Result<Self> {
+        name.parse()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum NodeKind {
     Assign { name: String, dtype: DType, dims: Vec<String> },
     Op {
-        op: String,
+        op: OpKind,
         attrs: OpAttrs,
         inputs: Vec<String>,
         output: String,
