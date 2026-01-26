@@ -73,6 +73,11 @@ pub enum NodeKind {
         then_block: String,
         else_block: Option<String>,
     },
+    Barrier,
+    Dep {
+        after: String,
+        before: String,
+    },
     CacheRead {
         src: CacheAccess,
         dst: String,
@@ -91,6 +96,10 @@ pub enum NodeKind {
     },
     CacheReset {
         target: CacheAccess,
+    },
+    Transfer {
+        src: String,
+        dst: String,
     },
     Yield {
         vars: Vec<String>,

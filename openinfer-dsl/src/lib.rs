@@ -15,6 +15,11 @@ mod kw {
     syn::custom_keyword!(assign);
     syn::custom_keyword!(op);
     syn::custom_keyword!(branch);
+    syn::custom_keyword!(barrier);
+    syn::custom_keyword!(dep);
+    syn::custom_keyword!(after);
+    syn::custom_keyword!(before);
+    syn::custom_keyword!(transfer);
     syn::custom_keyword!(cache);
     syn::custom_keyword!(read);
     syn::custom_keyword!(write);

@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use anyhow::{anyhow, Result};
 
@@ -11,18 +11,28 @@ use crate::runtime::tensor_store::TensorRef;
 use crate::runtime::trace::{TraceEvent, TraceEventKind};
 use crate::tensor::{DType, TensorElement, TensorValue};
 
+pub type SharedTensor = Arc<Mutex<TensorValue>>;
+
 #[derive(Debug)]
-pub struct RuntimeState {
+pub struct RuntimeShared {
     model: Arc<ModelLoader>,
     graph: Graph,
-    dynamic: HashMap<String, TensorValue>,
-    locals: HashMap<String, TensorValue>,
+    base_var_shapes: HashMap<String, Vec<usize>>,
+    base_var_dtypes: HashMap<String, DType>,
+    trace_events: Mutex<Vec<TraceEvent>>,
+    trace_enabled: bool,
+    cache: Mutex<CacheStore>,
+}
+
+#[derive(Debug)]
+pub struct RuntimeState {
+    shared: Arc<RuntimeShared>,
     var_shapes: HashMap<String, Vec<usize>>,
     var_dtypes: HashMap<String, DType>,
-    trace_events: Vec<TraceEvent>,
-    trace_enabled: bool,
+    dynamic: HashMap<String, SharedTensor>,
+    locals: HashMap<String, SharedTensor>,
     temps: HashSet<String>,
-    cache: CacheStore,
+    mutated: HashSet<String>,
     loop_vars: HashMap<String, i64>,
 }
 
@@ -36,41 +46,82 @@ impl RuntimeState {
             var_dtypes.insert(name.clone(), decl.dtype);
         }
         let cache = CacheStore::new(&graph, &model)?;
-        Ok(Self {
+        let shared = Arc::new(RuntimeShared {
             model,
             graph,
-            dynamic: HashMap::new(),
-            locals: HashMap::new(),
+            base_var_shapes: var_shapes.clone(),
+            base_var_dtypes: var_dtypes.clone(),
+            trace_events: Mutex::new(Vec::new()),
+            trace_enabled,
+            cache: Mutex::new(cache),
+        });
+        Ok(Self {
+            shared,
             var_shapes,
             var_dtypes,
-            trace_events: Vec::new(),
-            trace_enabled,
+            dynamic: HashMap::new(),
+            locals: HashMap::new(),
             temps: HashSet::new(),
-            cache,
+            mutated: HashSet::new(),
             loop_vars: HashMap::new(),
         })
     }
 
     pub fn model(&self) -> &ModelLoader {
-        &self.model
+        &self.shared.model
     }
 
     pub fn graph(&self) -> &Graph {
-        &self.graph
+        &self.shared.graph
     }
 
     pub fn trace(&self) -> Vec<TraceEvent> {
-        self.trace_events.clone()
+        if !self.shared.trace_enabled {
+            return Vec::new();
+        }
+        self.shared
+            .trace_events
+            .lock()
+            .expect("trace_events lock poisoned")
+            .clone()
     }
 
-    pub fn dynamic_value(&self, name: &str) -> Option<TensorValue> {
+    pub fn fork_with_dynamic(&self, dynamic: HashMap<String, SharedTensor>) -> Self {
+        Self {
+            shared: Arc::clone(&self.shared),
+            var_shapes: self.shared.base_var_shapes.clone(),
+            var_dtypes: self.shared.base_var_dtypes.clone(),
+            dynamic,
+            locals: HashMap::new(),
+            temps: HashSet::new(),
+            mutated: HashSet::new(),
+            loop_vars: HashMap::new(),
+        }
+    }
+
+    pub fn dynamic_shared(&self, name: &str) -> Option<SharedTensor> {
         self.dynamic.get(name).cloned()
     }
 
     pub fn insert_dynamic(&mut self, name: &str, value: TensorValue) -> Result<()> {
-        if !self.graph.vars.contains_key(name) {
+        if !self.shared.graph.vars.contains_key(name) {
             if let Some((base, _)) = name.split_once('[') {
-                if !self.graph.vars.contains_key(base) {
+                if !self.shared.graph.vars.contains_key(base) {
+                    return Err(anyhow!("unknown variable: {}", name));
+                }
+            } else {
+                return Err(anyhow!("unknown variable: {}", name));
+            }
+        }
+        self.dynamic
+            .insert(name.to_string(), Arc::new(Mutex::new(value)));
+        Ok(())
+    }
+
+    pub fn insert_dynamic_shared(&mut self, name: &str, value: SharedTensor) -> Result<()> {
+        if !self.shared.graph.vars.contains_key(name) {
+            if let Some((base, _)) = name.split_once('[') {
+                if !self.shared.graph.vars.contains_key(base) {
                     return Err(anyhow!("unknown variable: {}", name));
                 }
             } else {
@@ -82,6 +133,11 @@ impl RuntimeState {
     }
 
     pub fn set_local(&mut self, name: &str, value: TensorValue) {
+        self.locals
+            .insert(name.to_string(), Arc::new(Mutex::new(value)));
+    }
+
+    pub fn set_local_shared(&mut self, name: &str, value: SharedTensor) {
         self.locals.insert(name.to_string(), value);
     }
 
@@ -100,53 +156,103 @@ impl RuntimeState {
 
     pub fn get_tensor(&mut self, name: &str) -> Result<TensorValue> {
         if let Some(value) = self.dynamic.get(name) {
-            return Ok(value.clone());
+            return value
+                .lock()
+                .map(|guard| guard.clone())
+                .map_err(|_| anyhow!("dynamic tensor lock poisoned"));
         }
         if let Some(value) = self.locals.get(name) {
-            return Ok(value.clone());
+            return value
+                .lock()
+                .map(|guard| guard.clone())
+                .map_err(|_| anyhow!("local tensor lock poisoned"));
         }
-        if let Some(value) = self.cache.get_persistent(name) {
+        if let Some(value) = self
+            .shared
+            .cache
+            .lock()
+            .expect("cache lock poisoned")
+            .get_persistent(name)
+        {
             return Ok(value);
         }
         let decl = self
+            .shared
             .graph
             .vars
             .get(name)
             .cloned()
-            .or_else(|| name.split_once('[').and_then(|(base, _)| self.graph.vars.get(base).cloned()))
+            .or_else(|| {
+                name.split_once('[')
+                    .and_then(|(base, _)| self.shared.graph.vars.get(base).cloned())
+            })
             .ok_or_else(|| anyhow!("unknown variable: {}", name))?;
 
-        if let Some(info) = self.model.var_info(name) {
+        if let Some(info) = self.shared.model.var_info(name) {
             if info.has_data {
-                let value = self.model.load_tensor(name)?;
+                let value = self.shared.model.load_tensor(name)?;
                 if decl.kind == MemoryKind::Persistent {
-                    self.cache.set_persistent(name, value.clone());
+                    self.shared
+                        .cache
+                        .lock()
+                        .expect("cache lock poisoned")
+                        .set_persistent(name, value.clone());
                 } else {
-                    self.locals.insert(name.to_string(), value.clone());
+                    self.locals
+                        .insert(name.to_string(), Arc::new(Mutex::new(value.clone())));
                 }
                 return Ok(value);
             }
         }
 
         if decl.kind == MemoryKind::Persistent {
-            return self.cache.get_or_init_persistent(&decl.name, &decl, &self.model);
+            return self
+                .shared
+                .cache
+                .lock()
+                .expect("cache lock poisoned")
+                .get_or_init_persistent(&decl.name, &decl, &self.shared.model);
         }
 
-        let shape = self.model.resolve_shape(&decl.dims)?;
+        let shape = self.shared.model.resolve_shape(&decl.dims)?;
         let value = if let Some(init) = &decl.init {
             init.to_tensor_value(decl.dtype, &shape)?
         } else {
             TensorValue::zeros(decl.dtype, &shape)
         };
-        self.locals.insert(decl.name.clone(), value.clone());
+        self.locals
+            .insert(decl.name.clone(), Arc::new(Mutex::new(value.clone())));
         Ok(value)
+    }
+
+    pub fn get_tensor_shared(&mut self, name: &str) -> Result<SharedTensor> {
+        if let Some(value) = self.dynamic.get(name) {
+            return Ok(Arc::clone(value));
+        }
+        if let Some(value) = self.locals.get(name) {
+            return Ok(Arc::clone(value));
+        }
+        let value = self.get_tensor(name)?;
+        Ok(Arc::new(Mutex::new(value)))
+    }
+
+    pub fn transfer_var(&mut self, src: &str, dst: &str) -> Result<()> {
+        let value = self.get_tensor_shared(src)?;
+        self.set_local_shared(dst, value);
+        self.mark_mutated(dst);
+        Ok(())
     }
 
     pub fn ensure_output(&mut self, name: &str, attrs: &OpAttrs) -> Result<()> {
         if self.dynamic.contains_key(name)
             || self.locals.contains_key(name)
-            || self.cache.has_persistent(name)
-            || self.model.tensor_store().contains(name)
+            || self
+                .shared
+                .cache
+                .lock()
+                .expect("cache lock poisoned")
+                .has_persistent(name)
+            || self.shared.model.tensor_store().contains(name)
         {
             return Ok(());
         }
@@ -156,7 +262,7 @@ impl RuntimeState {
             .cloned()
             .zip(self.var_shapes.get(name).cloned())
             .ok_or_else(|| anyhow!("unknown output variable: {}", name))?;
-        let value = if let Some(decl) = self.graph.vars.get(name) {
+        let value = if let Some(decl) = self.shared.graph.vars.get(name) {
             if let Some(init) = &decl.init {
                 init.to_tensor_value(dtype, &shape)?
             } else {
@@ -167,24 +273,26 @@ impl RuntimeState {
         } else {
             TensorValue::zeros(dtype, &shape)
         };
-        self.locals.insert(name.to_string(), value);
+        self.locals
+            .insert(name.to_string(), Arc::new(Mutex::new(value)));
         Ok(())
     }
 
     pub fn register_assign(&mut self, name: &str, dtype: DType, dims: &[String]) -> Result<()> {
-        let shape = self.model.resolve_shape(dims)?;
+        let shape = self.shared.model.resolve_shape(dims)?;
         self.var_shapes.insert(name.to_string(), shape.clone());
         self.var_dtypes.insert(name.to_string(), dtype);
         self.temps.insert(name.to_string());
         if !self.locals.contains_key(name) {
             let value = TensorValue::zeros(dtype, &shape);
-            self.locals.insert(name.to_string(), value);
+            self.locals
+                .insert(name.to_string(), Arc::new(Mutex::new(value)));
         }
         Ok(())
     }
 
     pub fn tensor_ref_for(&self, name: &str) -> Result<TensorRef> {
-        if let Ok(tensor) = self.model.tensor_store().get(name) {
+        if let Ok(tensor) = self.shared.model.tensor_store().get(name) {
             return Ok(tensor.clone());
         }
         if let Some((dtype, shape)) = self.lookup_decl_shape(name) {
@@ -213,54 +321,104 @@ impl RuntimeState {
             .collect::<Result<Vec<_>>>()?;
         let output_tensor = self.tensor_ref_for(output)?;
         let input_refs = input_tensors.iter().collect::<Vec<_>>();
-        exec_op(op, attrs, &input_refs, Some(&output_tensor))
+        exec_op(op, attrs, &input_refs, Some(&output_tensor))?;
+        self.mark_mutated(output);
+        Ok(())
+    }
+
+    pub fn mark_mutated(&mut self, name: &str) {
+        self.mutated.insert(name.to_string());
+    }
+
+    pub fn was_mutated(&self, name: &str) -> bool {
+        self.mutated.contains(name)
     }
 
     pub fn cache_read(&mut self, src: &CacheAccess, dst: &str) -> Result<()> {
         let decl = self
+            .shared
             .graph
             .vars
             .get(&src.base)
             .cloned()
             .ok_or_else(|| anyhow!("unknown cache variable: {}", src.base))?;
         let value = self
+            .shared
             .cache
-            .read(src, &decl, &self.graph, &self.model, &self.loop_vars)?;
-        self.locals.insert(dst.to_string(), value);
+            .lock()
+            .expect("cache lock poisoned")
+            .read(
+                src,
+                &decl,
+                &self.shared.graph,
+                &self.shared.model,
+                &self.loop_vars,
+            )?;
+        self.locals
+            .insert(dst.to_string(), Arc::new(Mutex::new(value)));
         Ok(())
     }
 
     pub fn cache_write(&mut self, src: &str, dst: &CacheAccess) -> Result<()> {
         let decl = self
+            .shared
             .graph
             .vars
             .get(&dst.base)
             .cloned()
             .ok_or_else(|| anyhow!("unknown cache variable: {}", dst.base))?;
         let value = self.get_tensor(src)?;
-        self.cache.write(&value, dst, &decl, &self.graph, &self.model, &self.loop_vars)
+        self.shared
+            .cache
+            .lock()
+            .expect("cache lock poisoned")
+            .write(
+                &value,
+                dst,
+                &decl,
+                &self.shared.graph,
+                &self.shared.model,
+                &self.loop_vars,
+            )
     }
 
     pub fn cache_bump(&mut self, target: &str, amount: i64, decrement: bool) -> Result<()> {
-        self.cache
-            .bump(target, amount, decrement, &self.graph, &self.model)
+        self.shared
+            .cache
+            .lock()
+            .expect("cache lock poisoned")
+            .bump(target, amount, decrement, &self.shared.graph, &self.shared.model)
     }
 
     pub fn cache_reset(&mut self, target: &CacheAccess) -> Result<()> {
         let decl = self
+            .shared
             .graph
             .vars
             .get(&target.base)
             .cloned()
             .ok_or_else(|| anyhow!("unknown cache variable: {}", target.base))?;
-        self.cache
-            .reset(target, &decl, &self.graph, &self.model, &self.loop_vars)
+        self.shared
+            .cache
+            .lock()
+            .expect("cache lock poisoned")
+            .reset(
+                target,
+                &decl,
+                &self.shared.graph,
+                &self.shared.model,
+                &self.loop_vars,
+            )
     }
 
     pub fn record_event(&mut self, block_name: &str, node: &Node, kind: TraceEventKind) -> TraceEvent {
         let event = self.build_event(block_name, node, kind);
-        if self.trace_enabled {
-            self.trace_events.push(event.clone());
+        if self.shared.trace_enabled {
+            self.shared
+                .trace_events
+                .lock()
+                .expect("trace_events lock poisoned")
+                .push(event.clone());
         }
         event
     }

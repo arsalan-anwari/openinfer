@@ -60,11 +60,14 @@ pub(crate) enum Node {
     Assign(AssignNode),
     Op(OpNode),
     Branch(BranchNode),
+    Barrier,
+    Dep(DepNode),
     CacheRead(CacheReadNode),
     CacheWrite(CacheWriteNode),
     CacheInc(CacheIncNode),
     CacheDec(CacheDecNode),
     CacheReset(CacheResetNode),
+    Transfer(TransferNode),
     Loop(LoopNode),
     Yield(YieldNode),
     Await(AwaitNode),
@@ -88,6 +91,11 @@ pub(crate) struct BranchNode {
     pub(crate) cond: Option<Ident>,
     pub(crate) then_block: Ident,
     pub(crate) else_block: Option<Ident>,
+}
+
+pub(crate) struct DepNode {
+    pub(crate) after: Ident,
+    pub(crate) before: Ident,
 }
 
 pub(crate) struct LoopNode {
@@ -120,6 +128,11 @@ pub(crate) struct CacheDecNode {
 
 pub(crate) struct CacheResetNode {
     pub(crate) target: CacheAccess,
+}
+
+pub(crate) struct TransferNode {
+    pub(crate) src: VarRef,
+    pub(crate) dst: VarRef,
 }
 
 pub(crate) struct YieldNode {
