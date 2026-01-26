@@ -5,8 +5,6 @@ use crate::tensor::{
 };
 use anyhow::{anyhow, Result};
 
-pub mod cpu;
-
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ScalarValue {
     I8(i8),
