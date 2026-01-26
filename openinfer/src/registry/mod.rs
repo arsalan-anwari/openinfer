@@ -6,4 +6,5 @@ mod op_defs;
 pub use op_attrs::{OpAttrDef, OpAttrType, ACC_ATTR, ALPHA_ATTR, CLAMP_MAX_ATTR, VALUE_ATTR};
 pub use op_defs::{
     op_schema, AccumulateSupport, BroadcastSupport, InplaceSupport, OpSchema, TypeRule, OPS,
+    ACC_INT_PAIRS, PACKED_ACC_PAIRS,
 };

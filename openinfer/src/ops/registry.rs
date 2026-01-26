@@ -29,5 +29,15 @@ pub fn lookup_kernel(device: Device, key: OpKey) -> Result<KernelFn> {
         Device::CpuAvx | Device::CpuAvx2 => {
             Err(anyhow!("device {:?} registry not implemented", device))
         }
+        Device::Vulkan => {
+            #[cfg(feature = "vulkan")]
+            {
+                crate::ops::vulkan::registry::lookup_kernel(key)
+            }
+            #[cfg(not(feature = "vulkan"))]
+            {
+                Err(anyhow!("device {:?} requires the vulkan feature", device))
+            }
+        }
     }
 }

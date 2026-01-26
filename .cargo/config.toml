@@ -3,5 +3,5 @@
 rustflags = ["-C", "target-feature=+avx,+avx2"]
 
 [alias]
-clean-spv = "run -p openinfer --bin clean_spv --"
-build-spv = "run -p openinfer --bin build_spv --"
+clean-spv = "run -p openinfer --bin clean_spv"
+build-spv = "run -p openinfer --bin build_spv"

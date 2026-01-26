@@ -40,6 +40,26 @@ impl AccumulateSupport {
     }
 }
 
+#[allow(dead_code)]
+pub const ACC_INT_PAIRS: &[(DType, DType)] = &[
+    (DType::I8, DType::I64),
+    (DType::I16, DType::I64),
+    (DType::I32, DType::I64),
+    (DType::U8, DType::U64),
+    (DType::U16, DType::U64),
+    (DType::U32, DType::U64),
+];
+
+#[allow(dead_code)]
+pub const PACKED_ACC_PAIRS: &[(DType, DType)] = &[
+    (DType::I1, DType::I64),
+    (DType::I2, DType::I64),
+    (DType::I4, DType::I64),
+    (DType::U1, DType::U64),
+    (DType::U2, DType::U64),
+    (DType::U4, DType::U64),
+];
+
 #[derive(Debug, Clone, Copy)]
 #[allow(dead_code)]
 pub struct OpSchema {
