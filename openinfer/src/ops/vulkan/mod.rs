@@ -1,6 +1,9 @@
 pub mod add;
+pub mod dispatch;
 pub mod descriptor;
+pub mod op_helpers;
 pub mod registry;
 pub mod runtime;
 pub mod spv;
 pub mod staging_buffer;
+pub mod tensor_bytes;

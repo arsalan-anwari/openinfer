@@ -1,5 +1,6 @@
 #include "../../shaders/common.slang"
 #include "../../shaders/float_utils.slang"
+#include "common.slang"
 
 #ifndef HAS_F16
 #define HAS_F16 0
@@ -20,7 +21,7 @@
 [[vk::binding(0, 0)]] StructuredBuffer<TensorDesc> tensor_descs;
 [[vk::binding(1, 0)]] ByteAddressBuffer data;
 [[vk::binding(2, 0)]] RWByteAddressBuffer out_buf;
-[[vk::push_constant]] cbuffer Push { PushConstants push; }
+[[vk::push_constant]] cbuffer Push { AddPush push; }
 
 [numthreads(256, 1, 1)]
 [shader("compute")]

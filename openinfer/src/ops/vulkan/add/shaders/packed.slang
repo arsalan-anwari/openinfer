@@ -1,11 +1,12 @@
 #include "../../shaders/common.slang"
 #include "../../shaders/float_utils.slang"
 #include "../../shaders/packed_utils.slang"
+#include "common.slang"
 
 [[vk::binding(0, 0)]] StructuredBuffer<TensorDesc> tensor_descs;
 [[vk::binding(1, 0)]] ByteAddressBuffer data;
 [[vk::binding(2, 0)]] RWByteAddressBuffer out_buf;
-[[vk::push_constant]] cbuffer Push { PushConstants push; }
+[[vk::push_constant]] cbuffer Push { AddPush push; }
 
 
 [numthreads(256, 1, 1)]

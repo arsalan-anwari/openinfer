@@ -14,6 +14,10 @@ pub fn lookup_kernel(key: OpKey) -> Result<KernelFn> {
         .ok_or_else(|| anyhow!("unsupported cpu op {:?}", key))
 }
 
+pub fn warm_kernels() {
+    Lazy::force(&CPU_KERNELS);
+}
+
 static CPU_KERNELS: Lazy<HashMap<OpKey, KernelFn>> = Lazy::new(|| {
     let mut map = HashMap::new();
     for (key, kernel) in add::registry::ENTRIES {

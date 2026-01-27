@@ -16,6 +16,7 @@ use crate::tensor::{DType, TensorElement, TensorValue};
 
 #[cfg(feature = "vulkan")]
 use crate::ops::vulkan::runtime::{get_vulkan_runtime, set_vulkan_runtime, VulkanCaps, VulkanRuntime};
+use crate::ops::cpu::registry::warm_kernels as warm_cpu_kernels;
 
 pub type SharedTensor = Arc<Mutex<TensorValue>>;
 
@@ -70,6 +71,7 @@ impl RuntimeState {
                     })?;
                     set_vulkan_runtime(runtime)?;
                 }
+                crate::ops::vulkan::registry::warm_kernels();
             }
         }
         let mut var_shapes = HashMap::new();
