@@ -2,21 +2,15 @@
 #define OPENINFER_COMMON_SLANG 1
 
 #include "float_utils.slang"
+#include "generated_config.slang"
 
 struct TensorDesc {
     uint rank;
     uint dtype;
     uint elem_bits;
     uint byte_offset;
-    uint shape[8];
-    uint strides[8];
-};
-
-struct PushConstants {
-    uint len;
-    uint tensor_count;
-    uint params_offset;
-    uint flags;
+    uint shape[OPENINFER_VK_MAX_DIMS];
+    uint strides[OPENINFER_VK_MAX_DIMS];
 };
 
 #ifndef HAS_I64

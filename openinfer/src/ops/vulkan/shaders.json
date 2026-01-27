@@ -3,8 +3,7 @@
     "add": {
       "shader_dir": "src/ops/vulkan/add/shaders",
       "shader_files": ["normal.slang", "accumulate.slang", "packed.slang"],
-      "spv_dir": "src/ops/vulkan/add/bin",
-      "push_constants_size": 16
+      "spv_dir": "src/ops/vulkan/add/bin"
     }
   }
 }

@@ -21,7 +21,7 @@ fn main() -> anyhow::Result<()> {
 
         block entry {
             loop steps (l in 0..2) {
-                op add(x, w) >> x2;
+                op add(x, w) >> x;
             }
             return;
         }

@@ -42,6 +42,7 @@ impl Simulator {
             return Err(anyhow!("device {:?} not supported for this build", device));
         }
         validate_graph(graph)?;
+        Self::warm_kernels_for_device(device);
         Ok(Self {
             model: Arc::new(model.clone()),
             graph: graph.clone(),
@@ -75,6 +76,18 @@ impl Simulator {
             self.trace_enabled,
             self.timer_enabled,
         )
+    }
+
+    fn warm_kernels_for_device(_device: Device) {
+        crate::ops::cpu::registry::warm_kernels();
+        
+        #[cfg(feature = "vulkan")] {
+            if _device == Device::Vulkan {
+                crate::ops::vulkan::registry::warm_kernels();
+            }
+        }
+
+        
     }
 }
 

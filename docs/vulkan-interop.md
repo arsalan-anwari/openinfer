@@ -22,6 +22,19 @@ High-Level Flow
 3) Vulkan ops use `VulkanRuntime` to create buffers, pipelines, and dispatch
    compute workloads. Pre-processing like broadcast lives in the backend.
 
+Maintainability Notes
+---------------------
+- `settings.json` at repo root controls `openinfer.vulkan.max_tensor_rank`, and
+  `openinfer/build.rs` emits `OPENINFER_VK_MAX_DIMS` plus a generated shader include
+  at `openinfer/src/ops/vulkan/shaders/generated_config.slang`.
+- `TensorDesc` remains universal across ops, but push constants and descriptor
+  bindings are now per-op. Add declares `AddPush` in
+  `openinfer/src/ops/vulkan/add/shaders/common.slang`.
+- Kernel launchers use a generic `VulkanOpSpec` and `dispatch_compute` entrypoint
+  to avoid per-op Vulkan boilerplate.
+- The runtime is split across `openinfer/src/ops/vulkan/runtime/*` for device setup,
+  buffer management, pipeline creation, and dispatch.
+
 Key Files
 ---------
 - `openinfer/build.rs`

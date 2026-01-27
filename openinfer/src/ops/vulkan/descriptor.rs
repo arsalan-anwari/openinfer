@@ -4,7 +4,7 @@ use bytemuck::{Pod, Zeroable};
 use crate::ops::cpu::broadcast::broadcast_strides;
 use crate::tensor::{DType, TensorValue};
 
-pub const MAX_DIMS: usize = 8;
+include!(concat!(env!("OUT_DIR"), "/vulkan_config.rs"));
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default, Pod, Zeroable)]

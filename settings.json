@@ -1,0 +1,8 @@
+{
+  "openinfer": {
+    "vulkan": {
+      "max_tensor_rank": 8
+    }
+  },
+  "openinfer-dsl": {}
+}

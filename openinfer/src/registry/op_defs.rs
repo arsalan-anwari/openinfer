@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 
-use super::{ACC_ATTR, ALPHA_ATTR, CLAMP_MAX_ATTR, OpAttrDef, VALUE_ATTR};
+use super::{ACC_ATTR, ALPHA_ATTR, CLAMP_MAX_ATTR, OpAttrDef, OpDTypeSupport, VALUE_ATTR};
 use crate::graph::{AttrValue, OpAttrs, OpKind};
 use crate::tensor::DType;
 
@@ -40,26 +40,6 @@ impl AccumulateSupport {
     }
 }
 
-#[allow(dead_code)]
-pub const ACC_INT_PAIRS: &[(DType, DType)] = &[
-    (DType::I8, DType::I64),
-    (DType::I16, DType::I64),
-    (DType::I32, DType::I64),
-    (DType::U8, DType::U64),
-    (DType::U16, DType::U64),
-    (DType::U32, DType::U64),
-];
-
-#[allow(dead_code)]
-pub const PACKED_ACC_PAIRS: &[(DType, DType)] = &[
-    (DType::I1, DType::I64),
-    (DType::I2, DType::I64),
-    (DType::I4, DType::I64),
-    (DType::U1, DType::U64),
-    (DType::U2, DType::U64),
-    (DType::U4, DType::U64),
-];
-
 #[derive(Debug, Clone, Copy)]
 #[allow(dead_code)]
 pub struct OpSchema {
@@ -71,6 +51,7 @@ pub struct OpSchema {
     pub inplace: InplaceSupport,
     pub accumulate: AccumulateSupport,
     pub type_rule: TypeRule,
+    pub dtype_support: Option<&'static OpDTypeSupport>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -112,6 +93,7 @@ pub const OPS: &[OpSchema] = &[
         inplace: InplaceSupport::Allow,
         accumulate: AccumulateSupport::Allow,
         type_rule: TypeRule::SameAsInput(0),
+        dtype_support: Some(&super::ADD_DTYPE_SUPPORT),
     },
     OpSchema {
         kind: OpKind::Mul,
@@ -122,6 +104,7 @@ pub const OPS: &[OpSchema] = &[
         inplace: InplaceSupport::Allow,
         accumulate: AccumulateSupport::Allow,
         type_rule: TypeRule::SameAsInput(0),
+        dtype_support: None,
     },
     OpSchema {
         kind: OpKind::Abs,
@@ -132,6 +115,7 @@ pub const OPS: &[OpSchema] = &[
         inplace: InplaceSupport::Allow,
         accumulate: AccumulateSupport::Allow,
         type_rule: TypeRule::SameAsInput(0),
+        dtype_support: None,
     },
     OpSchema {
         kind: OpKind::Relu,
@@ -142,6 +126,7 @@ pub const OPS: &[OpSchema] = &[
         inplace: InplaceSupport::Allow,
         accumulate: AccumulateSupport::Deny,
         type_rule: TypeRule::SameAsInput(0),
+        dtype_support: None,
     },
     OpSchema {
         kind: OpKind::Matmul,
@@ -152,6 +137,7 @@ pub const OPS: &[OpSchema] = &[
         inplace: InplaceSupport::Allow,
         accumulate: AccumulateSupport::Allow,
         type_rule: TypeRule::SameAsInput(0),
+        dtype_support: None,
     },
     OpSchema {
         kind: OpKind::IsFinite,
@@ -162,6 +148,7 @@ pub const OPS: &[OpSchema] = &[
         inplace: InplaceSupport::Deny,
         accumulate: AccumulateSupport::Deny,
         type_rule: TypeRule::Fixed(DType::Bool),
+        dtype_support: None,
     },
     OpSchema {
         kind: OpKind::Fill,
@@ -172,8 +159,21 @@ pub const OPS: &[OpSchema] = &[
         inplace: InplaceSupport::Allow,
         accumulate: AccumulateSupport::Deny,
         type_rule: TypeRule::SameAsInput(0),
+        dtype_support: None,
     },
 ];
+
+pub fn acc_dtype(attrs: &OpAttrs) -> Result<DType> {
+    attrs
+        .items
+        .iter()
+        .find(|attr| attr.name == "acc")
+        .ok_or_else(|| anyhow!("missing acc attribute"))
+        .and_then(|attr| match &attr.value {
+            AttrValue::DType(dtype) => Ok(*dtype),
+            _ => Err(anyhow!("acc attribute must be a dtype")),
+        })
+}
 
 pub fn op_schema(kind: OpKind) -> Option<&'static OpSchema> {
     OPS.iter().find(|op| op.kind == kind)
