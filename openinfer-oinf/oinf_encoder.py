@@ -10,7 +10,7 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple, Union, 
 import numpy as np
 
 from oinf_common import OinfError, align_up, check_key, encode_string
-from oinf_numeric import float_to_bf16_bits, float_to_f8e5m2_bits
+from oinf_numeric import float_to_bf16_bits, float_to_f8_bits
 from oinf_packed import pack_signed_bits, pack_unsigned_bits
 from oinf_types import (
     PACKED_BITS_PER,
@@ -142,7 +142,7 @@ def _as_numpy_array(value: Any, dtype_override: Optional[int]) -> np.ndarray:
     if arr.dtype == np.object_:
         raise OinfError("Nested lists must be homogeneous to form an ndarray")
     if dtype_override is not None:
-        if dtype_override in (ValueType.BF16, ValueType.F8E5M2):
+        if dtype_override in (ValueType.BF16, ValueType.F8):
             arr = arr.astype(np.float32, copy=False)
         elif dtype_override in PACKED_SIGNED or dtype_override == ValueType.T1:
             arr = arr.astype(np.int8, copy=False)
@@ -174,8 +174,8 @@ def _encode_scalar(value: Any, value_type: int) -> bytes:
     if value_type == ValueType.BF16:
         bits = float_to_bf16_bits(float(value))
         return struct.pack("<H", bits)
-    if value_type == ValueType.F8E5M2:
-        bits = float_to_f8e5m2_bits(float(value))
+    if value_type == ValueType.F8:
+        bits = float_to_f8_bits(float(value))
         return struct.pack("<B", bits)
     if value_type in PACKED_BITS_PER:
         bits_per = PACKED_BITS_PER[value_type]
@@ -207,12 +207,12 @@ def _encode_scalar(value: Any, value_type: int) -> bytes:
 
 def _encode_ndarray(value: Any, dtype_override: Optional[int]) -> Tuple[bytes, int]:
     arr = _as_numpy_array(value, dtype_override)
-    if dtype_override in (ValueType.BF16, ValueType.F8E5M2):
+    if dtype_override in (ValueType.BF16, ValueType.F8):
         if dtype_override == ValueType.BF16:
             bits = np.vectorize(float_to_bf16_bits, otypes=[np.uint16])(arr)
             data = bits.astype(np.dtype(np.uint16).newbyteorder("<")).tobytes()
         else:
-            bits = np.vectorize(float_to_f8e5m2_bits, otypes=[np.uint8])(arr)
+            bits = np.vectorize(float_to_f8_bits, otypes=[np.uint8])(arr)
             data = bits.astype(np.uint8).tobytes()
         header = struct.pack("<II", dtype_override, arr.ndim)
         dims = struct.pack("<" + "Q" * arr.ndim, *[int(d) for d in arr.shape])
@@ -400,12 +400,12 @@ def _encode_tensor_payload(
     dtype_override: Optional[int],
 ) -> Tuple[int, Tuple[int, ...], bytes]:
     arr = _as_numpy_array(value, dtype_override)
-    if dtype_override in (ValueType.BF16, ValueType.F8E5M2):
+    if dtype_override in (ValueType.BF16, ValueType.F8):
         if dtype_override == ValueType.BF16:
             bits = np.vectorize(float_to_bf16_bits, otypes=[np.uint16])(arr)
             data = bits.astype(np.dtype(np.uint16).newbyteorder("<")).tobytes()
         else:
-            bits = np.vectorize(float_to_f8e5m2_bits, otypes=[np.uint8])(arr)
+            bits = np.vectorize(float_to_f8_bits, otypes=[np.uint8])(arr)
             data = bits.astype(np.uint8).tobytes()
         return dtype_override, tuple(int(d) for d in arr.shape), data
     if dtype_override in PACKED_BITS_PER:

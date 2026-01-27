@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::tensor::{
-    BF16, Bitset, DType, F16, F8E5M2, I1, I2, I4, T1, T2, U1, U2, U4, Tensor, TensorValue,
+    BF16, Bitset, DType, F16, F8, I1, I2, I4, T1, T2, U1, U2, U4, Tensor, TensorValue,
 };
 use anyhow::{anyhow, Result};
 
@@ -17,7 +17,7 @@ pub enum ScalarValue {
     U64(u64),
     F16(F16),
     BF16(BF16),
-    F8E5M2(F8E5M2),
+    F8(F8),
     F32(f32),
     F64(f64),
     Bool(bool),
@@ -45,7 +45,7 @@ impl ScalarValue {
             ScalarValue::U64(_) => DType::U64,
             ScalarValue::F16(_) => DType::F16,
             ScalarValue::BF16(_) => DType::BF16,
-            ScalarValue::F8E5M2(_) => DType::F8E5M2,
+            ScalarValue::F8(_) => DType::F8,
             ScalarValue::F32(_) => DType::F32,
             ScalarValue::F64(_) => DType::F64,
             ScalarValue::Bool(_) => DType::Bool,
@@ -129,7 +129,7 @@ impl ScalarValue {
                     ..crate::tensor::TensorOptions::default()
                 })?,
             )),
-            (ScalarValue::F8E5M2(val), DType::F8E5M2) => Ok(TensorValue::F8E5M2(
+            (ScalarValue::F8(val), DType::F8) => Ok(TensorValue::F8(
                 Tensor::from_vec_with_opts(vec![*val; len], crate::tensor::TensorOptions {
                     shape: Some(shape.to_vec()),
                     ..crate::tensor::TensorOptions::default()
@@ -239,7 +239,7 @@ impl ScalarValue {
 #[allow(unused)]
 pub fn dtype_suffix(dtype: DType) -> Result<&'static str> {
     match dtype {
-        DType::F8E5M2 => Ok("f8"),
+        DType::F8 => Ok("f8"),
         DType::BF16 => Ok("bf16"),
         DType::F16 => Ok("f16"),
         DType::F32 => Ok("f32"),

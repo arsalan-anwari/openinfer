@@ -25,7 +25,7 @@ struct AddPush {
     flags: u32,
 }
 
-pub fn dispatch_add_normal(
+pub fn add_normal_dispatch(
     attrs: &OpAttrs,
     inputs: &[TensorValue],
     output: Option<&mut TensorValue>,
@@ -33,7 +33,7 @@ pub fn dispatch_add_normal(
     dispatch_add(OpMode::Normal, attrs, inputs, output)
 }
 
-pub fn dispatch_add_inplace(
+pub fn add_inplace_dispatch(
     attrs: &OpAttrs,
     inputs: &[TensorValue],
     output: Option<&mut TensorValue>,
@@ -41,7 +41,7 @@ pub fn dispatch_add_inplace(
     dispatch_add(OpMode::Inplace, attrs, inputs, output)
 }
 
-pub fn dispatch_add_accumulate(
+pub fn add_accumulate_dispatch(
     attrs: &OpAttrs,
     inputs: &[TensorValue],
     output: Option<&mut TensorValue>,

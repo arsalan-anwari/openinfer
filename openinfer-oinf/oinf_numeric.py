@@ -10,7 +10,7 @@ def float_to_bf16_bits(value: float) -> int:
     return int(rounded >> 16)
 
 
-def float_to_f8e5m2_bits(value: float) -> int:
+def float_to_f8_bits(value: float) -> int:
     value = float(value)
     if np.isnan(value):
         return 0x7D
@@ -52,7 +52,7 @@ def bf16_to_f32(bits: np.ndarray) -> np.ndarray:
     return bits32.view(np.float32)
 
 
-def f8e5m2_to_f32_scalar(bits: int) -> float:
+def f8_to_f32_scalar(bits: int) -> float:
     sign = (bits >> 7) & 1
     exp = (bits >> 2) & 0x1F
     mant = bits & 0x03
@@ -69,6 +69,6 @@ def f8e5m2_to_f32_scalar(bits: int) -> float:
     return -value if sign else value
 
 
-def f8e5m2_to_f32(bits: np.ndarray) -> np.ndarray:
-    vec = np.vectorize(f8e5m2_to_f32_scalar, otypes=[np.float32])
+def f8_to_f32(bits: np.ndarray) -> np.ndarray:
+    vec = np.vectorize(f8_to_f32_scalar, otypes=[np.float32])
     return vec(bits.astype(np.uint8))

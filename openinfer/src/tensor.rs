@@ -105,11 +105,11 @@ impl F16 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct F8E5M2 {
+pub struct F8 {
     pub bits: u8,
 }
 
-impl F8E5M2 {
+impl F8 {
     pub fn from_f32(value: f32) -> Self {
         if value.is_nan() {
             return Self { bits: 0x7d };
@@ -804,16 +804,16 @@ impl TensorElement for BF16 {
     }
 }
 
-impl TensorElement for F8E5M2 {
+impl TensorElement for F8 {
     fn from_value(value: &TensorValue) -> Option<Tensor<Self>> {
         match value {
-            TensorValue::F8E5M2(tensor) => Some(tensor.clone()),
+            TensorValue::F8(tensor) => Some(tensor.clone()),
             _ => None,
         }
     }
 
     fn into_value(tensor: Tensor<Self>) -> TensorValue {
-        TensorValue::F8E5M2(tensor)
+        TensorValue::F8(tensor)
     }
 }
 
@@ -950,7 +950,7 @@ pub enum DType {
     Bitset,
     F16,
     BF16,
-    F8E5M2,
+    F8,
     I4,
     I2,
     I1,
@@ -978,7 +978,7 @@ impl DType {
             "bitset" => Ok(DType::Bitset),
             "f16" => Ok(DType::F16),
             "bf16" => Ok(DType::BF16),
-            "f8" | "f8e5m2" | "float8e5m2" => Ok(DType::F8E5M2),
+            "f8" | "f8e5m2" | "float8e5m2" => Ok(DType::F8),
             "i4" => Ok(DType::I4),
             "i2" => Ok(DType::I2),
             "i1" => Ok(DType::I1),
@@ -1029,7 +1029,7 @@ impl DType {
             DType::I16 | DType::U16 | DType::F16 | DType::BF16 => 16,
             DType::I32 | DType::U32 | DType::F32 => 32,
             DType::I64 | DType::U64 | DType::F64 => 64,
-            DType::F8E5M2 => 8,
+            DType::F8 => 8,
             DType::Bitset => 8,
         }
     }
@@ -1060,7 +1060,7 @@ pub enum TensorValue {
     Bitset(Tensor<Bitset>),
     F16(Tensor<F16>),
     BF16(Tensor<BF16>),
-    F8E5M2(Tensor<F8E5M2>),
+    F8(Tensor<F8>),
     I4(Tensor<I4>),
     I2(Tensor<I2>),
     I1(Tensor<I1>),
@@ -1091,7 +1091,7 @@ impl TensorValue {
             TensorValue::Bitset(_) => DType::Bitset,
             TensorValue::F16(_) => DType::F16,
             TensorValue::BF16(_) => DType::BF16,
-            TensorValue::F8E5M2(_) => DType::F8E5M2,
+            TensorValue::F8(_) => DType::F8,
             TensorValue::I4(_) => DType::I4,
             TensorValue::I2(_) => DType::I2,
             TensorValue::I1(_) => DType::I1,
@@ -1123,7 +1123,7 @@ impl TensorValue {
             TensorValue::Bitset(tensor) => tensor.shape(),
             TensorValue::F16(tensor) => tensor.shape(),
             TensorValue::BF16(tensor) => tensor.shape(),
-            TensorValue::F8E5M2(tensor) => tensor.shape(),
+            TensorValue::F8(tensor) => tensor.shape(),
             TensorValue::I4(tensor) => tensor.shape(),
             TensorValue::I2(tensor) => tensor.shape(),
             TensorValue::I1(tensor) => tensor.shape(),
@@ -1151,7 +1151,7 @@ impl TensorValue {
             TensorValue::Bitset(tensor) => tensor.strides(),
             TensorValue::F16(tensor) => tensor.strides(),
             TensorValue::BF16(tensor) => tensor.strides(),
-            TensorValue::F8E5M2(tensor) => tensor.strides(),
+            TensorValue::F8(tensor) => tensor.strides(),
             TensorValue::I4(tensor) => tensor.strides(),
             TensorValue::I2(tensor) => tensor.strides(),
             TensorValue::I1(tensor) => tensor.strides(),
@@ -1265,8 +1265,8 @@ impl TensorValue {
                 })
                 .unwrap_or_else(|err| panic!("tensor zeros failed: {}", err)),
             ),
-            DType::F8E5M2 => TensorValue::F8E5M2(
-                Tensor::from_vec_with_opts(vec![F8E5M2 { bits: 0 }; len], TensorOptions {
+            DType::F8 => TensorValue::F8(
+                Tensor::from_vec_with_opts(vec![F8 { bits: 0 }; len], TensorOptions {
                     shape: Some(shape.to_vec()),
                     ..TensorOptions::default()
                 })
@@ -1437,9 +1437,9 @@ impl TensorValue {
         }
     }
 
-    pub fn as_f8(&self) -> Result<&Tensor<F8E5M2>> {
+    pub fn as_f8(&self) -> Result<&Tensor<F8>> {
         match self {
-            TensorValue::F8E5M2(tensor) => Ok(tensor),
+            TensorValue::F8(tensor) => Ok(tensor),
             _ => Err(anyhow!("expected f8 tensor")),
         }
     }
@@ -1531,9 +1531,9 @@ impl From<Tensor<BF16>> for TensorValue {
     }
 }
 
-impl From<Tensor<F8E5M2>> for TensorValue {
-    fn from(value: Tensor<F8E5M2>) -> Self {
-        TensorValue::F8E5M2(value)
+impl From<Tensor<F8>> for TensorValue {
+    fn from(value: Tensor<F8>) -> Self {
+        TensorValue::F8(value)
     }
 }
 
@@ -1723,9 +1723,9 @@ impl From<BF16> for TensorValue {
     }
 }
 
-impl From<F8E5M2> for TensorValue {
-    fn from(value: F8E5M2) -> Self {
-        TensorValue::F8E5M2(Tensor::from_scalar(value))
+impl From<F8> for TensorValue {
+    fn from(value: F8) -> Self {
+        TensorValue::F8(Tensor::from_scalar(value))
     }
 }
 

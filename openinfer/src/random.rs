@@ -4,7 +4,7 @@ use anyhow::{anyhow, Result};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 
-use crate::tensor::{numel, BF16, F8E5M2, I1, I2, I4, Tensor, TensorOptions};
+use crate::tensor::{numel, BF16, F8, I1, I2, I4, Tensor, TensorOptions};
 
 pub struct Random<T> {
     rng: StdRng,
@@ -174,10 +174,10 @@ impl RandomValue for BF16 {
     }
 }
 
-impl RandomValue for F8E5M2 {
+impl RandomValue for F8 {
     fn sample(rng: &mut StdRng, range: (Self, Self)) -> Result<Self> {
         let value = rng.gen_range(range.0.to_f32()..=range.1.to_f32());
-        Ok(F8E5M2::from_f32(value))
+        Ok(F8::from_f32(value))
     }
 }
 

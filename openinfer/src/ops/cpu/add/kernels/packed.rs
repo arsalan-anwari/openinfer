@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 
 use crate::ops::cpu::broadcast::{broadcast_shape, broadcast_strides, for_each_broadcast_index};
 use crate::ops::cpu::packed_cpu::{get_bits, set_bits, sign_extend, PackedBits};
-use crate::tensor::Tensor;
+use crate::tensor::{I1, I2, I4, Tensor, U1, U2, U4};
 
 pub fn add_packed_signed<T: PackedBits>(
     a: &Tensor<T>,
@@ -22,11 +22,7 @@ pub fn add_packed_unsigned<T: PackedBits>(
     add_packed(a, b, out, width, false)
 }
 
-pub fn add_packed_signed_inplace<T: PackedBits>(
-    a: &mut Tensor<T>,
-    b: &Tensor<T>,
-    width: u8,
-) -> Result<()> {
+pub fn add_packed_signed_inplace<T: PackedBits>(a: &mut Tensor<T>, b: &Tensor<T>, width: u8) -> Result<()> {
     add_packed_inplace(a, b, width, true)
 }
 
@@ -115,4 +111,52 @@ fn add_packed_inplace<T: PackedBits>(
         },
     );
     Ok(())
+}
+
+pub fn add_i1_packed(a: &Tensor<I1>, b: &Tensor<I1>, out: &mut Tensor<I1>) -> Result<()> {
+    add_packed_signed(a, b, out, 1)
+}
+
+pub fn add_i2_packed(a: &Tensor<I2>, b: &Tensor<I2>, out: &mut Tensor<I2>) -> Result<()> {
+    add_packed_signed(a, b, out, 2)
+}
+
+pub fn add_i4_packed(a: &Tensor<I4>, b: &Tensor<I4>, out: &mut Tensor<I4>) -> Result<()> {
+    add_packed_signed(a, b, out, 4)
+}
+
+pub fn add_u1_packed(a: &Tensor<U1>, b: &Tensor<U1>, out: &mut Tensor<U1>) -> Result<()> {
+    add_packed_unsigned(a, b, out, 1)
+}
+
+pub fn add_u2_packed(a: &Tensor<U2>, b: &Tensor<U2>, out: &mut Tensor<U2>) -> Result<()> {
+    add_packed_unsigned(a, b, out, 2)
+}
+
+pub fn add_u4_packed(a: &Tensor<U4>, b: &Tensor<U4>, out: &mut Tensor<U4>) -> Result<()> {
+    add_packed_unsigned(a, b, out, 4)
+}
+
+pub fn add_i1_packed_inplace(a: &mut Tensor<I1>, b: &Tensor<I1>) -> Result<()> {
+    add_packed_signed_inplace(a, b, 1)
+}
+
+pub fn add_i2_packed_inplace(a: &mut Tensor<I2>, b: &Tensor<I2>) -> Result<()> {
+    add_packed_signed_inplace(a, b, 2)
+}
+
+pub fn add_i4_packed_inplace(a: &mut Tensor<I4>, b: &Tensor<I4>) -> Result<()> {
+    add_packed_signed_inplace(a, b, 4)
+}
+
+pub fn add_u1_packed_inplace(a: &mut Tensor<U1>, b: &Tensor<U1>) -> Result<()> {
+    add_packed_unsigned_inplace(a, b, 1)
+}
+
+pub fn add_u2_packed_inplace(a: &mut Tensor<U2>, b: &Tensor<U2>) -> Result<()> {
+    add_packed_unsigned_inplace(a, b, 2)
+}
+
+pub fn add_u4_packed_inplace(a: &mut Tensor<U4>, b: &Tensor<U4>) -> Result<()> {
+    add_packed_unsigned_inplace(a, b, 4)
 }

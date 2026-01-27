@@ -104,7 +104,7 @@ fn print_tensor(model: &ModelLoader, name: &str) -> anyhow::Result<()> {
         TensorValue::U64(t) => openinfer::trace!("  values={}", format_full(&t.data)),
         TensorValue::F16(t) => openinfer::trace!("  values={}", format_full(&t.data)),
         TensorValue::BF16(t) => openinfer::trace!("  values={}", format_full(&t.data)),
-        TensorValue::F8E5M2(t) => openinfer::trace!("  values={}", format_full(&t.data)),
+        TensorValue::F8(t) => openinfer::trace!("  values={}", format_full(&t.data)),
         TensorValue::F32(t) => openinfer::trace!("  values={}", format_full(&t.data)),
         TensorValue::F64(t) => openinfer::trace!("  values={}", format_full(&t.data)),
         TensorValue::Bool(t) => openinfer::trace!("  values={}", format_full(&t.data)),

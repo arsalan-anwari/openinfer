@@ -34,7 +34,7 @@ pub fn tensor_to_i64(value: &TensorValue) -> Result<i64> {
         TensorValue::Bool(t) => Ok(if t.data[0] { 1 } else { 0 }),
         TensorValue::F16(t) => Ok(t.data[0].to_f32() as i64),
         TensorValue::BF16(t) => Ok(t.data[0].to_f32() as i64),
-        TensorValue::F8E5M2(t) => Ok(t.data[0].to_f32() as i64),
+        TensorValue::F8(t) => Ok(t.data[0].to_f32() as i64),
         TensorValue::F32(t) => Ok(t.data[0] as i64),
         TensorValue::F64(t) => Ok(t.data[0] as i64),
         TensorValue::I4(_)
@@ -65,7 +65,7 @@ pub fn tensor_to_bool(value: &TensorValue) -> Result<bool> {
         TensorValue::U64(t) => Ok(t.data[0] != 0),
         TensorValue::F16(t) => Ok(t.data[0].to_f32() != 0.0),
         TensorValue::BF16(t) => Ok(t.data[0].to_f32() != 0.0),
-        TensorValue::F8E5M2(t) => Ok(t.data[0].to_f32() != 0.0),
+        TensorValue::F8(t) => Ok(t.data[0].to_f32() != 0.0),
         TensorValue::F32(t) => Ok(t.data[0] != 0.0),
         TensorValue::F64(t) => Ok(t.data[0] != 0.0),
         TensorValue::Bitset(t) => Ok(t.data[0].bits != 0),

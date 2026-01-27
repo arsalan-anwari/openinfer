@@ -1,1 +1,62 @@
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.09s
+   Compiling openinfer v0.1.0 (/home/arsalan/Workspace/open-infer/openinfer)
+warning: variant `Scalar` is never constructed
+ --> openinfer/src/registry/op_attrs.rs:3:5
+  |
+2 | pub enum OpAttrType {
+  |          ---------- variant in this enum
+3 |     Scalar,
+  |     ^^^^^^
+  |
+  = note: `OpAttrType` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+  = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: constant `ALPHA_ATTR` is never used
+  --> openinfer/src/registry/op_attrs.rs:20:11
+   |
+20 | pub const ALPHA_ATTR: OpAttrDef = OpAttrDef::new("alpha", OpAttrType::Scalar);
+   |           ^^^^^^^^^^
+
+warning: constant `CLAMP_MAX_ATTR` is never used
+  --> openinfer/src/registry/op_attrs.rs:21:11
+   |
+21 | pub const CLAMP_MAX_ATTR: OpAttrDef = OpAttrDef::new("clamp_max", OpAttrType::Scalar);
+   |           ^^^^^^^^^^^^^^
+
+warning: constant `VALUE_ATTR` is never used
+  --> openinfer/src/registry/op_attrs.rs:22:11
+   |
+22 | pub const VALUE_ATTR: OpAttrDef = OpAttrDef::new("value", OpAttrType::Scalar);
+   |           ^^^^^^^^^^
+
+warning: variant `Deny` is never constructed
+ --> openinfer/src/registry/op_defs.rs:9:5
+  |
+8 | pub enum BroadcastSupport {
+  |          ---------------- variant in this enum
+9 |     Deny,
+  |     ^^^^
+  |
+  = note: `BroadcastSupport` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: variant `Deny` is never constructed
+  --> openinfer/src/registry/op_defs.rs:21:5
+   |
+20 | pub enum InplaceSupport {
+   |          -------------- variant in this enum
+21 |     Deny,
+   |     ^^^^
+   |
+   = note: `InplaceSupport` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: variant `Deny` is never constructed
+  --> openinfer/src/registry/op_defs.rs:33:5
+   |
+32 | pub enum AccumulateSupport {
+   |          ----------------- variant in this enum
+33 |     Deny,
+   |     ^^^^
+   |
+   = note: `AccumulateSupport` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+
+warning: `openinfer` (lib) generated 7 warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.66s

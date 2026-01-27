@@ -19,7 +19,7 @@ pub fn tensor_to_bytes(value: &TensorValue) -> Result<Vec<u8>> {
         TensorValue::Bitset(tensor) => tensor.data.iter().map(|v| v.bits).collect(),
         TensorValue::F16(tensor) => tensor.data.iter().flat_map(|v| v.bits.to_le_bytes()).collect(),
         TensorValue::BF16(tensor) => tensor.data.iter().flat_map(|v| v.bits.to_le_bytes()).collect(),
-        TensorValue::F8E5M2(tensor) => tensor.data.iter().map(|v| v.bits).collect(),
+        TensorValue::F8(tensor) => tensor.data.iter().map(|v| v.bits).collect(),
         TensorValue::I4(tensor) => tensor.data.iter().map(|v| v.bits).collect(),
         TensorValue::I2(tensor) => tensor.data.iter().map(|v| v.bits).collect(),
         TensorValue::I1(tensor) => tensor.data.iter().map(|v| v.bits).collect(),
@@ -48,7 +48,7 @@ pub fn tensor_append_bytes(value: &TensorValue, out: &mut Vec<u8>) -> Result<()>
         TensorValue::Bitset(tensor) => out.extend(tensor.data.iter().map(|v| v.bits)),
         TensorValue::F16(tensor) => out.extend(tensor.data.iter().flat_map(|v| v.bits.to_le_bytes())),
         TensorValue::BF16(tensor) => out.extend(tensor.data.iter().flat_map(|v| v.bits.to_le_bytes())),
-        TensorValue::F8E5M2(tensor) => out.extend(tensor.data.iter().map(|v| v.bits)),
+        TensorValue::F8(tensor) => out.extend(tensor.data.iter().map(|v| v.bits)),
         TensorValue::I4(tensor) => out.extend(tensor.data.iter().map(|v| v.bits)),
         TensorValue::I2(tensor) => out.extend(tensor.data.iter().map(|v| v.bits)),
         TensorValue::I1(tensor) => out.extend(tensor.data.iter().map(|v| v.bits)),
@@ -116,8 +116,8 @@ pub fn write_tensor_from_bytes(output: &mut TensorValue, bytes: &[u8]) -> Result
             }
             tensor.data = out;
         }
-        TensorValue::F8E5M2(tensor) => {
-            tensor.data = bytes.iter().map(|v| crate::tensor::F8E5M2 { bits: *v }).collect();
+        TensorValue::F8(tensor) => {
+            tensor.data = bytes.iter().map(|v| crate::tensor::F8 { bits: *v }).collect();
         }
         TensorValue::I4(tensor) => {
             tensor.data = bytes.iter().map(|v| crate::tensor::I4 { bits: *v }).collect();
