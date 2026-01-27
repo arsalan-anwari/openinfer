@@ -9,7 +9,7 @@ import numpy as np
 
 from oinf_common import OinfError, align_up, read_string
 from oinf_format import format_scalar, format_values, histogram_string
-from oinf_numeric import bf16_to_f32, f8e5m2_to_f32, f8e5m2_to_f32_scalar
+from oinf_numeric import bf16_to_f32, f8_to_f32, f8_to_f32_scalar
 from oinf_packed import unpack_signed_bits, unpack_t1_bits, unpack_unsigned_bits
 from oinf_types import PACKED_BITS_PER, ValueType, VT_NAME, VT_SIZE, VT_TO_DTYPE, tensor_nbytes
 
@@ -59,10 +59,10 @@ def _parse_metadata_value(blob: bytes, entry: Dict[str, Any]) -> Any:
             raise OinfError("BF16 payload size mismatch")
         bits = np.frombuffer(payload, dtype=np.dtype(np.uint16).newbyteorder("<"))
         return bf16_to_f32(bits)[0].item()
-    if vtype == ValueType.F8E5M2:
+    if vtype == ValueType.F8:
         if nbytes != 1:
             raise OinfError("F8 payload size mismatch")
-        return f8e5m2_to_f32_scalar(payload[0])
+        return f8_to_f32_scalar(payload[0])
     if vtype in PACKED_BITS_PER:
         bits_per = PACKED_BITS_PER[vtype]
         if nbytes != 1:
@@ -118,8 +118,8 @@ def _parse_metadata_value(blob: bytes, entry: Dict[str, Any]) -> Any:
             arr = np.frombuffer(raw, dtype=np.uint8).astype(np.bool_)
         elif element_type == ValueType.BF16:
             arr = bf16_to_f32(np.frombuffer(raw, dtype=np.dtype(np.uint16).newbyteorder("<")))
-        elif element_type == ValueType.F8E5M2:
-            arr = f8e5m2_to_f32(np.frombuffer(raw, dtype=np.uint8))
+        elif element_type == ValueType.F8:
+            arr = f8_to_f32(np.frombuffer(raw, dtype=np.uint8))
         elif element_type in PACKED_BITS_PER:
             bits_per = PACKED_BITS_PER[element_type]
             if element_type in (ValueType.U4, ValueType.U2, ValueType.U1):
@@ -289,8 +289,8 @@ def parse_file(path: str) -> None:
                 arr = np.frombuffer(raw, dtype=np.uint8).astype(np.bool_)
             elif tensor["dtype"] == ValueType.BF16:
                 arr = bf16_to_f32(np.frombuffer(raw, dtype=np.dtype(np.uint16).newbyteorder("<")))
-            elif tensor["dtype"] == ValueType.F8E5M2:
-                arr = f8e5m2_to_f32(np.frombuffer(raw, dtype=np.uint8))
+            elif tensor["dtype"] == ValueType.F8:
+                arr = f8_to_f32(np.frombuffer(raw, dtype=np.uint8))
             elif tensor["dtype"] in (ValueType.I4, ValueType.I2, ValueType.I1):
                 bits_per = PACKED_BITS_PER[tensor["dtype"]]
                 arr = unpack_signed_bits(raw, bits_per, int(np.prod(tensor["dims"])) if tensor["dims"] else 1)

@@ -5,6 +5,7 @@ use crate::graph::{AttrValue, OpAttrs, OpKind};
 use crate::tensor::DType;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
 pub enum BroadcastSupport {
     Deny,
     Allow,
@@ -17,6 +18,7 @@ impl BroadcastSupport {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
 pub enum InplaceSupport {
     Deny,
     Allow,
@@ -29,6 +31,7 @@ impl InplaceSupport {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
 pub enum AccumulateSupport {
     Deny,
     Allow,
@@ -94,73 +97,7 @@ pub const OPS: &[OpSchema] = &[
         accumulate: AccumulateSupport::Allow,
         type_rule: TypeRule::SameAsInput(0),
         dtype_support: Some(&super::ADD_DTYPE_SUPPORT),
-    },
-    OpSchema {
-        kind: OpKind::Mul,
-        inputs: 2,
-        outputs: 1,
-        attrs: &[ACC_ATTR],
-        broadcast: BroadcastSupport::Allow,
-        inplace: InplaceSupport::Allow,
-        accumulate: AccumulateSupport::Allow,
-        type_rule: TypeRule::SameAsInput(0),
-        dtype_support: None,
-    },
-    OpSchema {
-        kind: OpKind::Abs,
-        inputs: 1,
-        outputs: 1,
-        attrs: &[ACC_ATTR],
-        broadcast: BroadcastSupport::Deny,
-        inplace: InplaceSupport::Allow,
-        accumulate: AccumulateSupport::Allow,
-        type_rule: TypeRule::SameAsInput(0),
-        dtype_support: None,
-    },
-    OpSchema {
-        kind: OpKind::Relu,
-        inputs: 1,
-        outputs: 1,
-        attrs: &[ALPHA_ATTR, CLAMP_MAX_ATTR],
-        broadcast: BroadcastSupport::Deny,
-        inplace: InplaceSupport::Allow,
-        accumulate: AccumulateSupport::Deny,
-        type_rule: TypeRule::SameAsInput(0),
-        dtype_support: None,
-    },
-    OpSchema {
-        kind: OpKind::Matmul,
-        inputs: 2,
-        outputs: 1,
-        attrs: &[ACC_ATTR],
-        broadcast: BroadcastSupport::Allow,
-        inplace: InplaceSupport::Allow,
-        accumulate: AccumulateSupport::Allow,
-        type_rule: TypeRule::SameAsInput(0),
-        dtype_support: None,
-    },
-    OpSchema {
-        kind: OpKind::IsFinite,
-        inputs: 1,
-        outputs: 1,
-        attrs: &[],
-        broadcast: BroadcastSupport::Deny,
-        inplace: InplaceSupport::Deny,
-        accumulate: AccumulateSupport::Deny,
-        type_rule: TypeRule::Fixed(DType::Bool),
-        dtype_support: None,
-    },
-    OpSchema {
-        kind: OpKind::Fill,
-        inputs: 1,
-        outputs: 1,
-        attrs: &[VALUE_ATTR],
-        broadcast: BroadcastSupport::Deny,
-        inplace: InplaceSupport::Allow,
-        accumulate: AccumulateSupport::Deny,
-        type_rule: TypeRule::SameAsInput(0),
-        dtype_support: None,
-    },
+    }
 ];
 
 #[allow(unused)]

@@ -21,7 +21,7 @@ pub(crate) fn match_dtype(dtype: &Ident) -> syn::Result<TokenStream> {
         "bitset" => Ok(quote! { ::openinfer::DType::Bitset }),
         "f16" => Ok(quote! { ::openinfer::DType::F16 }),
         "bf16" => Ok(quote! { ::openinfer::DType::BF16 }),
-        "f8" => Ok(quote! { ::openinfer::DType::F8E5M2 }),
+        "f8" => Ok(quote! { ::openinfer::DType::F8 }),
         "i4" => Ok(quote! { ::openinfer::DType::I4 }),
         "i2" => Ok(quote! { ::openinfer::DType::I2 }),
         "i1" => Ok(quote! { ::openinfer::DType::I1 }),
@@ -51,7 +51,7 @@ pub(crate) fn init_expr(init: &Option<InitValue>, dtype: &Ident) -> syn::Result<
                     Some(::openinfer::ScalarValue::BF16(::openinfer::BF16::from_f32(#lit_expr as f32)))
                 },
                 "f8" => quote! {
-                    Some(::openinfer::ScalarValue::F8E5M2(::openinfer::F8E5M2::from_f32(#lit_expr as f32)))
+                    Some(::openinfer::ScalarValue::F8(::openinfer::F8::from_f32(#lit_expr as f32)))
                 },
                 "f32" => quote! { Some(::openinfer::ScalarValue::F32(#lit_expr as f32)) },
                 "f64" => quote! { Some(::openinfer::ScalarValue::F64(#lit_expr as f64)) },

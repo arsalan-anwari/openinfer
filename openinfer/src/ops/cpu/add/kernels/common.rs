@@ -1,4 +1,4 @@
-use crate::tensor::{Bitset, BF16, F16, F8E5M2, I1, I2, I4, U1, U2, U4};
+use crate::tensor::{Bitset, BF16, F16, F8, I1, I2, I4, U1, U2, U4};
 
 pub trait AddElement: Copy {
     fn add(self, rhs: Self) -> Self;
@@ -107,9 +107,9 @@ impl AddElement for BF16 {
     }
 }
 
-impl AddElement for F8E5M2 {
+impl AddElement for F8 {
     fn add(self, rhs: Self) -> Self {
-        F8E5M2::from_f32(self.to_f32() + rhs.to_f32())
+        F8::from_f32(self.to_f32() + rhs.to_f32())
     }
 }
 

@@ -53,7 +53,7 @@ u64 file_size
 2  I16    6  U16   10  F32     13 BITSET
 3  I32    7  U32   11  F64     14 STRING
 4  I64    8  U64   15  NDARRAY
-16 BF16  17 F8E5M2 18 I4   19 I2   20 I1
+16 BF16  17 F8   18 I4   19 I2   20 I1
 21 U4    22 U2     23 U1   24 T2   25 T1
 ```
 

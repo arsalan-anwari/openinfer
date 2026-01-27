@@ -31,7 +31,7 @@ pub fn dtype_code(dtype: DType) -> u32 {
         DType::BF16 => 10,
         DType::F32 => 11,
         DType::F64 => 12,
-        DType::F8E5M2 => 13,
+        DType::F8 => 13,
         DType::Bool => 14,
         DType::Bitset => 15,
         DType::I4 => 16,

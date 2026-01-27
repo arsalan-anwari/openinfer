@@ -1,7 +1,7 @@
 use anyhow::Result;
 use openinfer::{
     graph, Bitset, Device, Executor, F16, ModelLoader, Simulator, Tensor, TensorElement,
-    TensorOptions, BF16, F8E5M2, I1, I2, I4, U1, U2, U4,
+    TensorOptions, BF16, F8, I1, I2, I4, U1, U2, U4,
 };
 use openinfer::{format_truncated, FormatValue};
 use std::collections::HashMap;
@@ -153,7 +153,7 @@ impl ToF64 for BF16 {
     }
 }
 
-impl ToF64 for F8E5M2 {
+impl ToF64 for F8 {
     fn to_f64(self) -> f64 {
         self.to_f32() as f64
     }
@@ -752,8 +752,8 @@ fn populate_exec(exec: &mut Executor, v: usize, s: usize, m: usize, k: usize, n:
     let bf16_vals: Vec<BF16> = (0..v).map(|i| BF16::from_f32(i as f32 * 0.5 - 2.0)).collect();
     let bf16_vals_b: Vec<BF16> = (0..v).map(|i| BF16::from_f32(i as f32 * 0.5 + 0.5)).collect();
     let bf16_scalar = vec![bf16_vals_b[0]];
-    let f8_vals: Vec<F8E5M2> = (0..v).map(|i| F8E5M2::from_f32(i as f32 * 0.5 - 2.0)).collect();
-    let f8_vals_b: Vec<F8E5M2> = (0..v).map(|i| F8E5M2::from_f32(i as f32 * 0.5 + 0.5)).collect();
+    let f8_vals: Vec<F8> = (0..v).map(|i| F8::from_f32(i as f32 * 0.5 - 2.0)).collect();
+    let f8_vals_b: Vec<F8> = (0..v).map(|i| F8::from_f32(i as f32 * 0.5 + 0.5)).collect();
     let f8_scalar = vec![f8_vals_b[0]];
     let f32_vals: Vec<f32> = (0..v).map(|i| i as f32 * 0.5 - 2.0).collect();
     let f32_vals_b: Vec<f32> = (0..v).map(|i| i as f32 * 0.5 + 0.5).collect();
@@ -1774,7 +1774,7 @@ fn main() -> Result<()> {
     collect_named::<U1>(&mut refs, &mut exec_cpu, U1_OUTPUTS)?;
     collect_named_float::<F16>(&mut refs, &mut float_refs, &mut exec_cpu, F16_OUTPUTS)?;
     collect_named_float::<BF16>(&mut refs, &mut float_refs, &mut exec_cpu, BF16_OUTPUTS)?;
-    collect_named_float::<F8E5M2>(&mut refs, &mut float_refs, &mut exec_cpu, F8_OUTPUTS)?;
+    collect_named_float::<F8>(&mut refs, &mut float_refs, &mut exec_cpu, F8_OUTPUTS)?;
     collect_named_float::<f32>(&mut refs, &mut float_refs, &mut exec_cpu, F32_OUTPUTS)?;
     collect_named_float::<f64>(&mut refs, &mut float_refs, &mut exec_cpu, F64_OUTPUTS)?;
 
@@ -1803,7 +1803,7 @@ fn main() -> Result<()> {
     validate_named::<U1>(&refs, &mut exec, U1_OUTPUTS)?;
     validate_named_float::<F16>(&refs, &float_refs, &mut exec, F16_OUTPUTS, FloatTol::f16())?;
     validate_named_float::<BF16>(&refs, &float_refs, &mut exec, BF16_OUTPUTS, FloatTol::bf16())?;
-    validate_named_float::<F8E5M2>(&refs, &float_refs, &mut exec, F8_OUTPUTS, FloatTol::f8())?;
+    validate_named_float::<F8>(&refs, &float_refs, &mut exec, F8_OUTPUTS, FloatTol::f8())?;
     validate_named_float::<f32>(&refs, &float_refs, &mut exec, F32_OUTPUTS, FloatTol::f32())?;
     validate_named_float::<f64>(&refs, &float_refs, &mut exec, F64_OUTPUTS, FloatTol::f64())?;
 

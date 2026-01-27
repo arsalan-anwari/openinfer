@@ -24,7 +24,7 @@ class ValueType:
     STRING = 14
     NDARRAY = 15
     BF16 = 16
-    F8E5M2 = 17
+    F8 = 17
     I4 = 18
     I2 = 19
     I1 = 20
@@ -52,7 +52,7 @@ VT_NAME = {
     ValueType.STRING: "str",
     ValueType.NDARRAY: "ndarray",
     ValueType.BF16: "bf16",
-    ValueType.F8E5M2: "f8",
+    ValueType.F8: "f8",
     ValueType.I4: "i4",
     ValueType.I2: "i2",
     ValueType.I1: "i1",
@@ -77,7 +77,7 @@ VT_SIZE = {
     ValueType.F64: 8,
     ValueType.BOOL: 1,
     ValueType.BF16: 2,
-    ValueType.F8E5M2: 1,
+    ValueType.F8: 1,
     ValueType.I4: 1,
     ValueType.I2: 1,
     ValueType.I1: 1,
@@ -102,7 +102,7 @@ VT_TO_DTYPE = {
     ValueType.F64: np.float64,
     ValueType.BOOL: np.bool_,
     ValueType.BF16: np.uint16,
-    ValueType.F8E5M2: np.uint8,
+    ValueType.F8: np.uint8,
     ValueType.I4: np.int8,
     ValueType.I2: np.int8,
     ValueType.I1: np.int8,
@@ -139,9 +139,9 @@ DTYPE_ALIAS = {
     "u64": ValueType.U64,
     "f16": ValueType.F16,
     "bf16": ValueType.BF16,
-    "f8": ValueType.F8E5M2,
-    "f8e5m2": ValueType.F8E5M2,
-    "float8e5m2": ValueType.F8E5M2,
+    "f8": ValueType.F8,
+    "f8e5m2": ValueType.F8,
+    "float8e5m2": ValueType.F8,
     "f32": ValueType.F32,
     "f64": ValueType.F64,
     "bool": ValueType.BOOL,

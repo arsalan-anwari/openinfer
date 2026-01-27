@@ -82,10 +82,10 @@ pub fn increment_scalar(value: TensorValue, amount: i64, decrement: bool) -> Res
             t.data[0] = crate::tensor::BF16::from_f32(base + signed_amount as f32);
             Ok(TensorValue::BF16(t))
         }
-        TensorValue::F8E5M2(mut t) => {
+        TensorValue::F8(mut t) => {
             let base = t.data[0].to_f32();
-            t.data[0] = crate::tensor::F8E5M2::from_f32(base + signed_amount as f32);
-            Ok(TensorValue::F8E5M2(t))
+            t.data[0] = crate::tensor::F8::from_f32(base + signed_amount as f32);
+            Ok(TensorValue::F8(t))
         }
         TensorValue::F32(mut t) => {
             t.data[0] += signed_amount as f32;
@@ -131,7 +131,7 @@ pub fn slice_tensor_value(
         TensorValue::U64(t) => make_slice(out_shape, t.strides(), selections, &t.data, TensorValue::U64),
         TensorValue::F16(t) => make_slice(out_shape, t.strides(), selections, &t.data, TensorValue::F16),
         TensorValue::BF16(t) => make_slice(out_shape, t.strides(), selections, &t.data, TensorValue::BF16),
-        TensorValue::F8E5M2(t) => make_slice(out_shape, t.strides(), selections, &t.data, TensorValue::F8E5M2),
+        TensorValue::F8(t) => make_slice(out_shape, t.strides(), selections, &t.data, TensorValue::F8),
         TensorValue::F32(t) => make_slice(out_shape, t.strides(), selections, &t.data, TensorValue::F32),
         TensorValue::F64(t) => make_slice(out_shape, t.strides(), selections, &t.data, TensorValue::F64),
         TensorValue::Bool(t) => make_slice(out_shape, t.strides(), selections, &t.data, TensorValue::Bool),
@@ -220,7 +220,7 @@ pub fn expand_tensor_value(value: &TensorValue, shape: &[usize]) -> Result<Tenso
         (TensorValue::U64(src), TensorValue::U64(dst)) => expand_copy(src, dst),
         (TensorValue::F16(src), TensorValue::F16(dst)) => expand_copy(src, dst),
         (TensorValue::BF16(src), TensorValue::BF16(dst)) => expand_copy(src, dst),
-        (TensorValue::F8E5M2(src), TensorValue::F8E5M2(dst)) => expand_copy(src, dst),
+        (TensorValue::F8(src), TensorValue::F8(dst)) => expand_copy(src, dst),
         (TensorValue::F32(src), TensorValue::F32(dst)) => expand_copy(src, dst),
         (TensorValue::F64(src), TensorValue::F64(dst)) => expand_copy(src, dst),
         (TensorValue::Bool(src), TensorValue::Bool(dst)) => expand_copy(src, dst),

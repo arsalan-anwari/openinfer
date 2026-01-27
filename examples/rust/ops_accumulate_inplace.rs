@@ -1,6 +1,6 @@
 use openinfer::{
-    graph, Bitset, Device, Executor, F16, Fetchable, BF16, F8E5M2, I1, I2, I4, ModelLoader,
-    Simulator, Tensor, TensorElement, TensorOptions, U1, U2, U4,
+    graph, Bitset, Device, Executor, F16, Fetchable, BF16, F8, I1, I2, I4, ModelLoader, Simulator,
+    Tensor, TensorElement, TensorOptions, U1, U2, U4,
 };
 use openinfer::{format_truncated, FormatValue};
 use std::collections::HashMap;
@@ -162,7 +162,7 @@ impl ToF64 for BF16 {
     }
 }
 
-impl ToF64 for F8E5M2 {
+impl ToF64 for F8 {
     fn to_f64(self) -> f64 {
         self.to_f32() as f64
     }
@@ -343,7 +343,7 @@ macro_rules! for_each_tensor_output_collect {
         $non_float::<u64>($refs, $exec, "add_u64")?;
         $float::<F16>($refs, $float_refs, $exec, "add_f16")?;
         $float::<BF16>($refs, $float_refs, $exec, "add_bf16")?;
-        $float::<F8E5M2>($refs, $float_refs, $exec, "add_f8")?;
+        $float::<F8>($refs, $float_refs, $exec, "add_f8")?;
         $float::<f32>($refs, $float_refs, $exec, "add_f32")?;
         $float::<f64>($refs, $float_refs, $exec, "add_f64")?;
         $non_float::<bool>($refs, $exec, "add_bool")?;
@@ -365,7 +365,7 @@ macro_rules! for_each_tensor_output_collect {
         $non_float::<u64>($refs, $exec, "mul_u64")?;
         $float::<F16>($refs, $float_refs, $exec, "mul_f16")?;
         $float::<BF16>($refs, $float_refs, $exec, "mul_bf16")?;
-        $float::<F8E5M2>($refs, $float_refs, $exec, "mul_f8")?;
+        $float::<F8>($refs, $float_refs, $exec, "mul_f8")?;
         $float::<f32>($refs, $float_refs, $exec, "mul_f32")?;
         $float::<f64>($refs, $float_refs, $exec, "mul_f64")?;
         $non_float::<bool>($refs, $exec, "mul_bool")?;
@@ -383,7 +383,7 @@ macro_rules! for_each_tensor_output_collect {
         $non_float::<i64>($refs, $exec, "abs_i64")?;
         $float::<F16>($refs, $float_refs, $exec, "abs_f16")?;
         $float::<BF16>($refs, $float_refs, $exec, "abs_bf16")?;
-        $float::<F8E5M2>($refs, $float_refs, $exec, "abs_f8")?;
+        $float::<F8>($refs, $float_refs, $exec, "abs_f8")?;
         $float::<f32>($refs, $float_refs, $exec, "abs_f32")?;
         $float::<f64>($refs, $float_refs, $exec, "abs_f64")?;
         $non_float::<I4>($refs, $exec, "abs_i4")?;
@@ -396,7 +396,7 @@ macro_rules! for_each_tensor_output_collect {
         $non_float::<i64>($refs, $exec, "relu_i64")?;
         $float::<F16>($refs, $float_refs, $exec, "relu_f16")?;
         $float::<BF16>($refs, $float_refs, $exec, "relu_bf16")?;
-        $float::<F8E5M2>($refs, $float_refs, $exec, "relu_f8")?;
+        $float::<F8>($refs, $float_refs, $exec, "relu_f8")?;
         $float::<f32>($refs, $float_refs, $exec, "relu_f32")?;
         $float::<f64>($refs, $float_refs, $exec, "relu_f64")?;
         $non_float::<I4>($refs, $exec, "relu_i4")?;
@@ -411,7 +411,7 @@ macro_rules! for_each_tensor_output_collect {
         $non_float::<u64>($refs, $exec, "fill_u64")?;
         $float::<F16>($refs, $float_refs, $exec, "fill_f16")?;
         $float::<BF16>($refs, $float_refs, $exec, "fill_bf16")?;
-        $float::<F8E5M2>($refs, $float_refs, $exec, "fill_f8")?;
+        $float::<F8>($refs, $float_refs, $exec, "fill_f8")?;
         $float::<f32>($refs, $float_refs, $exec, "fill_f32")?;
         $float::<f64>($refs, $float_refs, $exec, "fill_f64")?;
         $non_float::<bool>($refs, $exec, "fill_bool")?;
@@ -487,7 +487,7 @@ macro_rules! for_each_tensor_output_collect {
         $non_float::<u64>($refs, $exec, "in_u64")?;
         $float::<F16>($refs, $float_refs, $exec, "in_f16")?;
         $float::<BF16>($refs, $float_refs, $exec, "in_bf16")?;
-        $float::<F8E5M2>($refs, $float_refs, $exec, "in_f8")?;
+        $float::<F8>($refs, $float_refs, $exec, "in_f8")?;
         $float::<f32>($refs, $float_refs, $exec, "in_f32")?;
         $float::<f64>($refs, $float_refs, $exec, "in_f64")?;
         $non_float::<bool>($refs, $exec, "in_bool")?;
@@ -527,7 +527,7 @@ macro_rules! for_each_tensor_output_validate {
         $non_float::<u64>($refs, $exec, "add_u64")?;
         $float::<F16>($refs, $float_refs, $exec, "add_f16", FloatTol::f16())?;
         $float::<BF16>($refs, $float_refs, $exec, "add_bf16", FloatTol::bf16())?;
-        $float::<F8E5M2>($refs, $float_refs, $exec, "add_f8", FloatTol::f8())?;
+        $float::<F8>($refs, $float_refs, $exec, "add_f8", FloatTol::f8())?;
         $float::<f32>($refs, $float_refs, $exec, "add_f32", FloatTol::f32())?;
         $float::<f64>($refs, $float_refs, $exec, "add_f64", FloatTol::f64())?;
         $non_float::<bool>($refs, $exec, "add_bool")?;
@@ -549,7 +549,7 @@ macro_rules! for_each_tensor_output_validate {
         $non_float::<u64>($refs, $exec, "mul_u64")?;
         $float::<F16>($refs, $float_refs, $exec, "mul_f16", FloatTol::f16())?;
         $float::<BF16>($refs, $float_refs, $exec, "mul_bf16", FloatTol::bf16())?;
-        $float::<F8E5M2>($refs, $float_refs, $exec, "mul_f8", FloatTol::f8())?;
+        $float::<F8>($refs, $float_refs, $exec, "mul_f8", FloatTol::f8())?;
         $float::<f32>($refs, $float_refs, $exec, "mul_f32", FloatTol::f32())?;
         $float::<f64>($refs, $float_refs, $exec, "mul_f64", FloatTol::f64())?;
         $non_float::<bool>($refs, $exec, "mul_bool")?;
@@ -567,7 +567,7 @@ macro_rules! for_each_tensor_output_validate {
         $non_float::<i64>($refs, $exec, "abs_i64")?;
         $float::<F16>($refs, $float_refs, $exec, "abs_f16", FloatTol::f16())?;
         $float::<BF16>($refs, $float_refs, $exec, "abs_bf16", FloatTol::bf16())?;
-        $float::<F8E5M2>($refs, $float_refs, $exec, "abs_f8", FloatTol::f8())?;
+        $float::<F8>($refs, $float_refs, $exec, "abs_f8", FloatTol::f8())?;
         $float::<f32>($refs, $float_refs, $exec, "abs_f32", FloatTol::f32())?;
         $float::<f64>($refs, $float_refs, $exec, "abs_f64", FloatTol::f64())?;
         $non_float::<I4>($refs, $exec, "abs_i4")?;
@@ -580,7 +580,7 @@ macro_rules! for_each_tensor_output_validate {
         $non_float::<i64>($refs, $exec, "relu_i64")?;
         $float::<F16>($refs, $float_refs, $exec, "relu_f16", FloatTol::f16())?;
         $float::<BF16>($refs, $float_refs, $exec, "relu_bf16", FloatTol::bf16())?;
-        $float::<F8E5M2>($refs, $float_refs, $exec, "relu_f8", FloatTol::f8())?;
+        $float::<F8>($refs, $float_refs, $exec, "relu_f8", FloatTol::f8())?;
         $float::<f32>($refs, $float_refs, $exec, "relu_f32", FloatTol::f32())?;
         $float::<f64>($refs, $float_refs, $exec, "relu_f64", FloatTol::f64())?;
         $non_float::<I4>($refs, $exec, "relu_i4")?;
@@ -595,7 +595,7 @@ macro_rules! for_each_tensor_output_validate {
         $non_float::<u64>($refs, $exec, "fill_u64")?;
         $float::<F16>($refs, $float_refs, $exec, "fill_f16", FloatTol::f16())?;
         $float::<BF16>($refs, $float_refs, $exec, "fill_bf16", FloatTol::bf16())?;
-        $float::<F8E5M2>($refs, $float_refs, $exec, "fill_f8", FloatTol::f8())?;
+        $float::<F8>($refs, $float_refs, $exec, "fill_f8", FloatTol::f8())?;
         $float::<f32>($refs, $float_refs, $exec, "fill_f32", FloatTol::f32())?;
         $float::<f64>($refs, $float_refs, $exec, "fill_f64", FloatTol::f64())?;
         $non_float::<bool>($refs, $exec, "fill_bool")?;
@@ -671,7 +671,7 @@ macro_rules! for_each_tensor_output_validate {
         $non_float::<u64>($refs, $exec, "in_u64")?;
         $float::<F16>($refs, $float_refs, $exec, "in_f16", FloatTol::f16())?;
         $float::<BF16>($refs, $float_refs, $exec, "in_bf16", FloatTol::bf16())?;
-        $float::<F8E5M2>($refs, $float_refs, $exec, "in_f8", FloatTol::f8())?;
+        $float::<F8>($refs, $float_refs, $exec, "in_f8", FloatTol::f8())?;
         $float::<f32>($refs, $float_refs, $exec, "in_f32", FloatTol::f32())?;
         $float::<f64>($refs, $float_refs, $exec, "in_f64", FloatTol::f64())?;
         $non_float::<bool>($refs, $exec, "in_bool")?;
@@ -751,8 +751,8 @@ fn populate_exec(
     let f16_vals_b: Vec<F16> = (0..v).map(|i| F16::from_f32(i as f32 * 0.5 + 0.5)).collect();
     let bf16_vals: Vec<BF16> = (0..v).map(|i| BF16::from_f32(i as f32 * 0.5 - 2.0)).collect();
     let bf16_vals_b: Vec<BF16> = (0..v).map(|i| BF16::from_f32(i as f32 * 0.5 + 0.5)).collect();
-    let f8_vals: Vec<F8E5M2> = (0..v).map(|i| F8E5M2::from_f32(i as f32 * 0.5 - 2.0)).collect();
-    let f8_vals_b: Vec<F8E5M2> = (0..v).map(|i| F8E5M2::from_f32(i as f32 * 0.5 + 0.5)).collect();
+    let f8_vals: Vec<F8> = (0..v).map(|i| F8::from_f32(i as f32 * 0.5 - 2.0)).collect();
+    let f8_vals_b: Vec<F8> = (0..v).map(|i| F8::from_f32(i as f32 * 0.5 + 0.5)).collect();
     let f32_vals: Vec<f32> = (0..v).map(|i| i as f32 * 0.5 - 2.0).collect();
     let f32_vals_b: Vec<f32> = (0..v).map(|i| i as f32 * 0.5 + 0.5).collect();
     let f64_vals: Vec<f64> = (0..v).map(|i| i as f64 * 0.5 - 2.0).collect();

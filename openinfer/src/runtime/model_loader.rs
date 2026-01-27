@@ -8,7 +8,7 @@ use memmap2::Mmap;
 
 use crate::runtime::tensor_store::{MappedSlice, TensorRef, TensorStore};
 use crate::tensor::{
-    BF16, Bitset, DType, F16, F8E5M2, I1, I2, I4, T1, T2, U1, U2, U4, Tensor, TensorValue,
+    BF16, Bitset, DType, F16, F8, I1, I2, I4, T1, T2, U1, U2, U4, Tensor, TensorValue,
 };
 use crate::types::VarInfo;
 
@@ -411,7 +411,7 @@ fn tensor_value_from_bytes(info: &VarInfo, bytes: &[u8]) -> Result<TensorValue> 
         DType::U64 => tensor_from_bytes::<u64>(info, bytes).map(TensorValue::U64),
         DType::F16 => tensor_from_bits::<u16, F16>(info, bytes, |bits| F16 { bits }).map(TensorValue::F16),
         DType::BF16 => tensor_from_bits::<u16, BF16>(info, bytes, |bits| BF16 { bits }).map(TensorValue::BF16),
-        DType::F8E5M2 => tensor_from_bits::<u8, F8E5M2>(info, bytes, |bits| F8E5M2 { bits }).map(TensorValue::F8E5M2),
+        DType::F8 => tensor_from_bits::<u8, F8>(info, bytes, |bits| F8 { bits }).map(TensorValue::F8),
         DType::F32 => tensor_from_bytes::<f32>(info, bytes).map(TensorValue::F32),
         DType::F64 => tensor_from_bytes::<f64>(info, bytes).map(TensorValue::F64),
         DType::Bool => tensor_from_bytes::<bool>(info, bytes).map(TensorValue::Bool),
@@ -532,7 +532,7 @@ impl ValueType {
     const STRING: u32 = 14;
     const NDARRAY: u32 = 15;
     const BF16: u32 = 16;
-    const F8E5M2: u32 = 17;
+    const F8: u32 = 17;
     const I4: u32 = 18;
     const I2: u32 = 19;
     const I1: u32 = 20;
@@ -562,7 +562,7 @@ impl ValueType {
             Self::BOOL => DType::Bool,
             Self::BITSET => DType::Bitset,
             Self::BF16 => DType::BF16,
-            Self::F8E5M2 => DType::F8E5M2,
+            Self::F8 => DType::F8,
             Self::I4 => DType::I4,
             Self::I2 => DType::I2,
             Self::I1 => DType::I1,

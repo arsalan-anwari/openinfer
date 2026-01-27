@@ -18,6 +18,7 @@ ash = "0.38.0"
 
 [build-dependencies]
 serde_json = "1"
+syn = { version = "2", features = ["full"] }
 
 [dev-dependencies]
 
