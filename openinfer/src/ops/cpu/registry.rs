@@ -20,7 +20,7 @@ pub fn warm_kernels() {
 
 static CPU_KERNELS: Lazy<HashMap<OpKey, KernelFn>> = Lazy::new(|| {
     let mut map = HashMap::new();
-    for (key, kernel) in add::registry::ENTRIES {
+    for (key, kernel) in add::registry::ENTRIES.iter() {
         map.insert(*key, *kernel);
     }
     map

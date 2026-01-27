@@ -2,6 +2,7 @@ pub use openinfer_dsl::graph;
 
 mod simulator;
 mod graph;
+#[macro_use]
 mod registry;
 mod runtime;
 mod macros;

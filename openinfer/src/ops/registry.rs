@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 
 use crate::graph::{OpAttrs, OpKind};
-use crate::registry::op_schema;
+use crate::registry::{op_schema, TypeRule};
 use crate::simulator::Device;
 use crate::tensor::{DType, TensorValue};
 
@@ -41,6 +41,88 @@ pub fn op_supports_dtype(kind: OpKind, mode: OpMode, in0: DType, out0: DType) ->
             .any(|(in_dtype, out_dtype)| *in_dtype == in0 && *out_dtype == out0),
         OpMode::Normal | OpMode::Inplace => support.normal.contains(&in0),
     }
+}
+
+pub fn build_op_entries_same_input(
+    kind: OpKind,
+    kernel_for_mode: impl Fn(OpMode) -> Option<KernelFn>,
+) -> Result<Vec<(OpKey, KernelFn)>> {
+    let schema = op_schema(kind).ok_or_else(|| anyhow!("missing op schema {:?}", kind))?;
+    let support = schema
+        .dtype_support
+        .ok_or_else(|| anyhow!("op {:?} has no dtype support", kind))?;
+    if schema.inputs != 1 && schema.inputs != 2 {
+        return Err(anyhow!(
+            "op {:?} has unsupported input count {}",
+            kind,
+            schema.inputs
+        ));
+    }
+
+    let broadcast_flags: &[bool] = if schema.broadcast.allow() {
+        &[false, true]
+    } else {
+        &[false]
+    };
+    let in1_for = |in0: DType| if schema.inputs == 2 { Some(in0) } else { None };
+
+    let mut entries = Vec::new();
+    for in_dtype in support.normal {
+        let out_dtype = match schema.type_rule {
+            TypeRule::SameAsInput(0) => *in_dtype,
+            TypeRule::Fixed(dtype) => dtype,
+            _ => {
+                return Err(anyhow!(
+                    "op {:?} has unsupported type rule for entry build",
+                    kind
+                ))
+            }
+        };
+        for &broadcast in broadcast_flags {
+            let normal_key = OpKey {
+                kind,
+                mode: OpMode::Normal,
+                broadcast,
+                in0: *in_dtype,
+                in1: in1_for(*in_dtype),
+                out0: out_dtype,
+            };
+            if let Some(kernel) = kernel_for_mode(OpMode::Normal) {
+                entries.push((normal_key, kernel));
+            }
+            if schema.inplace.allow() {
+                let inplace_key = OpKey {
+                    kind,
+                    mode: OpMode::Inplace,
+                    broadcast,
+                    in0: *in_dtype,
+                    in1: in1_for(*in_dtype),
+                    out0: out_dtype,
+                };
+                if let Some(kernel) = kernel_for_mode(OpMode::Inplace) {
+                    entries.push((inplace_key, kernel));
+                }
+            }
+        }
+    }
+    if schema.accumulate.allow() {
+        for (in_dtype, out_dtype) in support.accumulate {
+            for &broadcast in broadcast_flags {
+                let acc_key = OpKey {
+                    kind,
+                    mode: OpMode::Accumulate,
+                    broadcast,
+                    in0: *in_dtype,
+                    in1: in1_for(*in_dtype),
+                    out0: *out_dtype,
+                };
+                if let Some(kernel) = kernel_for_mode(OpMode::Accumulate) {
+                    entries.push((acc_key, kernel));
+                }
+            }
+        }
+    }
+    Ok(entries)
 }
 
 pub fn lookup_kernel(device: Device, key: OpKey) -> Result<KernelFn> {

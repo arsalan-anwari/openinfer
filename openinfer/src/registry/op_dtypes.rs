@@ -47,29 +47,3 @@ pub const ACC_INT_PAIRS: &[(DType, DType)] = &[
     (DType::U32, DType::U64),
 ];
 
-pub const ADD_DTYPE_SUPPORT: OpDTypeSupport = OpDTypeSupport {
-    normal: &[
-        DType::F8E5M2,
-        DType::BF16,
-        DType::F16,
-        DType::F32,
-        DType::F64,
-        DType::I1,
-        DType::I2,
-        DType::I4,
-        DType::I8,
-        DType::I16,
-        DType::I32,
-        DType::I64,
-        DType::U1,
-        DType::U2,
-        DType::U4,
-        DType::U8,
-        DType::U16,
-        DType::U32,
-        DType::U64,
-        DType::Bool,
-        DType::Bitset,
-    ],
-    accumulate: ACC_INT_PAIRS,
-};

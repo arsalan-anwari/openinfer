@@ -163,6 +163,7 @@ pub const OPS: &[OpSchema] = &[
     },
 ];
 
+#[allow(unused)]
 pub fn acc_dtype(attrs: &OpAttrs) -> Result<DType> {
     attrs
         .items
