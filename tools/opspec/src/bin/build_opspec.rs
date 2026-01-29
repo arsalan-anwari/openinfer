@@ -7,9 +7,6 @@ use std::time::Duration;
 
 use syn::{Expr, ExprPath, ExprReference, File, Item};
 
-#[path = "../../../../openinfer/generator/op_schema.rs"]
-mod op_schema;
-
 struct OpSpecInfo {
     name: String,
     inplace: bool,
@@ -47,7 +44,7 @@ fn main() {
         thread::sleep(Duration::from_millis(200));
     }
     println!();
-    if let Err(err) = op_schema::generate_cpu_kernels(&manifest_dir) {
+    if let Err(err) = openinfer_generator::op_schema::generate_cpu_kernels(&manifest_dir) {
         eprintln!("build_opspec: failed to generate cpu kernels: {err}");
         std::process::exit(1);
     }

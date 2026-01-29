@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use anyhow::{anyhow, Result};
 
 use crate::graph::{CacheAccess, VarDecl};
-use crate::tensor::{DType, TensorValue};
+use crate::tensor::{DType, ScalarValue, TensorValue};
 
 use super::auto_dim::{fixed_size_for, init_cache_table_sizes};
 use super::{ResolvedCacheIndexExpr, TableIndexSelection};
@@ -183,7 +183,7 @@ pub fn read_table_selection(
     table: &mut CacheTable,
     selections: &[TableIndexSelection],
     entry_shape: &[usize],
-    init: Option<&crate::types::ScalarValue>,
+    init: Option<&ScalarValue>,
 ) -> Result<TensorValue> {
     let logical_len = crate::tensor::numel(entry_shape);
     let entry_len = table.decl.dtype.storage_len(logical_len);
@@ -253,7 +253,7 @@ fn read_table_values<T: Copy, F>(
     selections: &[TableIndexSelection],
     entry_shape: &[usize],
     entry_len: usize,
-    init: Option<&crate::types::ScalarValue>,
+    init: Option<&ScalarValue>,
     output_shape: Vec<usize>,
     wrap: F,
 ) -> Result<TensorValue>
@@ -267,7 +267,7 @@ where
         selections: &[TableIndexSelection],
         entry_shape: &[usize],
         entry_len: usize,
-        init: Option<&crate::types::ScalarValue>,
+        init: Option<&ScalarValue>,
         depth: usize,
         current: &mut [usize],
         output: &mut Vec<T>,
@@ -314,7 +314,7 @@ fn get_table_entry<T: Copy>(
     indices: &[usize],
     entry_shape: &[usize],
     entry_len: usize,
-    init: Option<&crate::types::ScalarValue>,
+    init: Option<&ScalarValue>,
 ) -> Result<Vec<T>> {
     if let Some(entry) = table.entries.get(indices) {
         let entry = match entry {

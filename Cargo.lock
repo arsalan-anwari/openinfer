@@ -166,11 +166,11 @@ dependencies = [
  "memmap2",
  "once_cell",
  "openinfer-dsl",
+ "openinfer-generator",
  "rand",
  "rayon",
  "serde",
  "serde_json",
- "syn",
  "uuid",
 ]
 
@@ -184,9 +184,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "openinfer-generator"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "syn",
+]
+
+[[package]]
 name = "opspec-tools"
 version = "0.1.0"
 dependencies = [
+ "openinfer-generator",
  "syn",
 ]
 

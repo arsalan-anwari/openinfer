@@ -17,8 +17,7 @@ bytemuck = { version = "1", features = ["derive"] }
 ash = "0.38.0"
 
 [build-dependencies]
-serde_json = "1"
-syn = { version = "2", features = ["full"] }
+openinfer-generator = { path = "../openinfer-generator" }
 
 [dev-dependencies]
 

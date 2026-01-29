@@ -4,8 +4,7 @@ use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::tensor::DType;
-use crate::types::ScalarValue;
+use crate::tensor::{DType, ScalarValue};
 
 use super::var::{MemoryKind, VarDecl};
 
