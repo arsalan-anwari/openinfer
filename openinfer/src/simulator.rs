@@ -3,7 +3,7 @@ use std::sync::Arc;
 use anyhow::{anyhow, Result};
 
 use crate::graph::{AttrValue, Graph, NodeKind, OpAttrs, OpKind};
-use crate::model_loader::ModelLoader;
+use crate::runtime::ModelLoader;
 use crate::registry::op_schema;
 pub use crate::runtime::{Executor, Fetchable, TraceEvent, TraceEventKind};
 

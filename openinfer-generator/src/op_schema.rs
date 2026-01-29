@@ -398,27 +398,28 @@ fn extract_match_arms(match_expr: &ExprMatch) -> Result<HashMap<String, String>,
 }
 
 fn extract_dtype_array(array: &ExprArray) -> Result<Vec<String>, Box<dyn Error>> {
-    let mut dtypes = Vec::new();
+    let mut list = Vec::new();
     for elem in &array.elems {
-        let dtype = extract_path_ident(elem).ok_or("unexpected dtype entry")?;
-        dtypes.push(dtype);
+        let elem = unwrap_reference(elem)?;
+        let ident = extract_path_ident(elem).ok_or("unexpected dtype list entry")?;
+        list.push(ident);
     }
-    Ok(dtypes)
+    Ok(list)
 }
 
 fn extract_dtype_pairs(array: &ExprArray) -> Result<Vec<(String, String)>, Box<dyn Error>> {
     let mut pairs = Vec::new();
     for elem in &array.elems {
-        let tuple = match elem {
-            Expr::Tuple(tuple) => tuple,
-            _ => return Err("unexpected dtype pair entry".into()),
+        let elem = unwrap_reference(elem)?;
+        let Expr::Tuple(tuple) = elem else {
+            return Err("unexpected dtype pair entry".into());
         };
         if tuple.elems.len() != 2 {
             return Err("dtype pair must have two elements".into());
         }
-        let first = extract_path_ident(&tuple.elems[0]).ok_or("missing dtype pair lhs")?;
-        let second = extract_path_ident(&tuple.elems[1]).ok_or("missing dtype pair rhs")?;
-        pairs.push((first, second));
+        let left = extract_path_ident(&tuple.elems[0]).ok_or("invalid dtype pair left")?;
+        let right = extract_path_ident(&tuple.elems[1]).ok_or("invalid dtype pair right")?;
+        pairs.push((left, right));
     }
     Ok(pairs)
 }
@@ -528,16 +529,14 @@ fn write_kernel_rs(
                         "        (TensorValue::{variant}(a), TensorValue::{out_variant}(out)) => super::kernels::packed::{op_name}_{suffix}_packed(a, out),\n"
                     ));
                 }
+            } else if uses_attrs {
+                out.push_str(&format!(
+                    "        (TensorValue::{variant}(a), TensorValue::{out_variant}(out)) => super::kernels::normal::{op_name}_{suffix}_normal(_attrs, a, out),\n"
+                ));
             } else {
-                if uses_attrs {
-                    out.push_str(&format!(
-                        "        (TensorValue::{variant}(a), TensorValue::{out_variant}(out)) => super::kernels::normal::{op_name}_{suffix}_normal(_attrs, a, out),\n"
-                    ));
-                } else {
-                    out.push_str(&format!(
-                        "        (TensorValue::{variant}(a), TensorValue::{out_variant}(out)) => super::kernels::normal::{op_name}_{suffix}_normal(a, out),\n"
-                    ));
-                }
+                out.push_str(&format!(
+                    "        (TensorValue::{variant}(a), TensorValue::{out_variant}(out)) => super::kernels::normal::{op_name}_{suffix}_normal(a, out),\n"
+                ));
             }
         }
     } else {
@@ -556,16 +555,14 @@ fn write_kernel_rs(
                         "        (TensorValue::{variant}(a), TensorValue::{variant}(b), TensorValue::{out_variant}(out)) => super::kernels::packed::{op_name}_{suffix}_packed(a, b, out),\n"
                     ));
                 }
+            } else if uses_attrs {
+                out.push_str(&format!(
+                    "        (TensorValue::{variant}(a), TensorValue::{variant}(b), TensorValue::{out_variant}(out)) => super::kernels::normal::{op_name}_{suffix}_normal(_attrs, a, b, out),\n"
+                ));
             } else {
-                if uses_attrs {
-                    out.push_str(&format!(
-                        "        (TensorValue::{variant}(a), TensorValue::{variant}(b), TensorValue::{out_variant}(out)) => super::kernels::normal::{op_name}_{suffix}_normal(_attrs, a, b, out),\n"
-                    ));
-                } else {
-                    out.push_str(&format!(
-                        "        (TensorValue::{variant}(a), TensorValue::{variant}(b), TensorValue::{out_variant}(out)) => super::kernels::normal::{op_name}_{suffix}_normal(a, b, out),\n"
-                    ));
-                }
+                out.push_str(&format!(
+                    "        (TensorValue::{variant}(a), TensorValue::{variant}(b), TensorValue::{out_variant}(out)) => super::kernels::normal::{op_name}_{suffix}_normal(a, b, out),\n"
+                ));
             }
         }
     }
@@ -594,16 +591,14 @@ fn write_kernel_rs(
                             "        TensorValue::{variant}(a) => super::kernels::packed::{op_name}_{suffix}_packed_inplace(a),\n"
                         ));
                     }
+                } else if uses_attrs {
+                    out.push_str(&format!(
+                        "        TensorValue::{variant}(a) => super::kernels::normal::{op_name}_{suffix}_inplace(_attrs, a),\n"
+                    ));
                 } else {
-                    if uses_attrs {
-                        out.push_str(&format!(
-                            "        TensorValue::{variant}(a) => super::kernels::normal::{op_name}_{suffix}_inplace(_attrs, a),\n"
-                        ));
-                    } else {
-                        out.push_str(&format!(
-                            "        TensorValue::{variant}(a) => super::kernels::normal::{op_name}_{suffix}_inplace(a),\n"
-                        ));
-                    }
+                    out.push_str(&format!(
+                        "        TensorValue::{variant}(a) => super::kernels::normal::{op_name}_{suffix}_inplace(a),\n"
+                    ));
                 }
             }
         } else {
@@ -621,16 +616,14 @@ fn write_kernel_rs(
                             "        (TensorValue::{variant}(a), TensorValue::{variant}(b)) => super::kernels::packed::{op_name}_{suffix}_packed_inplace(a, b),\n"
                         ));
                     }
+                } else if uses_attrs {
+                    out.push_str(&format!(
+                        "        (TensorValue::{variant}(a), TensorValue::{variant}(b)) => super::kernels::normal::{op_name}_{suffix}_inplace(_attrs, a, b),\n"
+                    ));
                 } else {
-                    if uses_attrs {
-                        out.push_str(&format!(
-                            "        (TensorValue::{variant}(a), TensorValue::{variant}(b)) => super::kernels::normal::{op_name}_{suffix}_inplace(_attrs, a, b),\n"
-                        ));
-                    } else {
-                        out.push_str(&format!(
-                            "        (TensorValue::{variant}(a), TensorValue::{variant}(b)) => super::kernels::normal::{op_name}_{suffix}_inplace(a, b),\n"
-                        ));
-                    }
+                    out.push_str(&format!(
+                        "        (TensorValue::{variant}(a), TensorValue::{variant}(b)) => super::kernels::normal::{op_name}_{suffix}_inplace(a, b),\n"
+                    ));
                 }
             }
         }

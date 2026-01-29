@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::tensor::DType;
-use crate::types::ScalarValue;
+use crate::tensor::{DType, ScalarValue};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum MemoryKind {
