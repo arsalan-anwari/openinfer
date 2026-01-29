@@ -51,11 +51,18 @@ pub fn build_op_entries_same_input(
     let support = schema
         .dtype_support
         .ok_or_else(|| anyhow!("op {:?} has no dtype support", kind))?;
-    if schema.inputs != 1 && schema.inputs != 2 {
+    let inputs = schema.inputs.fixed().ok_or_else(|| {
+        anyhow!(
+            "op {:?} has non-fixed input arity {:?}",
+            kind,
+            schema.inputs
+        )
+    })?;
+    if inputs != 1 && inputs != 2 {
         return Err(anyhow!(
             "op {:?} has unsupported input count {}",
             kind,
-            schema.inputs
+            inputs
         ));
     }
 
@@ -64,7 +71,7 @@ pub fn build_op_entries_same_input(
     } else {
         &[false]
     };
-    let in1_for = |in0: DType| if schema.inputs == 2 { Some(in0) } else { None };
+    let in1_for = |in0: DType| if inputs == 2 { Some(in0) } else { None };
 
     let mut entries = Vec::new();
     for in_dtype in support.normal {

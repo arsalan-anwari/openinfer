@@ -1,0 +1,72 @@
+use crate::registry::OpDTypeSupport;
+use crate::tensor::DType;
+
+#[allow(dead_code)]
+pub const MATMUL_ACC_INT_PAIRS: &[(DType, DType)] = &[
+    (DType::I1, DType::I8),
+    (DType::I1, DType::I16),
+    (DType::I1, DType::I32),
+    (DType::I1, DType::I64),
+    (DType::I2, DType::I8),
+    (DType::I2, DType::I16),
+    (DType::I2, DType::I32),
+    (DType::I2, DType::I64),
+    (DType::I4, DType::I8),
+    (DType::I4, DType::I16),
+    (DType::I4, DType::I32),
+    (DType::I4, DType::I64),
+    (DType::I8, DType::I16),
+    (DType::I8, DType::I32),
+    (DType::I8, DType::I64),
+    (DType::I16, DType::I32),
+    (DType::I16, DType::I64),
+    (DType::I32, DType::I64),
+    (DType::U1, DType::U8),
+    (DType::U1, DType::U16),
+    (DType::U1, DType::U32),
+    (DType::U1, DType::U64),
+    (DType::U2, DType::U8),
+    (DType::U2, DType::U16),
+    (DType::U2, DType::U32),
+    (DType::U2, DType::U64),
+    (DType::U4, DType::U8),
+    (DType::U4, DType::U16),
+    (DType::U4, DType::U32),
+    (DType::U4, DType::U64),
+    (DType::U8, DType::U16),
+    (DType::U8, DType::U32),
+    (DType::U8, DType::U64),
+    (DType::U16, DType::U32),
+    (DType::U16, DType::U64),
+    (DType::U32, DType::U64),
+];
+
+#[allow(dead_code)]
+pub const MATMUL_NORMAL_DTYPES: &[DType] = &[
+    DType::F8,
+    DType::BF16,
+    DType::F16,
+    DType::F32,
+    DType::F64,
+    DType::I8,
+    DType::I16,
+    DType::I32,
+    DType::I64,
+    DType::U8,
+    DType::U16,
+    DType::U32,
+    DType::U64,
+    DType::Bool,
+    DType::Bitset,
+    DType::I1,
+    DType::I2,
+    DType::I4,
+    DType::U1,
+    DType::U2,
+    DType::U4,
+];
+
+pub const MATMUL_DTYPE_SUPPORT: OpDTypeSupport = OpDTypeSupport {
+    normal: MATMUL_NORMAL_DTYPES,
+    accumulate: MATMUL_ACC_INT_PAIRS,
+};

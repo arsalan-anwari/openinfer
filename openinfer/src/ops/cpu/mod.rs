@@ -1,4 +1,10 @@
+pub mod abs;
 pub mod add;
+pub mod fill;
+pub mod is_finite;
+pub mod matmul;
+pub mod mul;
+pub mod relu;
 pub mod broadcast;
 pub mod registry;
 pub mod packed_cpu;

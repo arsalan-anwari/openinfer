@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 
-use crate::ops::cpu::add;
+use crate::ops::cpu::{abs, add, fill, is_finite, matmul, mul, relu};
 use std::collections::HashMap;
 
 use once_cell::sync::Lazy;
@@ -27,6 +27,24 @@ pub fn expect_output(output: Option<&mut TensorValue>) -> Result<&mut TensorValu
 static CPU_KERNELS: Lazy<HashMap<OpKey, KernelFn>> = Lazy::new(|| {
     let mut map = HashMap::new();
     for (key, kernel) in add::registry::ENTRIES.iter() {
+        map.insert(*key, *kernel);
+    }
+    for (key, kernel) in abs::registry::ENTRIES.iter() {
+        map.insert(*key, *kernel);
+    }
+    for (key, kernel) in mul::registry::ENTRIES.iter() {
+        map.insert(*key, *kernel);
+    }
+    for (key, kernel) in matmul::registry::ENTRIES.iter() {
+        map.insert(*key, *kernel);
+    }
+    for (key, kernel) in relu::registry::ENTRIES.iter() {
+        map.insert(*key, *kernel);
+    }
+    for (key, kernel) in is_finite::registry::ENTRIES.iter() {
+        map.insert(*key, *kernel);
+    }
+    for (key, kernel) in fill::registry::ENTRIES.iter() {
         map.insert(*key, *kernel);
     }
     map

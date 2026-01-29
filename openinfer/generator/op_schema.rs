@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use syn::{
     Expr, ExprArray, ExprCall, ExprLit, ExprMatch, ExprPath, ExprReference, File, Item, ItemConst,
@@ -11,41 +11,65 @@ use syn::{
 #[derive(Debug)]
 struct OpSchemaInfo {
     kind_ident: String,
+    inputs: InputArityInfo,
     inplace: bool,
     accumulate: bool,
     dtype_support: Option<String>,
+    uses_attrs: bool,
+    fixed_output: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
+enum InputArityInfo {
+    Fixed(usize),
+    AtLeast(usize),
+    Any,
+}
+
+impl InputArityInfo {
+    fn fixed(self) -> Option<usize> {
+        match self {
+            InputArityInfo::Fixed(count) => Some(count),
+            _ => None,
+        }
+    }
 }
 
 pub fn generate_cpu_kernels(manifest_dir: &Path) -> Result<(), Box<dyn Error>> {
     let op_defs_path = manifest_dir.join("src/registry/op_defs.rs");
-    let op_dtypes_path = manifest_dir.join("src/registry/op_dtypes.rs");
     let types_path = manifest_dir.join("src/graph/types.rs");
 
     let op_schemas = parse_ops(&op_defs_path)?;
     let opkind_map = parse_opkind_map(&types_path)?;
-    let add_normal_dtypes = parse_dtype_list(&op_dtypes_path, "ADD_NORMAL_DTYPES")?;
-    let acc_pairs = parse_dtype_pairs(&op_dtypes_path, "ACC_INT_PAIRS")?;
+    let op_dtype_paths = collect_op_dtype_paths(manifest_dir)?;
 
     for schema in op_schemas {
         let op_name = opkind_map
             .get(&schema.kind_ident)
             .ok_or_else(|| format!("missing OpKind::{} in OpKind::as_str()", schema.kind_ident))?;
-        let dtype_support = schema.dtype_support.as_deref().unwrap_or("");
-        if dtype_support != "ADD_DTYPE_SUPPORT" {
-            return Err(format!(
-                "unsupported dtype_support {dtype_support:?} for OpKind::{}, update generator/op_schema.rs",
-                schema.kind_ident
-            )
-            .into());
-        }
+        let dtype_support = schema
+            .dtype_support
+            .as_deref()
+            .ok_or_else(|| format!("missing dtype_support for OpKind::{}", schema.kind_ident))?;
+        let inputs = schema
+            .inputs
+            .fixed()
+            .ok_or_else(|| format!("non-fixed input arity for OpKind::{}", schema.kind_ident))?;
+        let (normal_name, acc_name) = find_dtype_support_fields(&op_dtype_paths, dtype_support)?;
+        let normal_dtypes = parse_dtype_list_in_files(&op_dtype_paths, &normal_name)?;
+        let acc_pairs = parse_dtype_pairs_in_files(&op_dtype_paths, &acc_name)?;
         let op_dir = manifest_dir.join(format!("src/ops/cpu/{op_name}"));
         write_kernel_rs(
             &op_dir,
             op_name,
-            &add_normal_dtypes,
+            &normal_dtypes,
             &acc_pairs,
+            inputs,
             schema.inplace,
             schema.accumulate,
+            schema.uses_attrs,
+            schema.fixed_output.as_deref(),
         )?;
     }
 
@@ -76,9 +100,12 @@ fn parse_ops_const(item_const: &ItemConst) -> Result<Vec<OpSchemaInfo>, Box<dyn 
         let expr = unwrap_reference(elem)?;
         if let Expr::Struct(struct_expr) = expr {
             let mut kind_ident = None;
+            let mut inputs = None;
             let mut inplace = false;
             let mut accumulate = false;
             let mut dtype_support = None;
+            let mut uses_attrs = false;
+            let mut fixed_output = None;
             for field in &struct_expr.fields {
                 let field_name = match &field.member {
                     syn::Member::Named(ident) => ident.to_string(),
@@ -87,6 +114,9 @@ fn parse_ops_const(item_const: &ItemConst) -> Result<Vec<OpSchemaInfo>, Box<dyn 
                 match field_name.as_str() {
                     "kind" => {
                         kind_ident = extract_path_ident(&field.expr);
+                    }
+                    "inputs" => {
+                        inputs = Some(extract_input_arity(&field.expr)?);
                     }
                     "inplace" => {
                         inplace = extract_allow_flag(&field.expr)?;
@@ -97,15 +127,25 @@ fn parse_ops_const(item_const: &ItemConst) -> Result<Vec<OpSchemaInfo>, Box<dyn 
                     "dtype_support" => {
                         dtype_support = extract_dtype_support(&field.expr)?;
                     }
+                    "type_rule" => {
+                        fixed_output = extract_fixed_output(&field.expr)?;
+                    }
+                    "attrs" => {
+                        uses_attrs = extract_attrs_use(&field.expr)?;
+                    }
                     _ => {}
                 }
             }
             let kind_ident = kind_ident.ok_or("OpSchema missing kind")?;
+            let inputs = inputs.ok_or("OpSchema missing inputs")?;
             ops.push(OpSchemaInfo {
                 kind_ident,
+                inputs,
                 inplace,
                 accumulate,
                 dtype_support,
+                uses_attrs,
+                fixed_output,
             });
         }
     }
@@ -164,6 +204,27 @@ fn parse_dtype_pairs(path: &Path, name: &str) -> Result<Vec<(String, String)>, B
     Err(format!("missing {name} const in {}", path.display()).into())
 }
 
+fn parse_dtype_list_in_files(paths: &[PathBuf], name: &str) -> Result<Vec<String>, Box<dyn Error>> {
+    for path in paths {
+        if let Ok(list) = parse_dtype_list(path, name) {
+            return Ok(list);
+        }
+    }
+    Err(format!("missing {name} const in registry/op_dtypes").into())
+}
+
+fn parse_dtype_pairs_in_files(
+    paths: &[PathBuf],
+    name: &str,
+) -> Result<Vec<(String, String)>, Box<dyn Error>> {
+    for path in paths {
+        if let Ok(pairs) = parse_dtype_pairs(path, name) {
+            return Ok(pairs);
+        }
+    }
+    Err(format!("missing {name} const in registry/op_dtypes").into())
+}
+
 fn parse_file(path: &Path) -> Result<File, Box<dyn Error>> {
     let contents = fs::read_to_string(path)?;
     syn::parse_file(&contents).map_err(|err| format!("failed to parse {}: {err}", path.display()).into())
@@ -192,6 +253,38 @@ fn extract_allow_flag(expr: &Expr) -> Result<bool, Box<dyn Error>> {
     }
 }
 
+fn extract_input_arity(expr: &Expr) -> Result<InputArityInfo, Box<dyn Error>> {
+    match expr {
+        Expr::Path(ExprPath { path, .. }) => {
+            let last = path.segments.last().map(|seg| seg.ident.to_string());
+            match last.as_deref() {
+                Some("Any") => Ok(InputArityInfo::Any),
+                _ => Err("unexpected InputArity path".into()),
+            }
+        }
+        Expr::Call(ExprCall { func, args, .. }) => {
+            let func_ident = extract_path_ident(func).ok_or("InputArity call missing ident")?;
+            match func_ident.as_str() {
+                "Fixed" => Ok(InputArityInfo::Fixed(extract_usize_arg(args.first())?)),
+                "AtLeast" => Ok(InputArityInfo::AtLeast(extract_usize_arg(args.first())?)),
+                _ => Err(format!("unexpected InputArity call {func_ident}").into()),
+            }
+        }
+        _ => Err("unsupported InputArity expr".into()),
+    }
+}
+
+fn extract_usize_arg(arg: Option<&Expr>) -> Result<usize, Box<dyn Error>> {
+    let expr = arg.ok_or("missing usize arg")?;
+    match expr {
+        Expr::Lit(ExprLit {
+            lit: Lit::Int(lit),
+            ..
+        }) => lit.base10_parse::<usize>().map_err(|_| "invalid usize literal".into()),
+        _ => Err("expected usize literal".into()),
+    }
+}
+
 fn extract_dtype_support(expr: &Expr) -> Result<Option<String>, Box<dyn Error>> {
     match expr {
         Expr::Path(ExprPath { path, .. }) => {
@@ -215,6 +308,47 @@ fn extract_dtype_support(expr: &Expr) -> Result<Option<String>, Box<dyn Error>> 
             extract_path_ident(arg_expr).map(Some).ok_or_else(|| "invalid dtype_support arg".into())
         }
         _ => Err("unsupported dtype_support expr".into()),
+    }
+}
+
+fn extract_attrs_use(expr: &Expr) -> Result<bool, Box<dyn Error>> {
+    let expr = unwrap_reference(expr)?;
+    match expr {
+        Expr::Array(ExprArray { elems, .. }) => {
+            if elems.is_empty() {
+                return Ok(false);
+            }
+            for elem in elems {
+                let elem = unwrap_reference(elem)?;
+                let ident = extract_path_ident(elem).ok_or("invalid attrs element")?;
+                if ident != "ACC_ATTR" {
+                    return Ok(true);
+                }
+            }
+            Ok(false)
+        }
+        _ => Err("unsupported attrs expr".into()),
+    }
+}
+
+fn extract_fixed_output(expr: &Expr) -> Result<Option<String>, Box<dyn Error>> {
+    let expr = unwrap_reference(expr)?;
+    match expr {
+        Expr::Call(ExprCall { func, args, .. }) => {
+            let func_ident = extract_path_ident(func).ok_or("type_rule call missing ident")?;
+            if func_ident != "Fixed" {
+                return Ok(None);
+            }
+            let arg = args.first().ok_or("type_rule Fixed missing arg")?;
+            let arg_expr = match arg {
+                Expr::Reference(ExprReference { expr, .. }) => expr.as_ref(),
+                other => other,
+            };
+            let dtype_ident = extract_path_ident(arg_expr).ok_or("invalid Fixed dtype")?;
+            Ok(Some(dtype_ident))
+        }
+        Expr::Path(_) => Ok(None),
+        _ => Ok(None),
     }
 }
 
@@ -289,14 +423,83 @@ fn extract_dtype_pairs(array: &ExprArray) -> Result<Vec<(String, String)>, Box<d
     Ok(pairs)
 }
 
+fn collect_op_dtype_paths(manifest_dir: &Path) -> Result<Vec<PathBuf>, Box<dyn Error>> {
+    let mut paths = Vec::new();
+    let root = manifest_dir.join("src/registry/op_dtypes.rs");
+    paths.push(root);
+    let dir = manifest_dir.join("src/registry/op_dtypes");
+    if dir.exists() {
+        for entry in fs::read_dir(&dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.extension().and_then(|ext| ext.to_str()) == Some("rs") {
+                paths.push(path);
+            }
+        }
+    }
+    Ok(paths)
+}
+
+fn find_dtype_support_fields(
+    paths: &[PathBuf],
+    support_name: &str,
+) -> Result<(String, String), Box<dyn Error>> {
+    for path in paths {
+        let file = parse_file(path)?;
+        for item in file.items {
+            let item_const = match item {
+                Item::Const(item_const) => item_const,
+                _ => continue,
+            };
+            if item_const.ident != support_name {
+                continue;
+            }
+            let expr = unwrap_reference(item_const.expr.as_ref())?;
+            let struct_expr = match expr {
+                Expr::Struct(struct_expr) => struct_expr,
+                _ => return Err(format!("{support_name} const is not a struct literal").into()),
+            };
+            let mut normal = None;
+            let mut accumulate = None;
+            for field in &struct_expr.fields {
+                let field_name = match &field.member {
+                    syn::Member::Named(ident) => ident.to_string(),
+                    syn::Member::Unnamed(_) => continue,
+                };
+                match field_name.as_str() {
+                    "normal" => {
+                        let expr = unwrap_reference(&field.expr)?;
+                        normal = extract_path_ident(expr);
+                    }
+                    "accumulate" => {
+                        let expr = unwrap_reference(&field.expr)?;
+                        accumulate = extract_path_ident(expr);
+                    }
+                    _ => {}
+                }
+            }
+            let normal = normal.ok_or("OpDTypeSupport missing normal field")?;
+            let accumulate = accumulate.ok_or("OpDTypeSupport missing accumulate field")?;
+            return Ok((normal, accumulate));
+        }
+    }
+    Err(format!("missing {support_name} const in registry/op_dtypes").into())
+}
+
 fn write_kernel_rs(
     op_dir: &Path,
     op_name: &str,
     normal_dtypes: &[String],
     acc_pairs: &[(String, String)],
+    inputs: usize,
     inplace: bool,
     accumulate: bool,
+    uses_attrs: bool,
+    fixed_output: Option<&str>,
 ) -> Result<(), Box<dyn Error>> {
+    if inputs != 1 && inputs != 2 {
+        return Err(format!("unsupported input count {inputs} for {op_name}").into());
+    }
     fs::create_dir_all(op_dir)?;
     let mut out = String::new();
     out.push_str("// @generated by build.rs. Do not edit.\n");
@@ -309,18 +512,61 @@ fn write_kernel_rs(
         "pub fn {op_name}_normal_dispatch(_attrs: &OpAttrs, inputs: &[TensorValue], output: Option<&mut TensorValue>) -> Result<()> {{\n"
     ));
     out.push_str("    let out = expect_output(output)?;\n");
-    out.push_str("    match (&inputs[0], &inputs[1], out) {\n");
-    for dtype in normal_dtypes {
-        let variant = dtype;
-        let suffix = dtype_suffix(dtype)?;
-        if is_packed(dtype) {
-            out.push_str(&format!(
-                "        (TensorValue::{variant}(a), TensorValue::{variant}(b), TensorValue::{variant}(out)) => super::kernels::packed::{op_name}_{suffix}_packed(a, b, out),\n"
-            ));
-        } else {
-            out.push_str(&format!(
-                "        (TensorValue::{variant}(a), TensorValue::{variant}(b), TensorValue::{variant}(out)) => super::kernels::normal::{op_name}_{suffix}_normal(a, b, out),\n"
-            ));
+    if inputs == 1 {
+        out.push_str("    match (&inputs[0], out) {\n");
+        for dtype in normal_dtypes {
+            let variant = dtype;
+            let out_variant = fixed_output.unwrap_or(variant);
+            let suffix = dtype_suffix(dtype)?;
+            if is_packed(dtype) {
+                if uses_attrs {
+                    out.push_str(&format!(
+                        "        (TensorValue::{variant}(a), TensorValue::{out_variant}(out)) => super::kernels::packed::{op_name}_{suffix}_packed(_attrs, a, out),\n"
+                    ));
+                } else {
+                    out.push_str(&format!(
+                        "        (TensorValue::{variant}(a), TensorValue::{out_variant}(out)) => super::kernels::packed::{op_name}_{suffix}_packed(a, out),\n"
+                    ));
+                }
+            } else {
+                if uses_attrs {
+                    out.push_str(&format!(
+                        "        (TensorValue::{variant}(a), TensorValue::{out_variant}(out)) => super::kernels::normal::{op_name}_{suffix}_normal(_attrs, a, out),\n"
+                    ));
+                } else {
+                    out.push_str(&format!(
+                        "        (TensorValue::{variant}(a), TensorValue::{out_variant}(out)) => super::kernels::normal::{op_name}_{suffix}_normal(a, out),\n"
+                    ));
+                }
+            }
+        }
+    } else {
+        out.push_str("    match (&inputs[0], &inputs[1], out) {\n");
+        for dtype in normal_dtypes {
+            let variant = dtype;
+            let out_variant = fixed_output.unwrap_or(variant);
+            let suffix = dtype_suffix(dtype)?;
+            if is_packed(dtype) {
+                if uses_attrs {
+                    out.push_str(&format!(
+                        "        (TensorValue::{variant}(a), TensorValue::{variant}(b), TensorValue::{out_variant}(out)) => super::kernels::packed::{op_name}_{suffix}_packed(_attrs, a, b, out),\n"
+                    ));
+                } else {
+                    out.push_str(&format!(
+                        "        (TensorValue::{variant}(a), TensorValue::{variant}(b), TensorValue::{out_variant}(out)) => super::kernels::packed::{op_name}_{suffix}_packed(a, b, out),\n"
+                    ));
+                }
+            } else {
+                if uses_attrs {
+                    out.push_str(&format!(
+                        "        (TensorValue::{variant}(a), TensorValue::{variant}(b), TensorValue::{out_variant}(out)) => super::kernels::normal::{op_name}_{suffix}_normal(_attrs, a, b, out),\n"
+                    ));
+                } else {
+                    out.push_str(&format!(
+                        "        (TensorValue::{variant}(a), TensorValue::{variant}(b), TensorValue::{out_variant}(out)) => super::kernels::normal::{op_name}_{suffix}_normal(a, b, out),\n"
+                    ));
+                }
+            }
         }
     }
     out.push_str("        _ => Err(anyhow!(\"dtype mismatch\")),\n");
@@ -328,22 +574,64 @@ fn write_kernel_rs(
     out.push_str("}\n\n");
 
     if inplace {
+        let inputs_param = if inputs == 1 { "_inputs" } else { "inputs" };
         out.push_str(&format!(
-            "pub fn {op_name}_inplace_dispatch(_attrs: &OpAttrs, inputs: &[TensorValue], output: Option<&mut TensorValue>) -> Result<()> {{\n"
+            "pub fn {op_name}_inplace_dispatch(_attrs: &OpAttrs, {inputs_param}: &[TensorValue], output: Option<&mut TensorValue>) -> Result<()> {{\n"
         ));
         out.push_str("    let out = expect_output(output)?;\n");
-        out.push_str("    match (out, &inputs[1]) {\n");
-        for dtype in normal_dtypes {
-            let variant = dtype;
-            let suffix = dtype_suffix(dtype)?;
-            if is_packed(dtype) {
-                out.push_str(&format!(
-                    "        (TensorValue::{variant}(a), TensorValue::{variant}(b)) => super::kernels::packed::{op_name}_{suffix}_packed_inplace(a, b),\n"
-                ));
-            } else {
-                out.push_str(&format!(
-                    "        (TensorValue::{variant}(a), TensorValue::{variant}(b)) => super::kernels::normal::{op_name}_{suffix}_inplace(a, b),\n"
-                ));
+        if inputs == 1 {
+            out.push_str("    match out {\n");
+            for dtype in normal_dtypes {
+                let variant = dtype;
+                let suffix = dtype_suffix(dtype)?;
+                if is_packed(dtype) {
+                    if uses_attrs {
+                        out.push_str(&format!(
+                            "        TensorValue::{variant}(a) => super::kernels::packed::{op_name}_{suffix}_packed_inplace(_attrs, a),\n"
+                        ));
+                    } else {
+                        out.push_str(&format!(
+                            "        TensorValue::{variant}(a) => super::kernels::packed::{op_name}_{suffix}_packed_inplace(a),\n"
+                        ));
+                    }
+                } else {
+                    if uses_attrs {
+                        out.push_str(&format!(
+                            "        TensorValue::{variant}(a) => super::kernels::normal::{op_name}_{suffix}_inplace(_attrs, a),\n"
+                        ));
+                    } else {
+                        out.push_str(&format!(
+                            "        TensorValue::{variant}(a) => super::kernels::normal::{op_name}_{suffix}_inplace(a),\n"
+                        ));
+                    }
+                }
+            }
+        } else {
+            out.push_str("    match (out, &inputs[1]) {\n");
+            for dtype in normal_dtypes {
+                let variant = dtype;
+                let suffix = dtype_suffix(dtype)?;
+                if is_packed(dtype) {
+                    if uses_attrs {
+                        out.push_str(&format!(
+                            "        (TensorValue::{variant}(a), TensorValue::{variant}(b)) => super::kernels::packed::{op_name}_{suffix}_packed_inplace(_attrs, a, b),\n"
+                        ));
+                    } else {
+                        out.push_str(&format!(
+                            "        (TensorValue::{variant}(a), TensorValue::{variant}(b)) => super::kernels::packed::{op_name}_{suffix}_packed_inplace(a, b),\n"
+                        ));
+                    }
+                } else {
+                    if uses_attrs {
+                        out.push_str(&format!(
+                            "        (TensorValue::{variant}(a), TensorValue::{variant}(b)) => super::kernels::normal::{op_name}_{suffix}_inplace(_attrs, a, b),\n"
+                        ));
+                    } else {
+                        out.push_str(&format!(
+                            "        (TensorValue::{variant}(a), TensorValue::{variant}(b)) => super::kernels::normal::{op_name}_{suffix}_inplace(a, b),\n"
+                        ));
+                    }
+                }
             }
         }
         out.push_str("        _ => Err(anyhow!(\"dtype mismatch\")),\n");
@@ -356,15 +644,28 @@ fn write_kernel_rs(
             "pub fn {op_name}_accumulate_dispatch(_attrs: &OpAttrs, inputs: &[TensorValue], output: Option<&mut TensorValue>) -> Result<()> {{\n"
         ));
         out.push_str("    let out = expect_output(output)?;\n");
-        out.push_str("    match (&inputs[0], &inputs[1], out) {\n");
-        for (input, acc) in acc_pairs {
-            let input_variant = input;
-            let acc_variant = acc;
-            let input_suffix = dtype_suffix(input)?;
-            let acc_suffix = dtype_suffix(acc)?;
-            out.push_str(&format!(
-                "        (TensorValue::{input_variant}(a), TensorValue::{input_variant}(b), TensorValue::{acc_variant}(out)) => super::kernels::accumulate::{op_name}_{input_suffix}_accumulate_{acc_suffix}(a, b, out),\n"
-            ));
+        if inputs == 1 {
+            out.push_str("    match (&inputs[0], out) {\n");
+            for (input, acc) in acc_pairs {
+                let input_variant = input;
+                let acc_variant = acc;
+                let input_suffix = dtype_suffix(input)?;
+                let acc_suffix = dtype_suffix(acc)?;
+                out.push_str(&format!(
+                    "        (TensorValue::{input_variant}(a), TensorValue::{acc_variant}(out)) => super::kernels::accumulate::{op_name}_{input_suffix}_accumulate_{acc_suffix}(a, out),\n"
+                ));
+            }
+        } else {
+            out.push_str("    match (&inputs[0], &inputs[1], out) {\n");
+            for (input, acc) in acc_pairs {
+                let input_variant = input;
+                let acc_variant = acc;
+                let input_suffix = dtype_suffix(input)?;
+                let acc_suffix = dtype_suffix(acc)?;
+                out.push_str(&format!(
+                    "        (TensorValue::{input_variant}(a), TensorValue::{input_variant}(b), TensorValue::{acc_variant}(out)) => super::kernels::accumulate::{op_name}_{input_suffix}_accumulate_{acc_suffix}(a, b, out),\n"
+                ));
+            }
         }
         out.push_str("        _ => Err(anyhow!(\"dtype mismatch\")),\n");
         out.push_str("    }\n");
