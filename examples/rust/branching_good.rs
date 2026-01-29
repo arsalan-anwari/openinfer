@@ -37,6 +37,7 @@ fn main() -> anyhow::Result<()> {
         }
 
         block bad {
+            op fill(x, value=0.0) >> x;
             op fill(h, value=0.0) >> h;
             return;
         }

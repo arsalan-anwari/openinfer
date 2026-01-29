@@ -27,7 +27,8 @@ def build_worst_case() -> WorstCaseModel:
     rng = np.random.default_rng(1234)
     num_layers = 1000
     # 64 MiB tensor: 64 * 1024 * 1024 / 4
-    d = 16_777_216
+    # d = 16_777_216
+    d = 1024
     w = TensorSpec(rng.uniform(-1.0, 1.0, size=d).astype(np.float32))
     return WorstCaseModel(D=d, num_layers=num_layers, w=w)
 

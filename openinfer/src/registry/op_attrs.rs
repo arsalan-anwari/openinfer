@@ -3,6 +3,7 @@
 pub enum OpAttrType {
     Scalar,
     DType,
+    Tensor,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -18,6 +19,7 @@ impl OpAttrDef {
 }
 
 pub const ACC_ATTR: OpAttrDef = OpAttrDef::new("acc", OpAttrType::DType);
+
 #[allow(dead_code)]
 pub const ALPHA_ATTR: OpAttrDef = OpAttrDef::new("alpha", OpAttrType::Scalar);
 #[allow(dead_code)]

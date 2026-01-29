@@ -2,6 +2,7 @@
 members = [
   "openinfer",
   "openinfer-dsl",
+  "tools/opspec",
 ]
 resolver = "2"
 default-members = ["openinfer"]

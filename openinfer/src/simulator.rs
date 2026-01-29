@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
 
-use crate::graph::{Graph, NodeKind, OpAttrs, OpKind};
+use crate::graph::{AttrValue, Graph, NodeKind, OpAttrs, OpKind};
 use crate::model_loader::ModelLoader;
 use crate::registry::op_schema;
 pub use crate::runtime::{Executor, Fetchable, TraceEvent, TraceEventKind};
@@ -94,8 +94,33 @@ impl Simulator {
 fn validate_graph(graph: &Graph) -> Result<()> {
     for block in graph.blocks.values() {
         for node in &block.nodes {
-            if let NodeKind::Op { op, attrs, .. } = &node.kind {
+            if let NodeKind::Op {
+                op,
+                attrs,
+                inputs,
+                output,
+            } = &node.kind
+            {
                 let def = op_schema(*op).ok_or_else(|| anyhow!("unsupported op {}", op))?;
+                if !def.inputs.allows(inputs.len()) {
+                    return Err(anyhow!(
+                        "op {} expects {:?} inputs, got {}",
+                        op,
+                        def.inputs,
+                        inputs.len()
+                    ));
+                }
+                if !def.outputs.allows(1) {
+                    return Err(anyhow!(
+                        "op {} expects {:?} outputs, got {}",
+                        op,
+                        def.outputs,
+                        1
+                    ));
+                }
+                if output.is_empty() {
+                    return Err(anyhow!("op {} missing output", op));
+                }
                 validate_attrs(*op, attrs, def.attrs)?;
             }
         }
@@ -109,9 +134,35 @@ fn validate_attrs(
     allowed: &[crate::registry::OpAttrDef],
 ) -> Result<()> {
     for attr in &attrs.items {
-        if !allowed.iter().any(|def| def.name == attr.name) {
+        let def = match allowed.iter().find(|def| def.name == attr.name) {
+            Some(def) => def,
+            None => {
             return Err(anyhow!("unsupported {} setting: {}", op, attr.name));
+        }
+        };
+        if !attr_type_matches(def.kind, &attr.value) {
+            return Err(anyhow!(
+                "unsupported {} setting type: {}",
+                op,
+                attr.name
+            ));
         }
     }
     Ok(())
+}
+
+fn attr_type_matches(kind: crate::registry::OpAttrType, value: &AttrValue) -> bool {
+    match kind {
+        crate::registry::OpAttrType::Scalar => matches!(
+            value,
+            AttrValue::Float(_)
+                | AttrValue::Double(_)
+                | AttrValue::Int(_)
+                | AttrValue::UInt(_)
+                | AttrValue::Bool(_)
+                | AttrValue::Var(_)
+        ),
+        crate::registry::OpAttrType::DType => matches!(value, AttrValue::DType(_)),
+        crate::registry::OpAttrType::Tensor => matches!(value, AttrValue::Var(_)),
+    }
 }

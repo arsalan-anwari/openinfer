@@ -9,6 +9,7 @@ fn device_name(device: Device) -> &'static str {
         Device::Cpu => "cpu",
         Device::CpuAvx => "cpu-avx",
         Device::CpuAvx2 => "cpu-avx2",
+        Device::Vulkan => "vulkan",
     }
 }
 

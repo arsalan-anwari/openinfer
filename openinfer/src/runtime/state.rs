@@ -4,8 +4,9 @@ use std::sync::{Arc, Mutex};
 use anyhow::{anyhow, Result};
 
 use crate::graph::{
-    describe_node, CacheAccess, Graph, MemoryKind, Node, NodeKind, OpAttrs, OpKind,
+    describe_node, AttrValue, CacheAccess, Graph, MemoryKind, Node, NodeKind, OpAttrs, OpKind,
 };
+use crate::ops::cpu::packed_cpu::{get_bits, sign_extend};
 use crate::runtime::cache::CacheStore;
 use crate::runtime::model_loader::ModelLoader;
 use crate::runtime::op_runner::exec_op;
@@ -371,6 +372,7 @@ impl RuntimeState {
         inputs: &[String],
         output: &str,
     ) -> Result<()> {
+        let resolved_attrs = self.resolve_op_attrs(attrs)?;
         let input_tensors = inputs
             .iter()
             .map(|name| self.get_tensor(name))
@@ -380,13 +382,75 @@ impl RuntimeState {
         exec_op(
             self.device(),
             op,
-            attrs,
+            &resolved_attrs,
             &input_tensors,
             Some(&output_tensor),
             is_inplace,
         )?;
         self.mark_mutated(output);
         Ok(())
+    }
+
+    fn resolve_op_attrs(&mut self, attrs: &OpAttrs) -> Result<OpAttrs> {
+        let mut items = Vec::with_capacity(attrs.items.len());
+        for attr in &attrs.items {
+            let value = match &attr.value {
+                AttrValue::Var(name) => self.resolve_scalar_attr(name)?,
+                other => other.clone(),
+            };
+            items.push(crate::graph::OpAttr {
+                name: attr.name.clone(),
+                value,
+            });
+        }
+        Ok(OpAttrs { items })
+    }
+
+    fn resolve_scalar_attr(&mut self, name: &str) -> Result<AttrValue> {
+        let tensor = self.get_tensor(name)?;
+        if tensor.len() != 1 {
+            return Err(anyhow!(
+                "attr {} must reference a scalar, got shape {:?}",
+                name,
+                tensor.shape()
+            ));
+        }
+        let value = match tensor {
+            TensorValue::F32(t) => AttrValue::Float(t.data[0]),
+            TensorValue::F64(t) => AttrValue::Double(t.data[0]),
+            TensorValue::F16(t) => AttrValue::Float(t.data[0].to_f32()),
+            TensorValue::BF16(t) => AttrValue::Float(t.data[0].to_f32()),
+            TensorValue::F8(t) => AttrValue::Float(t.data[0].to_f32()),
+            TensorValue::I8(t) => AttrValue::Int(t.data[0] as i64),
+            TensorValue::I16(t) => AttrValue::Int(t.data[0] as i64),
+            TensorValue::I32(t) => AttrValue::Int(t.data[0] as i64),
+            TensorValue::I64(t) => AttrValue::Int(t.data[0]),
+            TensorValue::U8(t) => AttrValue::UInt(t.data[0] as u64),
+            TensorValue::U16(t) => AttrValue::UInt(t.data[0] as u64),
+            TensorValue::U32(t) => AttrValue::UInt(t.data[0] as u64),
+            TensorValue::U64(t) => AttrValue::UInt(t.data[0]),
+            TensorValue::Bool(t) => AttrValue::Bool(t.data[0]),
+            TensorValue::Bitset(t) => AttrValue::UInt(t.data[0].bits as u64),
+            TensorValue::I1(t) => {
+                let value = sign_extend(get_bits(&t.data, 0, 1), 1) as i64;
+                AttrValue::Int(value)
+            }
+            TensorValue::I2(t) => {
+                let value = sign_extend(get_bits(&t.data, 0, 2), 2) as i64;
+                AttrValue::Int(value)
+            }
+            TensorValue::I4(t) => {
+                let value = sign_extend(get_bits(&t.data, 0, 4), 4) as i64;
+                AttrValue::Int(value)
+            }
+            TensorValue::U1(t) => AttrValue::UInt(get_bits(&t.data, 0, 1) as u64),
+            TensorValue::U2(t) => AttrValue::UInt(get_bits(&t.data, 0, 2) as u64),
+            TensorValue::U4(t) => AttrValue::UInt(get_bits(&t.data, 0, 4) as u64),
+            TensorValue::T1(_) | TensorValue::T2(_) => {
+                return Err(anyhow!("attr {} cannot reference tensor type", name))
+            }
+        };
+        Ok(value)
     }
 
     pub fn mark_mutated(&mut self, name: &str) {

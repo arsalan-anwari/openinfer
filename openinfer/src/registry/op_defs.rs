@@ -47,8 +47,8 @@ impl AccumulateSupport {
 #[allow(dead_code)]
 pub struct OpSchema {
     pub kind: OpKind,
-    pub inputs: usize,
-    pub outputs: usize,
+    pub inputs: InputArity,
+    pub outputs: OutputArity,
     pub attrs: &'static [OpAttrDef],
     pub broadcast: BroadcastSupport,
     pub inplace: InplaceSupport,
@@ -63,6 +63,58 @@ pub enum TypeRule {
     SameAsInput(usize),
     Fixed(DType),
     AccFromAttr { attr: &'static str },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
+pub enum InputArity {
+    Fixed(usize),
+    AtLeast(usize),
+    Any,
+}
+
+impl InputArity {
+    pub fn allows(self, count: usize) -> bool {
+        match self {
+            InputArity::Fixed(expected) => count == expected,
+            InputArity::AtLeast(min) => count >= min,
+            InputArity::Any => true,
+        }
+    }
+
+    pub fn fixed(self) -> Option<usize> {
+        match self {
+            InputArity::Fixed(count) => Some(count),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
+pub enum OutputArity {
+    Fixed(usize),
+    AtLeast(usize),
+    Any,
+}
+
+#[allow(dead_code)]
+impl OutputArity {
+    pub fn allows(self, count: usize) -> bool {
+        match self {
+            OutputArity::Fixed(expected) => count == expected,
+            OutputArity::AtLeast(min) => count >= min,
+            OutputArity::Any => true,
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn fixed(self) -> Option<usize> {
+        match self {
+            OutputArity::Fixed(count) => Some(count),
+            _ => None,
+        }
+    }
 }
 
 impl TypeRule {
@@ -89,15 +141,81 @@ impl TypeRule {
 pub const OPS: &[OpSchema] = &[
     OpSchema {
         kind: OpKind::Add,
-        inputs: 2,
-        outputs: 1,
+        inputs: InputArity::Fixed(2),
+        outputs: OutputArity::Fixed(1),
         attrs: &[ACC_ATTR],
         broadcast: BroadcastSupport::Allow,
         inplace: InplaceSupport::Allow,
         accumulate: AccumulateSupport::Allow,
         type_rule: TypeRule::SameAsInput(0),
         dtype_support: Some(&super::ADD_DTYPE_SUPPORT),
-    }
+    },
+    OpSchema {
+        kind: OpKind::Mul,
+        inputs: InputArity::Fixed(2),
+        outputs: OutputArity::Fixed(1),
+        attrs: &[ACC_ATTR],
+        broadcast: BroadcastSupport::Allow,
+        inplace: InplaceSupport::Allow,
+        accumulate: AccumulateSupport::Allow,
+        type_rule: TypeRule::SameAsInput(0),
+        dtype_support: Some(&super::MUL_DTYPE_SUPPORT),
+    },
+    OpSchema {
+        kind: OpKind::Abs,
+        inputs: InputArity::Fixed(1),
+        outputs: OutputArity::Fixed(1),
+        attrs: &[ACC_ATTR],
+        broadcast: BroadcastSupport::Deny,
+        inplace: InplaceSupport::Allow,
+        accumulate: AccumulateSupport::Allow,
+        type_rule: TypeRule::SameAsInput(0),
+        dtype_support: Some(&super::ABS_DTYPE_SUPPORT),
+    },
+    OpSchema {
+        kind: OpKind::Relu,
+        inputs: InputArity::Fixed(1),
+        outputs: OutputArity::Fixed(1),
+        attrs: &[ALPHA_ATTR, CLAMP_MAX_ATTR],
+        broadcast: BroadcastSupport::Deny,
+        inplace: InplaceSupport::Allow,
+        accumulate: AccumulateSupport::Deny,
+        type_rule: TypeRule::SameAsInput(0),
+        dtype_support: Some(&super::RELU_DTYPE_SUPPORT),
+    },
+    OpSchema {
+        kind: OpKind::Matmul,
+        inputs: InputArity::Fixed(2),
+        outputs: OutputArity::Fixed(1),
+        attrs: &[ACC_ATTR],
+        broadcast: BroadcastSupport::Allow,
+        inplace: InplaceSupport::Allow,
+        accumulate: AccumulateSupport::Allow,
+        type_rule: TypeRule::SameAsInput(0),
+        dtype_support: Some(&super::MATMUL_DTYPE_SUPPORT),
+    },
+    OpSchema {
+        kind: OpKind::IsFinite,
+        inputs: InputArity::Fixed(1),
+        outputs: OutputArity::Fixed(1),
+        attrs: &[],
+        broadcast: BroadcastSupport::Deny,
+        inplace: InplaceSupport::Deny,
+        accumulate: AccumulateSupport::Deny,
+        type_rule: TypeRule::Fixed(DType::Bool),
+        dtype_support: Some(&super::IS_FINITE_DTYPE_SUPPORT),
+    },
+    OpSchema {
+        kind: OpKind::Fill,
+        inputs: InputArity::Fixed(1),
+        outputs: OutputArity::Fixed(1),
+        attrs: &[VALUE_ATTR],
+        broadcast: BroadcastSupport::Deny,
+        inplace: InplaceSupport::Allow,
+        accumulate: AccumulateSupport::Deny,
+        type_rule: TypeRule::SameAsInput(0),
+        dtype_support: Some(&super::FILL_DTYPE_SUPPORT),
+    },
 ];
 
 #[allow(unused)]
