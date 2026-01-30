@@ -21,7 +21,7 @@ matching CPU is not always possible across all GPUs and drivers.
 
 ## Drift tolerance used in validation
 
-The reference validation in `examples/rust/ops_accumulate_inplace.rs` uses the
+The reference validation in `examples/openinfer/ops_accumulate_inplace.rs` uses the
 following tolerances. Values within tolerance are marked with `⚠️`:
 
 - f16: abs 0.6, rel 0.08

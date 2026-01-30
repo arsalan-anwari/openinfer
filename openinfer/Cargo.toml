@@ -22,110 +22,108 @@ openinfer-generator = { path = "../openinfer-generator" }
 [dev-dependencies]
 
 [features]
-avx = []
-avx2 = []
 vulkan = []
 
 [[example]]
 name = "minimal"
-path = "../examples/rust/minimal.rs"
+path = "../examples/openinfer/minimal.rs"
 
 [[example]]
 name = "graph_nodes_traverse"
-path = "../examples/rust/graph_nodes_traverse.rs"
+path = "../examples/openinfer/graph_nodes_traverse.rs"
 
 [[example]]
 name = "trace_example"
-path = "../examples/rust/trace_example.rs"
+path = "../examples/openinfer/trace_example.rs"
 
 [[example]]
 name = "serialize"
-path = "../examples/rust/serialize.rs"
+path = "../examples/openinfer/serialize.rs"
 
 [[example]]
 name = "deserialize"
-path = "../examples/rust/deserialize.rs"
+path = "../examples/openinfer/deserialize.rs"
 
 [[example]]
 name = "relu"
-path = "../examples/rust/relu.rs"
+path = "../examples/openinfer/relu.rs"
 
 [[example]]
 name = "multidim_broadcast"
-path = "../examples/rust/multidim_broadcast.rs"
+path = "../examples/openinfer/multidim_broadcast.rs"
 
 [[example]]
 name = "reference"
-path = "../examples/rust/reference.rs"
+path = "../examples/openinfer/reference.rs"
 
 [[example]]
 name = "prefix_table"
-path = "../examples/rust/prefix_table.rs"
+path = "../examples/openinfer/prefix_table.rs"
 
 [[example]]
 name = "loop"
-path = "../examples/rust/loop.rs"
+path = "../examples/openinfer/loop.rs"
 
 [[example]]
 name = "worst_case"
-path = "../examples/rust/worst_case.rs"
+path = "../examples/openinfer/worst_case.rs"
 
 [[example]]
 name = "cache_scalar"
-path = "../examples/rust/cache_scalar.rs"
+path = "../examples/openinfer/cache_scalar.rs"
 
 [[example]]
 name = "cache_table"
-path = "../examples/rust/cache_table.rs"
+path = "../examples/openinfer/cache_table.rs"
 
 [[example]]
 name = "cache_auto_dim"
-path = "../examples/rust/cache_auto_dim.rs"
+path = "../examples/openinfer/cache_auto_dim.rs"
 
 [[example]]
 name = "cache_weight_update"
-path = "../examples/rust/cache_weight_update.rs"
+path = "../examples/openinfer/cache_weight_update.rs"
 
 [[example]]
 name = "cache_fixed_limit"
-path = "../examples/rust/cache_fixed_limit.rs"
+path = "../examples/openinfer/cache_fixed_limit.rs"
 
 [[example]]
 name = "branching_good"
-path = "../examples/rust/branching_good.rs"
+path = "../examples/openinfer/branching_good.rs"
 
 [[example]]
 name = "branching_bad"
-path = "../examples/rust/branching_bad.rs"
+path = "../examples/openinfer/branching_bad.rs"
 
 [[example]]
 name = "ops_matrix"
-path = "../examples/rust/ops_matrix.rs"
+path = "../examples/openinfer/ops_matrix.rs"
 
 [[example]]
 name = "yield"
-path = "../examples/rust/yield.rs"
+path = "../examples/openinfer/yield.rs"
 
 [[example]]
 name = "dtypes"
-path = "../examples/rust/dtypes.rs"
+path = "../examples/openinfer/dtypes.rs"
 
 [[example]]
 name = "accumulate_packed"
-path = "../examples/rust/accumulate_packed.rs"
+path = "../examples/openinfer/accumulate_packed.rs"
 
 [[example]]
 name = "ops_accumulate_inplace"
-path = "../examples/rust/ops_accumulate_inplace.rs"
+path = "../examples/openinfer/ops_accumulate_inplace.rs"
 
 [[example]]
 name = "ops_broadcast_variants"
-path = "../examples/rust/ops_broadcast_variants.rs"
+path = "../examples/openinfer/ops_broadcast_variants.rs"
 
 [[example]]
 name = "f16_benchmark"
-path = "../examples/rust/f16_benchmark.rs"
+path = "../examples/openinfer/f16_benchmark.rs"
 
 [[example]]
 name = "ops_variants"
-path = "../examples/rust/ops_variants.rs"
+path = "../examples/openinfer/ops_variants.rs"

@@ -135,9 +135,6 @@ pub fn build_op_entries_same_input(
 pub fn lookup_kernel(device: Device, key: OpKey) -> Result<KernelFn> {
     match device {
         Device::Cpu => crate::ops::cpu::registry::lookup_kernel(key),
-        Device::CpuAvx | Device::CpuAvx2 => {
-            Err(anyhow!("device {:?} registry not implemented", device))
-        }
         Device::Vulkan => {
             #[cfg(feature = "vulkan")]
             {

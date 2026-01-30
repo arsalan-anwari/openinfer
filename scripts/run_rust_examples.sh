@@ -15,16 +15,16 @@ Usage: ./scripts/run_rust_examples.sh [options] [cargo args...]
 Options:
   --features <list>     Cargo features to enable (passed through to cargo).
   --ignore <list>       Comma-separated example names to skip (no .rs suffix).
-  --target <value>      Example target: cpu|avx|avx2|vulkan|all.
+  --target <value>      Example target: cpu|vulkan|all.
   --help                Show this help.
 
 Examples:
-  ./scripts/run_rust_examples.sh --features=avx,avx2,vulkan --target=vulkan
-  ./scripts/run_rust_examples.sh --features=avx,avx2,vulkan --target=all
+  ./scripts/run_rust_examples.sh --features=vulkan --target=vulkan
+  ./scripts/run_rust_examples.sh --features=vulkan --target=all
 EOF
 }
 
-examples_dir="$repo_root/examples/rust"
+examples_dir="$repo_root/examples/openinfer"
 
 if [[ ! -d "$examples_dir" ]]; then
   echo "error: examples directory not found at $examples_dir" >&2
@@ -41,7 +41,7 @@ fi
 cargo_args=()
 selected_target=""
 declare -A ignore_map=()
-targets=(cpu avx avx2 vulkan)
+targets=(cpu vulkan)
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --help|-h)
@@ -127,7 +127,7 @@ if [[ -n "$selected_target" ]]; then
     done
   fi
   if [[ "$valid" != "true" ]]; then
-    echo "error: unknown target '$selected_target' (expected cpu|avx|avx2|vulkan|all)" >&2
+    echo "error: unknown target '$selected_target' (expected cpu|vulkan|all)" >&2
     exit 1
   fi
   if [[ "$selected_target" == "all" ]]; then

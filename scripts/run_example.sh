@@ -9,18 +9,17 @@ Usage: ./scripts/run_example.sh <example_name> [options] [-- rust args...]
 
 Options:
   --list                List available Rust examples and exit.
-  --target <value>      Example target: cpu|avx|avx2|vulkan|all.
+  --target <value>      Example target: cpu|vulkan|all.
   --trace <mode>        Trace mode: BASE|FULL|VULKAN.
   --help                Show this help.
 
 Examples:
-  ./scripts/run_example.sh minimal --target=avx2
   ./scripts/run_example.sh minimal --trace=FULL --target=vulkan
   ./scripts/run_example.sh minimal -- --target=cpu
 EOF
 }
 
-examples_dir="$repo_root/examples/rust"
+examples_dir="$repo_root/examples/openinfer"
 
 if [[ ! -d "$examples_dir" ]]; then
   echo "error: examples directory not found at $examples_dir" >&2
@@ -32,7 +31,7 @@ selected_target=""
 trace_mode=""
 list_only=false
 rust_args=()
-targets=(cpu avx avx2 vulkan)
+targets=(cpu vulkan)
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -129,7 +128,7 @@ if [[ -n "$selected_target" ]]; then
     done
   fi
   if [[ "$valid" != "true" ]]; then
-    echo "error: unknown target '$selected_target' (expected cpu|avx|avx2|vulkan|all)" >&2
+    echo "error: unknown target '$selected_target' (expected cpu|vulkan|all)" >&2
     exit 1
   fi
 fi
@@ -144,8 +143,8 @@ if [[ -n "$trace_mode" ]]; then
   esac
 fi
 
-py_script="$repo_root/examples/python/${example}_oinf.py"
-rust_example="$repo_root/examples/rust/${example}.rs"
+py_script="$repo_root/examples/openinfer-oinf/${example}_oinf.py"
+rust_example="$repo_root/examples/openinfer/${example}.rs"
 model_path="$repo_root/res/models/${example}_model.oinf"
 
 if [[ ! -f "$py_script" ]]; then

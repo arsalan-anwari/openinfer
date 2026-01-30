@@ -21,10 +21,10 @@ Graph and Execution Traces
 - Enable execution tracing to see op order, block names, and timings:
   `OPENINFER_TRACE=1 cargo run --example <name>`
 - Use the Rust examples to validate branching and per-op behavior:
-  - `examples/rust/branching_good.rs`
-  - `examples/rust/branching_bad.rs`
-  - `examples/rust/ops_matrix.rs`
-  - `examples/rust/yield.rs`
+  - `examples/openinfer/branching_good.rs`
+  - `examples/openinfer/branching_bad.rs`
+  - `examples/openinfer/ops_matrix.rs`
+  - `examples/openinfer/yield.rs`
 - The trace output includes block names so you can confirm control-flow paths.
 
 Model and DSL Validation

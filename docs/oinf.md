@@ -174,8 +174,8 @@ Two helper scripts live at the repository root:
 Typical usage:
 
 ```bash
-python examples/python/simple_oinf.py
-python examples/python/minimal_oinf.py
+python examples/openinfer-oinf/simple_oinf.py
+python examples/openinfer-oinf/minimal_oinf.py
 python openinfer-oinf/verify_oinf.py res/simple_model.oinf
 python openinfer-oinf/verify_oinf.py res/minimal_model.oinf
 ```
@@ -188,7 +188,7 @@ for its fields.
 If you need a scalar tensor (not metadata), wrap the value with `TensorSpec`
 so it is emitted into the tensor table with `ndim = 0`.
 
-Minimal example (matches `examples/python/minimal_oinf.py`):
+Minimal example (matches `examples/openinfer-oinf/minimal_oinf.py`):
 
 ```python
 from dataclasses import dataclass
@@ -216,7 +216,7 @@ def build_minimal() -> MinimalModel:
 write_oinf(build_minimal(), "minimal_model.oinf")
 ```
 
-Simple example (matches `examples/python/simple_oinf.py`):
+Simple example (matches `examples/openinfer-oinf/simple_oinf.py`):
 
 ```python
 from dataclasses import dataclass

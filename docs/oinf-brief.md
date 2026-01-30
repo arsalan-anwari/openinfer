@@ -17,7 +17,7 @@ mode: str = "clamp_up"
 Create a binary file:
 
 ```bash
-python examples/python/minimal_oinf.py
+python examples/openinfer-oinf/minimal_oinf.py
 ```
 
 > See [docs/oinf.md](oinf.md) how you can create your own binary file from a Python Dataclass.

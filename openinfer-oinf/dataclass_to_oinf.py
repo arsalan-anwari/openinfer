@@ -5,6 +5,8 @@ Convert a Python dataclass instance into an Open Infer Neural Format (.oinf) fil
 
 from oinf_encoder import (
     Bitset,
+    SizeVar,
+    ScalarValue,
     TensorSpec,
     UninitializedTensor,
     dataclass_to_oinf,
@@ -14,6 +16,8 @@ from oinf_encoder import (
 
 __all__ = [
     "Bitset",
+    "SizeVar",
+    "ScalarValue",
     "TensorSpec",
     "UninitializedTensor",
     "dataclass_to_oinf",

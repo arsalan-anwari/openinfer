@@ -257,7 +257,7 @@ block via host-side fences.
 
 ### Example serialized graph
 
-> `examples/rust/out/minimal-graph.json`
+> `examples/openinfer/out/minimal-graph.json`
 ```json
 {
   "blocks": {
