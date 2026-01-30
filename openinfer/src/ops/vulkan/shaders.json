@@ -4,6 +4,36 @@
       "shader_dir": "src/ops/vulkan/add/shaders",
       "shader_files": ["normal.slang", "accumulate.slang", "packed.slang"],
       "spv_dir": "src/ops/vulkan/add/bin"
+    },
+    "mul": {
+      "shader_dir": "src/ops/vulkan/mul/shaders",
+      "shader_files": ["normal.slang", "accumulate.slang", "packed.slang"],
+      "spv_dir": "src/ops/vulkan/mul/bin"
+    },
+    "abs": {
+      "shader_dir": "src/ops/vulkan/abs/shaders",
+      "shader_files": ["normal.slang", "accumulate.slang", "packed.slang"],
+      "spv_dir": "src/ops/vulkan/abs/bin"
+    },
+    "relu": {
+      "shader_dir": "src/ops/vulkan/relu/shaders",
+      "shader_files": ["normal.slang", "packed.slang"],
+      "spv_dir": "src/ops/vulkan/relu/bin"
+    },
+    "matmul": {
+      "shader_dir": "src/ops/vulkan/matmul/shaders",
+      "shader_files": ["normal.slang", "accumulate.slang", "packed.slang"],
+      "spv_dir": "src/ops/vulkan/matmul/bin"
+    },
+    "is_finite": {
+      "shader_dir": "src/ops/vulkan/is_finite/shaders",
+      "shader_files": ["normal.slang"],
+      "spv_dir": "src/ops/vulkan/is_finite/bin"
+    },
+    "fill": {
+      "shader_dir": "src/ops/vulkan/fill/shaders",
+      "shader_files": ["normal.slang", "packed.slang"],
+      "spv_dir": "src/ops/vulkan/fill/bin"
     }
   }
 }

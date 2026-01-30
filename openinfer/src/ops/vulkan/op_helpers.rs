@@ -20,6 +20,26 @@ pub struct VulkanIoBuffers {
     pub output_alias_input: bool,
 }
 
+pub struct VulkanUnaryBuffers {
+    pub input_bytes: Vec<u8>,
+    pub output_bytes: Vec<u8>,
+    pub input_offset: u32,
+    pub output_offset: u64,
+    pub output_alias_input: bool,
+}
+
+const PACKED_BUFFER_ALIGNMENT: usize = 8;
+
+fn pad_bytes_to_alignment(bytes: &mut Vec<u8>, alignment: usize) {
+    if alignment == 0 {
+        return;
+    }
+    let rem = bytes.len() % alignment;
+    if rem != 0 {
+        bytes.resize(bytes.len() + (alignment - rem), 0);
+    }
+}
+
 pub fn build_output_desc(value: &TensorValue, out_rank: usize, byte_offset: u32) -> Result<TensorDesc> {
     if out_rank > MAX_DIMS {
         return Err(anyhow!(
@@ -61,13 +81,24 @@ pub fn validate_broadcast_and_rank(
     Ok((out_shape, broadcast, exceeds_rank))
 }
 
-pub fn target_name(
-    op: OpKind,
-    mode: OpMode,
-    in_dtype: DType,
-    out_dtype: DType,
-    use_native_f16: bool,
-) -> Result<String> {
+pub fn validate_unary_shape_and_rank(
+    input: &TensorValue,
+    output: &TensorValue,
+    max_dims: usize,
+) -> Result<(usize, bool)> {
+    if input.shape() != output.shape() {
+        return Err(anyhow!(
+            "output shape {:?} does not match input shape {:?}",
+            output.shape(),
+            input.shape()
+        ));
+    }
+    let rank = output.shape().len();
+    let exceeds_rank = rank > max_dims;
+    Ok((rank, exceeds_rank))
+}
+
+pub fn target_name(op: OpKind, mode: OpMode, in_dtype: DType, out_dtype: DType) -> Result<String> {
     let op_name = op.as_str();
     let in_name = dtype_suffix(in_dtype)?;
     let out_name = dtype_suffix(out_dtype)?;
@@ -76,14 +107,6 @@ pub fn target_name(
             OpMode::Normal => format!("{op_name}_{in_name}_packed"),
             OpMode::Inplace => format!("{op_name}_{in_name}_packed_inplace"),
             OpMode::Accumulate => format!("{op_name}_{in_name}_accumulate_{out_name}"),
-        });
-    }
-    if in_dtype == DType::F16 {
-        let suffix = if use_native_f16 { "native" } else { "simulated" };
-        return Ok(match mode {
-            OpMode::Normal => format!("{op_name}_{in_name}_normal_{suffix}"),
-            OpMode::Inplace => format!("{op_name}_{in_name}_inplace_{suffix}"),
-            OpMode::Accumulate => format!("{op_name}_{in_name}_accumulate_{out_name}_{suffix}"),
         });
     }
     Ok(match mode {
@@ -111,12 +134,108 @@ pub fn prepare_staging_io(
     input_bytes.clear();
     tensor_append_bytes(input0_source, &mut input_bytes)?;
     let input0_offset = 0u32;
+    let packed_inputs = inputs.iter().any(|value| value.dtype().is_packed());
+    if packed_inputs {
+        pad_bytes_to_alignment(&mut input_bytes, PACKED_BUFFER_ALIGNMENT);
+    }
     let input1_offset = input_bytes.len() as u32;
     tensor_append_bytes(&inputs[1], &mut input_bytes)?;
+    if packed_inputs {
+        pad_bytes_to_alignment(&mut input_bytes, PACKED_BUFFER_ALIGNMENT);
+    }
 
     output_bytes.clear();
     output_bytes.resize(output_len, 0);
+    if output_dtype.is_packed() {
+        pad_bytes_to_alignment(&mut output_bytes, PACKED_BUFFER_ALIGNMENT);
+    }
     let output_alias_input = mode == OpMode::Inplace;
+    let output_offset = input0_offset as u64;
+
+    Ok(VulkanIoBuffers {
+        input_bytes,
+        output_bytes,
+        input0_offset,
+        input1_offset,
+        output_offset,
+        output_alias_input,
+    })
+}
+
+pub fn prepare_unary_staging_io(
+    mode: OpMode,
+    input: &TensorValue,
+    output: &TensorValue,
+    output_dtype: DType,
+) -> Result<VulkanUnaryBuffers> {
+    let input_source = if mode == OpMode::Inplace { output } else { input };
+    let output_len = tensor_byte_len(output_dtype, output.len());
+    let StagingBuffers {
+        input: input_staging,
+        output: output_staging,
+    } = take_staging()?;
+    let mut input_bytes = input_staging;
+    let mut output_bytes = output_staging;
+
+    input_bytes.clear();
+    tensor_append_bytes(input_source, &mut input_bytes)?;
+    let input_offset = 0u32;
+    if input_source.dtype().is_packed() {
+        pad_bytes_to_alignment(&mut input_bytes, PACKED_BUFFER_ALIGNMENT);
+    }
+
+    output_bytes.clear();
+    output_bytes.resize(output_len, 0);
+    if output_dtype.is_packed() {
+        pad_bytes_to_alignment(&mut output_bytes, PACKED_BUFFER_ALIGNMENT);
+    }
+    let output_alias_input = mode == OpMode::Inplace;
+    let output_offset = input_offset as u64;
+
+    Ok(VulkanUnaryBuffers {
+        input_bytes,
+        output_bytes,
+        input_offset,
+        output_offset,
+        output_alias_input,
+    })
+}
+
+pub fn prepare_matmul_staging_io(
+    mode: OpMode,
+    inputs: &[TensorValue],
+    output: &TensorValue,
+    output_dtype: DType,
+    allow_alias_input0: bool,
+) -> Result<VulkanIoBuffers> {
+    let input0_source = if mode == OpMode::Inplace { output } else { &inputs[0] };
+    let output_len = tensor_byte_len(output_dtype, output.len());
+    let StagingBuffers {
+        input: input_staging,
+        output: output_staging,
+    } = take_staging()?;
+    let mut input_bytes = input_staging;
+    let mut output_bytes = output_staging;
+
+    input_bytes.clear();
+    tensor_append_bytes(input0_source, &mut input_bytes)?;
+    let input0_offset = 0u32;
+    let packed_inputs = inputs.iter().any(|value| value.dtype().is_packed());
+    if packed_inputs {
+        pad_bytes_to_alignment(&mut input_bytes, PACKED_BUFFER_ALIGNMENT);
+    }
+    let input1_offset = input_bytes.len() as u32;
+    tensor_append_bytes(&inputs[1], &mut input_bytes)?;
+    if packed_inputs {
+        pad_bytes_to_alignment(&mut input_bytes, PACKED_BUFFER_ALIGNMENT);
+    }
+
+    output_bytes.clear();
+    output_bytes.resize(output_len, 0);
+    if output_dtype.is_packed() {
+        pad_bytes_to_alignment(&mut output_bytes, PACKED_BUFFER_ALIGNMENT);
+    }
+    let output_alias_input = allow_alias_input0 && mode == OpMode::Inplace;
     let output_offset = input0_offset as u64;
 
     Ok(VulkanIoBuffers {

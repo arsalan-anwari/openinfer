@@ -28,7 +28,6 @@ pub struct Simulator {
     device: Device,
     trace_enabled: bool,
     timer_enabled: bool,
-    force_simulated_float: bool,
 }
 
 impl Simulator {
@@ -44,7 +43,6 @@ impl Simulator {
             device,
             trace_enabled: false,
             timer_enabled: false,
-            force_simulated_float: false,
         })
     }
 
@@ -55,11 +53,6 @@ impl Simulator {
 
     pub fn with_timer(mut self) -> Self {
         self.timer_enabled = true;
-        self
-    }
-
-    pub fn with_simulated_float(mut self) -> Self {
-        self.force_simulated_float = true;
         self
     }
 

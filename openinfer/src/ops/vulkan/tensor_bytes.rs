@@ -63,6 +63,12 @@ pub fn tensor_append_bytes(value: &TensorValue, out: &mut Vec<u8>) -> Result<()>
 }
 
 pub fn write_tensor_from_bytes(output: &mut TensorValue, bytes: &[u8]) -> Result<()> {
+    let expected_len = tensor_byte_len(output.dtype(), output.len());
+    let bytes = if bytes.len() > expected_len {
+        &bytes[..expected_len]
+    } else {
+        bytes
+    };
     match output {
         TensorValue::F32(tensor) => {
             tensor.data = bytemuck::cast_slice(bytes).to_vec();

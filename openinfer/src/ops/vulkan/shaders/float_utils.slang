@@ -1,6 +1,7 @@
 #ifndef OPENINFER_FLOAT_UTILS
 #define OPENINFER_FLOAT_UTILS 1
 
+
 float bf16_to_f32(uint bits) {
     return asfloat(bits << 16u);
 }
@@ -39,6 +40,7 @@ float f16_to_f32(uint bits16) {
     }
     return asfloat(bits);
 }
+
 
 uint f32_to_f16_bits(float value) {
     uint bits = asuint(value);

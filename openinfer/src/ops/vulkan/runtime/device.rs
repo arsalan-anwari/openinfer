@@ -13,7 +13,6 @@ use super::VulkanRuntime;
 pub struct VulkanCaps {
     pub int64: bool,
     pub float64: bool,
-    pub float16: bool,
     pub subgroup: bool,
 }
 
@@ -56,27 +55,15 @@ impl VulkanRuntime {
         };
         vk_trace!("selected physical device {:?}", physical_device);
         let device_features = unsafe { instance.get_physical_device_features(physical_device) };
-        let mut float16_int8 = vk::PhysicalDeviceFloat16Int8FeaturesKHR {
-            ..Default::default()
-        };
-        let mut features2 = vk::PhysicalDeviceFeatures2 {
-            ..Default::default()
-        };
-        unsafe {
-            features2.p_next = &mut float16_int8 as *mut _ as *mut std::ffi::c_void;
-            instance.get_physical_device_features2(physical_device, &mut features2);
-        }
         let caps = VulkanCaps {
             int64: device_features.shader_int64 == vk::TRUE,
             float64: device_features.shader_float64 == vk::TRUE,
-            float16: float16_int8.shader_float16 == vk::TRUE,
             subgroup: false,
         };
         vk_trace!(
-            "vulkan caps: int64={} float64={} float16={}",
+            "vulkan caps: int64={} float64={}",
             caps.int64,
-            caps.float64,
-            caps.float16
+            caps.float64
         );
         let queue_family_props = unsafe {
             instance.get_physical_device_queue_family_properties(physical_device)
@@ -84,7 +71,16 @@ impl VulkanRuntime {
         let queue_family_index = queue_family_props
             .iter()
             .enumerate()
-            .find(|(_, props)| props.queue_flags.contains(vk::QueueFlags::COMPUTE))
+            .find(|(_, props)| {
+                props.queue_flags.contains(vk::QueueFlags::COMPUTE)
+                    && props.timestamp_valid_bits > 0
+            })
+            .or_else(|| {
+                queue_family_props
+                    .iter()
+                    .enumerate()
+                    .find(|(_, props)| props.queue_flags.contains(vk::QueueFlags::COMPUTE))
+            })
             .map(|(idx, _)| idx as u32)
             .ok_or_else(|| anyhow!("no Vulkan compute queue family found"))?;
         let timestamp_supported = queue_family_props
@@ -101,15 +97,10 @@ impl VulkanRuntime {
             p_queue_priorities: queue_priorities.as_ptr(),
             ..Default::default()
         };
-        let mut enabled_float16_int8 = vk::PhysicalDeviceFloat16Int8FeaturesKHR {
-            shader_float16: if caps.float16 { vk::TRUE } else { vk::FALSE },
-            ..Default::default()
-        };
         let device_info = vk::DeviceCreateInfo {
             queue_create_info_count: 1,
             p_queue_create_infos: &queue_info,
             p_enabled_features: &device_features,
-            p_next: &mut enabled_float16_int8 as *mut _ as *mut std::ffi::c_void,
             ..Default::default()
         };
         let device = unsafe { instance.create_device(physical_device, &device_info, None)? };
