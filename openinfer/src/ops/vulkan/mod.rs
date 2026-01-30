@@ -1,7 +1,14 @@
+pub mod abs;
 pub mod add;
+pub mod common;
 pub mod dispatch;
 pub mod descriptor;
+pub mod fill;
+pub mod is_finite;
+pub mod matmul;
+pub mod mul;
 pub mod op_helpers;
+pub mod relu;
 pub mod registry;
 pub mod runtime;
 pub mod spv;

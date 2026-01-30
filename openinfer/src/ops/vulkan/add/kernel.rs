@@ -123,13 +123,7 @@ fn dispatch_add(
         flags: 0,
     };
 
-    let target = match target_name(
-        OpKind::Add,
-        mode,
-        input_dtype,
-        output_dtype,
-        runtime.caps().float16,
-    ) {
+    let target = match target_name(OpKind::Add, mode, input_dtype, output_dtype) {
         Ok(name) => name,
         Err(_) => {
             crate::vk_trace!("target name not found, cpu fallback");

@@ -48,36 +48,7 @@ void add_f32_inplace(uint3 tid : SV_DispatchThreadID) {
 
 [numthreads(256, 1, 1)]
 [shader("compute")]
-#if HAS_F16
-void add_f16_normal_native(uint3 tid : SV_DispatchThreadID) {
-    uint idx = tid.x;
-    if (idx >= push.len) return;
-    TensorDesc a = tensor_descs[0];
-    TensorDesc b = tensor_descs[1];
-    TensorDesc out = tensor_descs[2];
-    half ah = (half)load_f16(a, idx, data);
-    half bh = (half)load_f16(b, idx, data);
-    half ch = ah + bh;
-    store_f16(out, idx, (float)ch, out_buf);
-}
-
-[numthreads(256, 1, 1)]
-[shader("compute")]
-void add_f16_inplace_native(uint3 tid : SV_DispatchThreadID) {
-    uint idx = tid.x;
-    if (idx >= push.len) return;
-    TensorDesc a = tensor_descs[0];
-    TensorDesc b = tensor_descs[1];
-    half ah = (half)load_f16(a, idx, data);
-    half bh = (half)load_f16(b, idx, data);
-    half ch = ah + bh;
-    store_f16(a, idx, (float)ch, out_buf);
-}
-#endif
-
-[numthreads(256, 1, 1)]
-[shader("compute")]
-void add_f16_normal_simulated(uint3 tid : SV_DispatchThreadID) {
+void add_f16_normal(uint3 tid : SV_DispatchThreadID) {
     uint idx = tid.x;
     if (idx >= push.len) return;
     TensorDesc a = tensor_descs[0];
@@ -89,7 +60,7 @@ void add_f16_normal_simulated(uint3 tid : SV_DispatchThreadID) {
 
 [numthreads(256, 1, 1)]
 [shader("compute")]
-void add_f16_inplace_simulated(uint3 tid : SV_DispatchThreadID) {
+void add_f16_inplace(uint3 tid : SV_DispatchThreadID) {
     uint idx = tid.x;
     if (idx >= push.len) return;
     TensorDesc a = tensor_descs[0];

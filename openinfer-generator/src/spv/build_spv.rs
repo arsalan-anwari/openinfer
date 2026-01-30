@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
@@ -8,9 +9,11 @@ use ash::vk;
 use serde_json::Value;
 
 fn main() -> Result<()> {
+    let ops_filter = parse_ops_filter()?;
     let workspace_root = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .expect("missing workspace root");
+    let settings_path = workspace_root.join("settings.json");
     let openinfer_dir = workspace_root.join("openinfer");
     let shaders_json = openinfer_dir.join("src/ops/vulkan/shaders.json");
     let contents =
@@ -23,6 +26,11 @@ fn main() -> Result<()> {
 
     let mut planned = Vec::new();
     for (op, config) in ops {
+        if let Some(filter) = &ops_filter {
+            if !filter.contains(op) {
+                continue;
+            }
+        }
         let shader_dir = config
             .get("shader_dir")
             .and_then(|v| v.as_str())
@@ -49,7 +57,8 @@ fn main() -> Result<()> {
             let shader_path = shader_dir.join(file);
             let entrypoints = parse_entrypoints(&shader_path)?;
             for entry in entrypoints {
-                let (has_f16, has_f64, has_i64, has_u64) = resolve_feature_flags()?;
+                let (has_f16, has_f64, has_i64, has_u64) =
+                    resolve_feature_flags(&settings_path)?;
                 if should_skip_entry(&entry, has_f16, has_f64, has_i64, has_u64) {
                     continue;
                 }
@@ -119,6 +128,39 @@ fn main() -> Result<()> {
     Ok(())
 }
 
+fn parse_ops_filter() -> Result<Option<HashSet<String>>> {
+    let mut args = std::env::args().skip(1);
+    let mut ops: Option<HashSet<String>> = None;
+    while let Some(arg) = args.next() {
+        if arg == "--ops" {
+            let value = args
+                .next()
+                .ok_or_else(|| anyhow!("--ops requires a value"))?;
+            ops = Some(parse_ops_value(&value)?);
+        } else if let Some(value) = arg.strip_prefix("--ops=") {
+            ops = Some(parse_ops_value(value)?);
+        } else {
+            return Err(anyhow!("unknown argument: {}", arg));
+        }
+    }
+    Ok(ops)
+}
+
+fn parse_ops_value(value: &str) -> Result<HashSet<String>> {
+    let mut set = HashSet::new();
+    for raw in value.split(',') {
+        let op = raw.trim();
+        if op.is_empty() {
+            continue;
+        }
+        set.insert(op.to_string());
+    }
+    if set.is_empty() {
+        return Err(anyhow!("--ops must contain at least one op"));
+    }
+    Ok(set)
+}
+
 struct PlannedCompile {
     op_name: String,
     shader_path: PathBuf,
@@ -133,25 +175,9 @@ struct PlannedCompile {
     has_u64: u32,
 }
 
-fn env_flag(name: &str) -> Option<u32> {
-    std::env::var(name)
-        .ok()
-        .as_deref()
-        .map(|v| if v == "1" { 1 } else { 0 })
-}
-
-fn resolve_feature_flags() -> Result<(u32, u32, u32, u32)> {
-    let env_f16 = env_flag("HAS_F16");
-    let env_f64 = env_flag("HAS_F64");
-    let env_i64 = env_flag("HAS_I64");
-    let env_u64 = env_flag("HAS_U64");
-    if env_f16.is_some() || env_f64.is_some() || env_i64.is_some() || env_u64.is_some() {
-        return Ok((
-            env_f16.unwrap_or(0),
-            env_f64.unwrap_or(0),
-            env_i64.unwrap_or(0),
-            env_u64.unwrap_or(0),
-        ));
+fn resolve_feature_flags(settings_path: &Path) -> Result<(u32, u32, u32, u32)> {
+    if let Some(flags) = read_settings_flags(settings_path)? {
+        return Ok(flags);
     }
     if let Some(caps) = probe_vulkan_caps() {
         return Ok((
@@ -162,6 +188,35 @@ fn resolve_feature_flags() -> Result<(u32, u32, u32, u32)> {
         ));
     }
     Ok((0, 0, 0, 0))
+}
+
+fn read_settings_flags(settings_path: &Path) -> Result<Option<(u32, u32, u32, u32)>> {
+    if !settings_path.exists() {
+        return Ok(None);
+    }
+    let contents = fs::read_to_string(settings_path)
+        .with_context(|| format!("read {}", settings_path.display()))?;
+    let value: Value = serde_json::from_str(&contents)?;
+    let vulkan = value
+        .get("openinfer")
+        .and_then(|v| v.get("vulkan"))
+        .and_then(|v| v.as_object());
+    let Some(vulkan) = vulkan else {
+        return Ok(None);
+    };
+    let has_f16 = vulkan.get("has_f16").and_then(|v| v.as_bool());
+    let has_f64 = vulkan.get("has_f64").and_then(|v| v.as_bool());
+    let has_i64 = vulkan.get("has_i64").and_then(|v| v.as_bool());
+    let has_u64 = vulkan.get("has_u64").and_then(|v| v.as_bool());
+    if has_f16.is_none() && has_f64.is_none() && has_i64.is_none() && has_u64.is_none() {
+        return Ok(None);
+    }
+    Ok(Some((
+        if has_f16.unwrap_or(false) { 1 } else { 0 },
+        if has_f64.unwrap_or(false) { 1 } else { 0 },
+        if has_i64.unwrap_or(false) { 1 } else { 0 },
+        if has_u64.unwrap_or(false) { 1 } else { 0 },
+    )))
 }
 
 #[derive(Clone, Copy)]
@@ -238,6 +293,9 @@ fn parse_entrypoints(path: &Path) -> Result<Vec<String>> {
             continue;
         }
         if expect_entry {
+            if trimmed.starts_with('#') {
+                continue;
+            }
             if let Some(name) = parse_void_name(trimmed) {
                 entrypoints.push(name);
                 expect_entry = false;

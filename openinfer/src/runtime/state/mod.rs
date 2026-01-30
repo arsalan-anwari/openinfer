@@ -50,7 +50,6 @@ impl RuntimeState {
                     let runtime = VulkanRuntime::new(VulkanCaps {
                         int64: false,
                         float64: false,
-                        float16: false,
                         subgroup: false,
                     })?;
                     set_vulkan_runtime(runtime)?;

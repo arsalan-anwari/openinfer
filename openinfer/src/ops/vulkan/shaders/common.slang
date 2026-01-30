@@ -25,6 +25,11 @@ struct TensorDesc {
 #define HAS_F64 0
 #endif
 
+#ifndef HAS_F16
+#define HAS_F16 0
+#endif
+
+
 uint load_u8(ByteAddressBuffer buf, uint byte_offset) {
     uint word = buf.Load(byte_offset & ~3u);
     uint shift = (byte_offset & 3u) * 8u;
@@ -33,11 +38,16 @@ uint load_u8(ByteAddressBuffer buf, uint byte_offset) {
 
 void store_u8(RWByteAddressBuffer buf, uint byte_offset, uint v) {
     uint addr = byte_offset & ~3u;
-    uint word = buf.Load(addr);
     uint shift = (byte_offset & 3u) * 8u;
     uint mask = 0xFFu << shift;
-    word = (word & ~mask) | ((v & 0xFFu) << shift);
-    buf.Store(addr, word);
+    uint desired = (v & 0xFFu) << shift;
+    uint current;
+    uint original;
+    do {
+        current = buf.Load(addr);
+        uint next = (current & ~mask) | desired;
+        buf.InterlockedCompareExchange(addr, current, next, original);
+    } while (original != current);
 }
 
 uint load_u16(ByteAddressBuffer buf, uint byte_offset) {
@@ -48,11 +58,16 @@ uint load_u16(ByteAddressBuffer buf, uint byte_offset) {
 
 void store_u16(RWByteAddressBuffer buf, uint byte_offset, uint v) {
     uint addr = byte_offset & ~3u;
-    uint word = buf.Load(addr);
     uint shift = (byte_offset & 2u) * 8u;
     uint mask = 0xFFFFu << shift;
-    word = (word & ~mask) | ((v & 0xFFFFu) << shift);
-    buf.Store(addr, word);
+    uint desired = (v & 0xFFFFu) << shift;
+    uint current;
+    uint original;
+    do {
+        current = buf.Load(addr);
+        uint next = (current & ~mask) | desired;
+        buf.InterlockedCompareExchange(addr, current, next, original);
+    } while (original != current);
 }
 
 uint load_bool(ByteAddressBuffer buf, uint byte_offset) {
@@ -137,7 +152,8 @@ void store_u32(TensorDesc desc, uint idx, uint v, RWByteAddressBuffer buf) {
 }
 
 int load_i16(TensorDesc desc, uint idx, ByteAddressBuffer buf) {
-    return int(load_u16(buf, linear_offset(desc, idx)));
+    uint v = load_u16(buf, linear_offset(desc, idx));
+    return (int(v << 16u)) >> 16;
 }
 
 void store_i16(TensorDesc desc, uint idx, int v, RWByteAddressBuffer buf) {
@@ -153,7 +169,8 @@ void store_u16_val(TensorDesc desc, uint idx, uint v, RWByteAddressBuffer buf) {
 }
 
 int load_i8(TensorDesc desc, uint idx, ByteAddressBuffer buf) {
-    return int(load_u8(buf, linear_offset(desc, idx)));
+    uint v = load_u8(buf, linear_offset(desc, idx));
+    return (int(v << 24u)) >> 24;
 }
 
 void store_i8(TensorDesc desc, uint idx, int v, RWByteAddressBuffer buf) {

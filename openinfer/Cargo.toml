@@ -121,9 +121,5 @@ name = "ops_broadcast_variants"
 path = "../examples/openinfer/ops_broadcast_variants.rs"
 
 [[example]]
-name = "f16_benchmark"
-path = "../examples/openinfer/f16_benchmark.rs"
-
-[[example]]
 name = "ops_variants"
 path = "../examples/openinfer/ops_variants.rs"
