@@ -10,8 +10,6 @@ pub use crate::runtime::{Executor, Fetchable, TraceEvent, TraceEventKind};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Device {
     Cpu,
-    CpuAvx,
-    CpuAvx2,
     Vulkan,
 }
 
@@ -19,8 +17,6 @@ impl Device {
     pub fn is_supported(&self) -> bool {
         match self {
             Device::Cpu => true,
-            Device::CpuAvx => cfg!(feature = "avx"),
-            Device::CpuAvx2 => cfg!(feature = "avx2"),
             Device::Vulkan => cfg!(feature = "vulkan"),
         }
     }

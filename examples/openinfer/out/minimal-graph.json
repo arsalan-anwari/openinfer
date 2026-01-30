@@ -1,0 +1,111 @@
+{
+  "blocks": {
+    "entry": {
+      "name": "entry",
+      "nodes": [
+        {
+          "index": 0,
+          "kind": {
+            "Assign": {
+              "dims": [
+                "B"
+              ],
+              "dtype": "F32",
+              "name": "t0"
+            }
+          },
+          "uuid": "94a7b557-ce14-402e-a732-2180dd515f58"
+        },
+        {
+          "index": 1,
+          "kind": {
+            "Op": {
+              "attrs": {
+                "items": []
+              },
+              "inputs": [
+                "x",
+                "a"
+              ],
+              "op": "add",
+              "output": "t0"
+            }
+          },
+          "uuid": "35ac767c-4c46-4579-9524-39f8807a27a7"
+        },
+        {
+          "index": 2,
+          "kind": {
+            "Op": {
+              "attrs": {
+                "items": []
+              },
+              "inputs": [
+                "y",
+                "t0"
+              ],
+              "op": "mul",
+              "output": "y"
+            }
+          },
+          "uuid": "89553dcc-a330-4502-a128-e178a0cac824"
+        },
+        {
+          "index": 3,
+          "kind": "Return",
+          "uuid": "5291e855-6c6e-437f-83ca-b74d37f4f8ae"
+        }
+      ]
+    }
+  },
+  "next_index": 4,
+  "vars": {
+    "a": {
+      "auto_dim": [],
+      "dims": [
+        "B"
+      ],
+      "dtype": "F32",
+      "fixed": [],
+      "init": null,
+      "kind": "Volatile",
+      "name": "a",
+      "pattern": null,
+      "ref_name": null,
+      "table": false,
+      "table_indices": []
+    },
+    "x": {
+      "auto_dim": [],
+      "dims": [
+        "B"
+      ],
+      "dtype": "F32",
+      "fixed": [],
+      "init": null,
+      "kind": "Dynamic",
+      "name": "x",
+      "pattern": null,
+      "ref_name": null,
+      "table": false,
+      "table_indices": []
+    },
+    "y": {
+      "auto_dim": [],
+      "dims": [
+        "B"
+      ],
+      "dtype": "F32",
+      "fixed": [],
+      "init": {
+        "F32": 5.0
+      },
+      "kind": "Volatile",
+      "name": "y",
+      "pattern": null,
+      "ref_name": null,
+      "table": false,
+      "table_indices": []
+    }
+  }
+}

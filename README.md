@@ -159,7 +159,7 @@ cargo clean-spv -p openinfer
 
 ### Python
 ```bash
-python examples/python/{example}_oinf.py
+python examples/openinfer-oinf/{example}_oinf.py
 python openinfer-oinf/verify_oinf.py {example}_model.oinf
 ```
 

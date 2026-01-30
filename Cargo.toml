@@ -3,7 +3,6 @@ members = [
   "openinfer",
   "openinfer-dsl",
   "openinfer-generator",
-  "tools/opspec",
 ]
 resolver = "2"
 default-members = ["openinfer"]

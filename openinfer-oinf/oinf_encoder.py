@@ -67,6 +67,21 @@ class TensorSpec:
         self.name = name
 
 
+class ScalarValue:
+    """Represents a scalar metadata value."""
+
+    def __init__(self, value: Any, dtype: Optional[Union[str, int]] = None):
+        self.value = value
+        self.dtype = dtype
+
+
+class SizeVar:
+    """Represents a size variable value."""
+
+    def __init__(self, value: Any):
+        self.value = value
+
+
 class UninitializedTensor:
     """Represents a tensor declaration without data."""
 
@@ -308,7 +323,7 @@ def _sizevar_field_names(fields: Sequence[dataclasses.Field], hints: Dict[str, A
         annotation = hints.get(field.name, field.type)
         meta = _extract_annotated_metadata(annotation, field.metadata)
         base_type = _base_type(annotation)
-        if meta.get("sizevar") or base_type is int:
+        if meta.get("sizevar") or base_type in (int, SizeVar):
             names.add(field.name)
     return names
 
@@ -326,6 +341,8 @@ def _collect_fields(
     if hasattr(instance, "sizevars") and isinstance(instance.sizevars, dict):
         for key, value in instance.sizevars.items():
             check_key(key)
+            if isinstance(value, SizeVar):
+                value = value.value
             sizevars[key] = int(value)
     if hasattr(instance, "metadata") and isinstance(instance.metadata, dict):
         for key, value in instance.metadata.items():
@@ -344,12 +361,23 @@ def _collect_fields(
         value = getattr(instance, name)
         annotation = hints.get(name, field.type)
         meta = _extract_annotated_metadata(annotation, field.metadata)
+        if isinstance(value, SizeVar):
+            if value.value is None:
+                raise OinfError(f"Sizevar '{name}' cannot be None")
+            if isinstance(value.value, bool):
+                raise OinfError(f"Sizevar '{name}' cannot be bool")
+            sizevars[name] = int(value.value)
+            continue
         if name in sizevar_names:
             if isinstance(value, bool):
                 raise OinfError(f"Sizevar '{name}' cannot be bool")
             if value is None:
                 raise OinfError(f"Sizevar '{name}' cannot be None")
             sizevars[name] = int(value)
+            continue
+
+        if isinstance(value, ScalarValue):
+            metadata[name] = (value, meta)
             continue
 
         dtype_override = _resolve_dtype(value, meta)
@@ -375,6 +403,11 @@ def _validate_sizevars(sizevars: Dict[str, int]) -> Dict[str, int]:
 
 
 def _encode_metadata_payload(value: Any, meta: Dict[str, Any]) -> Tuple[int, bytes]:
+    if isinstance(value, ScalarValue):
+        merged_meta = dict(meta)
+        if value.dtype is not None:
+            merged_meta["dtype"] = value.dtype
+        return _encode_metadata_payload(value.value, merged_meta)
     if isinstance(value, bool):
         return ValueType.BOOL, _encode_scalar(value, ValueType.BOOL)
     if isinstance(value, str):
