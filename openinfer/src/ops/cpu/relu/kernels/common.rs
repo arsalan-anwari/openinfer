@@ -9,6 +9,9 @@ fn attr_to_f64(value: &AttrValue) -> Result<f64> {
         AttrValue::Int(v) => Ok(*v as f64),
         AttrValue::UInt(v) => Ok(*v as f64),
         AttrValue::Bool(v) => Ok(if *v { 1.0 } else { 0.0 }),
+        AttrValue::Str(_) | AttrValue::IntList(_) => {
+            Err(anyhow!("relu attr must be a scalar value"))
+        }
         AttrValue::Var(_) | AttrValue::DType(_) => Err(anyhow!("relu attr must be a scalar value")),
     }
 }
@@ -20,6 +23,9 @@ fn attr_to_i64(value: &AttrValue) -> Result<i64> {
         AttrValue::Bool(v) => Ok(if *v { 1 } else { 0 }),
         AttrValue::Float(_) | AttrValue::Double(_) => {
             Err(anyhow!("relu integer attrs must be int/uint/bool"))
+        }
+        AttrValue::Str(_) | AttrValue::IntList(_) => {
+            Err(anyhow!("relu attr must be a scalar value"))
         }
         AttrValue::Var(_) | AttrValue::DType(_) => Err(anyhow!("relu attr must be a scalar value")),
     }

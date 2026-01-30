@@ -1,0 +1,1783 @@
+{
+  "ops": [
+    {
+      "op_name": "sub",
+      "dtypes": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4"
+      ],
+      "inputs": [
+        {
+          "name": "a",
+          "type": "Tensor[T]"
+        },
+        {
+          "name": "b",
+          "type": "Tensor[T]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          "type": "Tensor[T]"
+        }
+      ],
+      "attributes": [],
+      "inplace": true,
+      "accumulation": true,
+      "broadcast": true,
+      "description": "Elementwise subtraction: y = a - b."
+    },
+    {
+      "op_name": "div",
+      "dtypes": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i4",
+        "u4"
+      ],
+      "inputs": [
+        {
+          "name": "a",
+          
+          "type": "Tensor[T]"
+        },
+        {
+          "name": "b",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "attributes": [
+        {
+          "name": "div_by_zero_mask",
+          "type": "T",
+          "default": "NaN"
+        }
+      ],
+      "inplace": true,
+      "accumulation": false,
+      "broadcast": true,
+      "description": "Elementwise division: y = a / b"
+    },
+    {
+      "op_name": "floor_div",
+      "dtypes": [
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i4",
+        "u4"
+      ],
+      "inputs": [
+        {
+          "name": "a",
+          
+          "type": "Tensor[T]"
+        },
+        {
+          "name": "b",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "attributes": [
+        {
+          "name": "div_by_zero_mask",
+          "type": "T",
+          "default": "NaN"
+        }
+      ],
+      "inplace": true,
+      "accumulation": false,
+      "broadcast": true,
+      "description": "Elementwise floor division for integers: y = floor(a / b)."
+    },
+    {
+      "op_name": "rem",
+      "dtypes": [
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i4",
+        "u4"
+      ],
+      "inputs": [
+        {
+          "name": "a",
+          
+          "type": "Tensor[T]"
+        },
+        {
+          "name": "b",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "attributes": [],
+      "inplace": true,
+      "accumulation": false,
+      "broadcast": true,
+      "description": "Elementwise remainder (modulo)"
+    },
+    {
+      "op_name": "fma",
+      "dtypes": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64"
+      ],
+      "inputs": [
+        {
+          "name": "a",
+          
+          "type": "Tensor[T]"
+        },
+        {
+          "name": "b",
+          
+          "type": "Tensor[T]"
+        },
+        {
+          "name": "c",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "attributes": [],
+      "inplace": true,
+      "accumulation": false,
+      "description": "Fused multiply-add: y = a*b + c."
+    },
+    {
+      "op_name": "neg",
+      "dtypes": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "i1",
+        "i2",
+        "i4"
+      ],
+      "inputs": [
+        {
+          "name": "x",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "attributes": [],
+      "inplace": true,
+      "accumulation": false,
+      "broadcast": false,
+      "description": "Elementwise negation: y = -x."
+    },
+    {
+      "op_name": "sign",
+      "dtypes": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "i1",
+        "i2",
+        "i4"
+      ],
+      "inputs": [
+        {
+          "name": "x",
+          "type": "Tensor[T]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          "type": "Tensor[i8]"
+        }
+      ],
+      "attributes": [],
+      "inplace": true,
+      "accumulation": false,
+      "broadcast": false,
+      "description": "Elementwise sign: y ∈ {-1,1}"
+    },
+    {
+      "op_name": "recip",
+      "dtypes": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64"
+      ],
+      "inputs": [
+        {
+          "name": "x",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "attributes": [
+        {
+          "name": "div_by_zero_mask",
+          "type": "T",
+          "default": "NaN"
+        }
+      ],
+      "inplace": true,
+      "accumulation": false,
+      "broadcast": false,
+      "description": "Elementwise reciprocal: y = 1/x."
+    },
+    {
+      "op_name": "min",
+      "dtypes": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4"
+      ],
+      "inputs": [
+        {
+          "name": "a",
+          
+          "type": "Tensor[T]"
+        },
+        {
+          "name": "b",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "attributes": [],
+      "inplace": true,
+      "accumulation": false,
+      "broadcast": false,
+      "description": "Elementwise minimum."
+    },
+    {
+      "op_name": "max",
+      "dtypes": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4"
+      ],
+      "inputs": [
+        {
+          "name": "a",
+          
+          "type": "Tensor[T]"
+        },
+        {
+          "name": "b",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "attributes": [],
+      "inplace": true,
+      "accumulation": false,
+      "broadcast": false,
+      "description": "Elementwise maximum."
+    },
+    {
+      "op_name": "clamp",
+      "dtypes": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4"
+      ],
+      "inputs": [
+        {
+          "name": "x",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "attributes": [
+        {
+          "name": "min",
+          "type": "T",
+          "default": "T::min_value()"
+        },
+        {
+          "name": "max",
+          "type": "T",
+          "default": "T::max_value()"
+        }
+      ],
+      "inplace": true,
+      "accumulation": false,
+      "broadcast": false,
+      "description": "Elementwise clamp: y = min(max(x, min), max)."
+    },
+    {
+      "op_name": "floor",
+      "dtypes": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64"
+      ],
+      "inputs": [
+        {
+          "name": "x",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "attributes": [],
+      "inplace": true,
+      "accumulation": false,
+      "broadcast": false,
+      "description": "Elementwise floor. y = floor(x)."
+    },
+    {
+      "op_name": "ceil",
+      "dtypes": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64"
+      ],
+      "inputs": [
+        {
+          "name": "x",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "attributes": [],
+      "inplace": true,
+      "accumulation": false,
+      "broadcast": false,
+      "description": "Elementwise ceil. y = ceil(x)."
+    },
+    {
+      "op_name": "round",
+      "dtypes": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64"
+      ],
+      "inputs": [
+        {
+          "name": "x",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "attributes": [
+        {
+          "name": "mode",
+          "type": "str",
+          "default": "down",
+          "allowed": [
+            "down",
+            "up"
+          ]
+        }
+      ],
+      "inplace": true,
+      "accumulation": false,
+      "broadcast": false,
+      "description": "Elementwise rounding to integer-valued float, with selectable rounding mode."
+    },
+    {
+      "op_name": "trunc",
+      "dtypes": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64"
+      ],
+      "inputs": [
+        {
+          "name": "x",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "attributes": [],
+      "inplace": true,
+      "accumulation": false,
+      "broadcast": false,
+      "description": "Elementwise truncation toward zero."
+    },
+    {
+      "op_name": "and",
+      "dtypes": [
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4",
+        "bool"
+      ],
+      "inputs": [
+        {
+          "name": "a",
+          
+          "type": "Tensor[T]"
+        },
+        {
+          "name": "b",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "attributes": [],
+      "inplace": true,
+      "accumulation": false,
+      "broadcast": false,
+      "description": "Elementwise bitwise AND."
+    },
+    {
+      "op_name": "or",
+      "dtypes": [
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4",
+        "bool"
+      ],
+      "inputs": [
+        {
+          "name": "a",
+          
+          "type": "Tensor[T]"
+        },
+        {
+          "name": "b",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "attributes": [],
+      "inplace": true,
+      "accumulation": false,
+      "broadcast": false,
+      "description": "Elementwise bitwise OR."
+    },
+    {
+      "op_name": "xor",
+      "dtypes": [
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4",
+        "bool"
+      ],
+      "inputs": [
+        {
+          "name": "a",
+          
+          "type": "Tensor[T]"
+        },
+        {
+          "name": "b",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "attributes": [],
+      "inplace": true,
+      "accumulation": false,
+      "broadcast": false,
+      "description": "Elementwise bitwise XOR."
+    },
+    {
+      "op_name": "not",
+      "dtypes": [
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4",
+        "bool"
+      ],
+      "inputs": [
+        {
+          "name": "x",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "attributes": [],
+      "inplace": true,
+      "accumulation": false,
+      "broadcast": false,
+      "description": "Elementwise bitwise NOT. y = ~x."
+    },
+    {
+      "op_name": "shl",
+      "dtypes": [
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i2",
+        "i4",
+        "u2",
+        "u4"
+      ],
+      "inputs": [
+        {
+          "name": "x",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "attributes": [
+        {
+          "name": "bits",
+          "type": "u8",
+          "default": 0
+        }
+      ],
+      "inplace": true,
+      "accumulation": false,
+      "broadcast": false,
+      "description": "Elementwise shift-left by 'bits'. When bits >= word set value to 0."
+    },
+    {
+      "op_name": "shr",
+      "dtypes": [
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i2",
+        "i4",
+        "u2",
+        "u4"
+      ],
+      "inputs": [
+        {
+          "name": "x",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "attributes": [
+        {
+          "name": "bits",
+          "type": "u8",
+          "default": 0
+        }
+      ],
+      "inplace": true,
+      "accumulation": false,
+      "broadcast": false,
+      "description": "Elementwise shift-right by 'bits'. When bits >= word set value to 0."
+    },
+    {
+      "op_name": "popcount",
+      "dtypes": [
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i2",
+        "i4",
+        "u2",
+        "u4"
+      ],
+      "inputs": [
+        {
+          "name": "x",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          "type": "Tensor[u8]"
+        }
+      ],
+      "attributes": [],
+      "inplace": false,
+      "accumulation": false,
+      "broadcast": false,
+      "description": "Counts set bits per element."
+    },
+    {
+      "op_name": "eq",
+      "dtypes": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4",
+        "bool"
+      ],
+      "inputs": [
+        {
+          "name": "a",
+          
+          "type": "Tensor[T]"
+        },
+        {
+          "name": "b",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          
+          "type": "Tensor[bool]"
+        }
+      ],
+      "attributes": [],
+      "inplace": false,
+      "accumulation": false,
+      "broadcast": false,
+      "description": "Elementwise equality comparison. y = a == b."
+    },
+    {
+      "op_name": "ne",
+      "dtypes": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4",
+        "bool"
+      ],
+      "inputs": [
+        {
+          "name": "a",
+          
+          "type": "Tensor[T]"
+        },
+        {
+          "name": "b",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          
+          "type": "Tensor[bool]"
+        }
+      ],
+      "attributes": [],
+      "inplace": false,
+      "accumulation": false,
+      "broadcast": false,
+      "description": "Elementwise inequality comparison. y = a != b."
+    },
+    {
+      "op_name": "lt",
+      "dtypes": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4"
+      ],
+      "inputs": [
+        {
+          "name": "a",
+          
+          "type": "Tensor[T]"
+        },
+        {
+          "name": "b",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          
+          "type": "Tensor[bool]"
+        }
+      ],
+      "attributes": [],
+      "inplace": false,
+      "accumulation": false,
+      "broadcast": false,
+      "description": "Elementwise less-than comparison."
+    },
+    {
+      "op_name": "le",
+      "dtypes": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4"
+      ],
+      "inputs": [
+        {
+          "name": "a",
+          
+          "type": "Tensor[T]"
+        },
+        {
+          "name": "b",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          
+          "type": "Tensor[bool]"
+        }
+      ],
+      "attributes": [],
+      "inplace": false,
+      "accumulation": false,
+      "description": "Elementwise less-or-equal comparison."
+    },
+    {
+      "op_name": "gt",
+      "dtypes": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4"
+      ],
+      "inputs": [
+        {
+          "name": "a",
+          
+          "type": "Tensor[T]"
+        },
+        {
+          "name": "b",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          
+          "type": "Tensor[bool]"
+        }
+      ],
+      "attributes": [],
+      "inplace": false,
+      "accumulation": false,
+      "broadcast": false,
+      "description": "Elementwise greater-than comparison."
+    },
+    {
+      "op_name": "ge",
+      "dtypes": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4"
+      ],
+      "inputs": [
+        {
+          "name": "a",
+          
+          "type": "Tensor[T]"
+        },
+        {
+          "name": "b",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          
+          "type": "Tensor[bool]"
+        }
+      ],
+      "attributes": [],
+      "inplace": false,
+      "accumulation": false,
+      "broadcast": false,
+      "description": "Elementwise greater-or-equal comparison."
+    },
+    {
+      "op_name": "filter",
+      "dtypes": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4",
+        "bool"
+      ],
+      "inputs": [
+        {
+          "name": "a",
+          
+          "type": "Tensor[T]"
+        },
+        {
+          "name": "b",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "attributes": [
+        {
+          "name": "cond",
+          "type": "Tensor[bool]"
+        }
+      ],
+      "inplace": false,
+      "accumulation": false,
+      "broadcast": false,
+      "description": "Select elements from a or b based on condition: y[i] = cond[i] ? a[i] : b[i]."
+    },
+    {
+      "op_name": "is_nan",
+      "dtypes": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64"
+      ],
+      "inputs": [
+        {
+          "name": "x",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          
+          "type": "Tensor[bool]"
+        }
+      ],
+      "attributes": [],
+      "inplace": false,
+      "accumulation": false,
+      "broadcast": false,
+      "description": "Elementwise NaN check: true where x is NaN."
+    },
+    {
+      "op_name": "is_inf",
+      "dtypes": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64"
+      ],
+      "inputs": [
+        {
+          "name": "x",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          
+          "type": "Tensor[bool]"
+        }
+      ],
+      "attributes": [],
+      "inplace": false,
+      "accumulation": false,
+      "broadcast": false,
+      "description": "Elementwise infinity check: true where x is +inf or -inf."
+    },
+    {
+      "op_name": "is_neg",
+      "dtypes": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4"
+      ],
+      "inputs": [
+        {
+          "name": "x",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          
+          "type": "Tensor[bool]"
+        }
+      ],
+      "attributes": [],
+      "inplace": false,
+      "accumulation": false,
+      "broadcast": false,
+      "description": "Elementwise negation check: true where x is negative <0 value."
+    },
+    {
+      "op_name": "sum_axis",
+      "dtypes": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4"
+      ],
+      "inputs": [
+        {
+          "name": "x",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "attributes": [
+        {
+          "name": "axes",
+          "type": "int[]",
+          "default": "[]"
+        },
+        {
+          "name": "keepdims",
+          "type": "bool",
+          "default": "false"
+        }
+      ],
+      "inplace": false,
+      "accumulation": true,
+      "broadcast": false,
+      "description": "Sum-reduction over axes."
+    },
+    {
+      "op_name": "mean_axis",
+      "dtypes": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4"
+      ],
+      "inputs": [
+        {
+          "name": "x",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "attributes": [
+        {
+          "name": "axes",
+          "type": "int[]",
+          "default": "[]"
+        },
+        {
+          "name": "keepdims",
+          "type": "bool",
+          "default": "false"
+        }
+      ],
+      "inplace": false,
+      "accumulation": true,
+      "broadcast": false,
+      "description": "Mean-reduction over axes. Often implemented as sum / count."
+    },
+    {
+      "op_name": "prod_axis",
+      "dtypes": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4"
+      ],
+      "inputs": [
+        {
+          "name": "x",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "attributes": [
+        {
+          "name": "axes",
+          "type": "int[]",
+          "default": "[]"
+        },
+        {
+          "name": "keepdims",
+          "type": "bool",
+          "default": "false"
+        }
+      ],
+      "inplace": false,
+      "accumulation": true,
+      "broadcast": false,
+      "description": "Product-reduction over axes."
+    },
+    {
+      "op_name": "max_axis",
+      "dtypes": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4"
+      ],
+      "inputs": [
+        {
+          "name": "x",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "attributes": [
+        {
+          "name": "axes",
+          "type": "int[]",
+          "default": "[]"
+        },
+        {
+          "name": "keepdims",
+          "type": "bool",
+          "default": "false"
+        }
+      ],
+      "inplace": false,
+      "accumulation": false,
+      "broadcast": false,
+      "description": "Max-reduction over axes."
+    },
+    {
+      "op_name": "min_axis",
+      "dtypes": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4"
+      ],
+      "inputs": [
+        {
+          "name": "x",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "attributes": [
+        {
+          "name": "axes",
+          "type": "int[]",
+          "default": "[]"
+        },
+        {
+          "name": "keepdims",
+          "type": "bool",
+          "default": "false"
+        }
+      ],
+      "inplace": false,
+      "accumulation": false,
+      "broadcast": false,
+      "description": "Min-reduction over axes."
+    },
+    {
+      "op_name": "argmax_axis",
+      "dtypes": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4"
+      ],
+      "inputs": [
+        {
+          "name": "x",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          
+          "type": "Tensor[i64]"
+        }
+      ],
+      "attributes": [
+        {
+          "name": "axis",
+          "type": "int"
+        },
+        {
+          "name": "keepdims",
+          "type": "bool",
+          "default": "false"
+        },
+        {
+          "name": "select_first",
+          "type": "bool",
+          "default": "true"
+        }
+      ],
+      "inplace": false,
+      "accumulation": false,
+      "broadcast": false,
+      "description": "Index of maximum along axis. Define tie-break (select_first). Returns indices tensor."
+    },
+    {
+      "op_name": "argmin_axis",
+      "dtypes": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4"
+      ],
+      "inputs": [
+        {
+          "name": "x",
+          
+          "type": "Tensor[T]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          "type": "Tensor[i64]"
+        }
+      ],
+      "attributes": [
+        {
+          "name": "axis",
+          "type": "int"
+        },
+        {
+          "name": "keepdims",
+          "type": "bool",
+          "default": "false"
+        },
+        {
+          "name": "select_first",
+          "type": "bool",
+          "default": "true"
+        }
+      ],
+      "inplace": false,
+      "accumulation": false,
+      "broadcast": false,
+      "description": "Index of minimum along axis. Define tie-break (select_first). Returns indices tensor."
+    },
+    {
+      "op_name": "cast",
+      "dtypes": [
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "f8",
+        "f16",
+        "bf16",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4",
+        "bool"
+      ],
+      "inputs": [
+        {
+          "name": "x",
+          "type": "Tensor[From]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "y",
+          "type": "Tensor[To]"
+        }
+      ],
+      "attributes": [
+        {
+          "name": "to",
+          "type": "dtype"
+        },
+        {
+          "name": "rounding_mode",
+          "type": "str",
+          "default": "",
+          "allowed": [
+            "down",
+            "up",
+            "half_up",
+            "half_down",
+            "half_even",
+            "half_odd"
+          ]
+        },
+        {
+          "name": "saturate",
+          "type": "bool",
+          "default": "false"
+        }
+      ],
+      "inplace": false,
+      "accumulation": false,
+      "broadcast": false,
+      "description": "Casts tensor elements to another dtype. For float->int define rounding; for narrowing int define saturate vs wrap."
+    }
+  ]
+}

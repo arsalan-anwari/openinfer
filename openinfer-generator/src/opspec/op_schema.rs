@@ -498,7 +498,7 @@ fn write_kernel_rs(
     uses_attrs: bool,
     fixed_output: Option<&str>,
 ) -> Result<(), Box<dyn Error>> {
-    if inputs != 1 && inputs != 2 {
+    if inputs == 0 {
         return Err(format!("unsupported input count {inputs} for {op_name}").into());
     }
     fs::create_dir_all(op_dir)?;
@@ -513,64 +513,50 @@ fn write_kernel_rs(
         "pub fn {op_name}_normal_dispatch(_attrs: &OpAttrs, inputs: &[TensorValue], output: Option<&mut TensorValue>) -> Result<()> {{\n"
     ));
     out.push_str("    let out = expect_output(output)?;\n");
-    if inputs == 1 {
-        out.push_str("    match (&inputs[0], out) {\n");
-        for dtype in normal_dtypes {
-            let variant = dtype;
-            let out_variant = fixed_output.unwrap_or(variant);
-            let suffix = dtype_suffix(dtype)?;
-            if is_packed(dtype) {
-                if uses_attrs {
-                    out.push_str(&format!(
-                        "        (TensorValue::{variant}(a), TensorValue::{out_variant}(out)) => super::kernels::packed::{op_name}_{suffix}_packed(_attrs, a, out),\n"
-                    ));
-                } else {
-                    out.push_str(&format!(
-                        "        (TensorValue::{variant}(a), TensorValue::{out_variant}(out)) => super::kernels::packed::{op_name}_{suffix}_packed(a, out),\n"
-                    ));
-                }
-            } else if uses_attrs {
-                out.push_str(&format!(
-                    "        (TensorValue::{variant}(a), TensorValue::{out_variant}(out)) => super::kernels::normal::{op_name}_{suffix}_normal(_attrs, a, out),\n"
-                ));
-            } else {
-                out.push_str(&format!(
-                    "        (TensorValue::{variant}(a), TensorValue::{out_variant}(out)) => super::kernels::normal::{op_name}_{suffix}_normal(a, out),\n"
-                ));
-            }
-        }
+    let input_refs: Vec<String> = (0..inputs).map(|i| format!("&inputs[{i}]")).collect();
+    let match_head = if inputs == 1 {
+        "    match (&inputs[0], out) {\n".to_string()
     } else {
-        out.push_str("    match (&inputs[0], &inputs[1], out) {\n");
-        for dtype in normal_dtypes {
-            let variant = dtype;
-            let out_variant = fixed_output.unwrap_or(variant);
-            let suffix = dtype_suffix(dtype)?;
-            if is_packed(dtype) {
-                if uses_attrs {
-                    out.push_str(&format!(
-                        "        (TensorValue::{variant}(a), TensorValue::{variant}(b), TensorValue::{out_variant}(out)) => super::kernels::packed::{op_name}_{suffix}_packed(_attrs, a, b, out),\n"
-                    ));
-                } else {
-                    out.push_str(&format!(
-                        "        (TensorValue::{variant}(a), TensorValue::{variant}(b), TensorValue::{out_variant}(out)) => super::kernels::packed::{op_name}_{suffix}_packed(a, b, out),\n"
-                    ));
-                }
-            } else if uses_attrs {
+        format!("    match ({}, out) {{\n", input_refs.join(", "))
+    };
+    out.push_str(&match_head);
+    let arg_names: Vec<String> = (0..inputs).map(|i| format!("a{i}")).collect();
+    for dtype in normal_dtypes {
+        let variant = dtype;
+        let out_variant = fixed_output.unwrap_or(variant);
+        let suffix = dtype_suffix(dtype)?;
+        let pattern_inputs = arg_names
+            .iter()
+            .map(|name| format!("TensorValue::{variant}({name})"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let call_args = arg_names.join(", ");
+        if is_packed(dtype) {
+            if uses_attrs {
                 out.push_str(&format!(
-                    "        (TensorValue::{variant}(a), TensorValue::{variant}(b), TensorValue::{out_variant}(out)) => super::kernels::normal::{op_name}_{suffix}_normal(_attrs, a, b, out),\n"
+                    "        ({pattern_inputs}, TensorValue::{out_variant}(out)) => super::kernels::packed::{op_name}_{suffix}_packed(_attrs, {call_args}, out),\n"
                 ));
             } else {
                 out.push_str(&format!(
-                    "        (TensorValue::{variant}(a), TensorValue::{variant}(b), TensorValue::{out_variant}(out)) => super::kernels::normal::{op_name}_{suffix}_normal(a, b, out),\n"
+                    "        ({pattern_inputs}, TensorValue::{out_variant}(out)) => super::kernels::packed::{op_name}_{suffix}_packed({call_args}, out),\n"
                 ));
             }
+        } else if uses_attrs {
+            out.push_str(&format!(
+                "        ({pattern_inputs}, TensorValue::{out_variant}(out)) => super::kernels::normal::{op_name}_{suffix}_normal(_attrs, {call_args}, out),\n"
+            ));
+        } else {
+            out.push_str(&format!(
+                "        ({pattern_inputs}, TensorValue::{out_variant}(out)) => super::kernels::normal::{op_name}_{suffix}_normal({call_args}, out),\n"
+            ));
         }
     }
     out.push_str("        _ => Err(anyhow!(\"dtype mismatch\")),\n");
     out.push_str("    }\n");
     out.push_str("}\n\n");
 
-    if inplace {
+    let generate_inplace = inplace && fixed_output.is_none();
+    if generate_inplace {
         let inputs_param = if inputs == 1 { "_inputs" } else { "inputs" };
         out.push_str(&format!(
             "pub fn {op_name}_inplace_dispatch(_attrs: &OpAttrs, {inputs_param}: &[TensorValue], output: Option<&mut TensorValue>) -> Result<()> {{\n"
@@ -602,27 +588,36 @@ fn write_kernel_rs(
                 }
             }
         } else {
-            out.push_str("    match (out, &inputs[1]) {\n");
+            let inplace_refs: Vec<String> =
+                (1..inputs).map(|i| format!("&inputs[{i}]")).collect();
+            out.push_str(&format!("    match (out, {}) {{\n", inplace_refs.join(", ")));
+            let arg_names: Vec<String> = (0..inputs).map(|i| format!("a{i}")).collect();
             for dtype in normal_dtypes {
                 let variant = dtype;
                 let suffix = dtype_suffix(dtype)?;
+                let pattern_inputs = arg_names
+                    .iter()
+                    .map(|name| format!("TensorValue::{variant}({name})"))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                let call_args = arg_names.join(", ");
                 if is_packed(dtype) {
                     if uses_attrs {
                         out.push_str(&format!(
-                            "        (TensorValue::{variant}(a), TensorValue::{variant}(b)) => super::kernels::packed::{op_name}_{suffix}_packed_inplace(_attrs, a, b),\n"
+                            "        ({pattern_inputs}) => super::kernels::packed::{op_name}_{suffix}_packed_inplace(_attrs, {call_args}),\n"
                         ));
                     } else {
                         out.push_str(&format!(
-                            "        (TensorValue::{variant}(a), TensorValue::{variant}(b)) => super::kernels::packed::{op_name}_{suffix}_packed_inplace(a, b),\n"
+                            "        ({pattern_inputs}) => super::kernels::packed::{op_name}_{suffix}_packed_inplace({call_args}),\n"
                         ));
                     }
                 } else if uses_attrs {
                     out.push_str(&format!(
-                        "        (TensorValue::{variant}(a), TensorValue::{variant}(b)) => super::kernels::normal::{op_name}_{suffix}_inplace(_attrs, a, b),\n"
+                        "        ({pattern_inputs}) => super::kernels::normal::{op_name}_{suffix}_inplace(_attrs, {call_args}),\n"
                     ));
                 } else {
                     out.push_str(&format!(
-                        "        (TensorValue::{variant}(a), TensorValue::{variant}(b)) => super::kernels::normal::{op_name}_{suffix}_inplace(a, b),\n"
+                        "        ({pattern_inputs}) => super::kernels::normal::{op_name}_{suffix}_inplace({call_args}),\n"
                     ));
                 }
             }
@@ -637,26 +632,32 @@ fn write_kernel_rs(
             "pub fn {op_name}_accumulate_dispatch(_attrs: &OpAttrs, inputs: &[TensorValue], output: Option<&mut TensorValue>) -> Result<()> {{\n"
         ));
         out.push_str("    let out = expect_output(output)?;\n");
-        if inputs == 1 {
-            out.push_str("    match (&inputs[0], out) {\n");
-            for (input, acc) in acc_pairs {
-                let input_variant = input;
-                let acc_variant = acc;
-                let input_suffix = dtype_suffix(input)?;
-                let acc_suffix = dtype_suffix(acc)?;
-                out.push_str(&format!(
-                    "        (TensorValue::{input_variant}(a), TensorValue::{acc_variant}(out)) => super::kernels::accumulate::{op_name}_{input_suffix}_accumulate_{acc_suffix}(a, out),\n"
-                ));
-            }
+        let input_refs: Vec<String> = (0..inputs).map(|i| format!("&inputs[{i}]")).collect();
+        let match_head = if inputs == 1 {
+            "    match (&inputs[0], out) {\n".to_string()
         } else {
-            out.push_str("    match (&inputs[0], &inputs[1], out) {\n");
-            for (input, acc) in acc_pairs {
-                let input_variant = input;
-                let acc_variant = acc;
-                let input_suffix = dtype_suffix(input)?;
-                let acc_suffix = dtype_suffix(acc)?;
+            format!("    match ({}, out) {{\n", input_refs.join(", "))
+        };
+        out.push_str(&match_head);
+        let arg_names: Vec<String> = (0..inputs).map(|i| format!("a{i}")).collect();
+        for (input, acc) in acc_pairs {
+            let input_variant = input;
+            let acc_variant = acc;
+            let input_suffix = dtype_suffix(input)?;
+            let acc_suffix = dtype_suffix(acc)?;
+            let pattern_inputs = arg_names
+                .iter()
+                .map(|name| format!("TensorValue::{input_variant}({name})"))
+                .collect::<Vec<_>>()
+                .join(", ");
+            let call_args = arg_names.join(", ");
+            if uses_attrs {
                 out.push_str(&format!(
-                    "        (TensorValue::{input_variant}(a), TensorValue::{input_variant}(b), TensorValue::{acc_variant}(out)) => super::kernels::accumulate::{op_name}_{input_suffix}_accumulate_{acc_suffix}(a, b, out),\n"
+                    "        ({pattern_inputs}, TensorValue::{acc_variant}(out)) => super::kernels::accumulate::{op_name}_{input_suffix}_accumulate_{acc_suffix}(_attrs, {call_args}, out),\n"
+                ));
+            } else {
+                out.push_str(&format!(
+                    "        ({pattern_inputs}, TensorValue::{acc_variant}(out)) => super::kernels::accumulate::{op_name}_{input_suffix}_accumulate_{acc_suffix}({call_args}, out),\n"
                 ));
             }
         }

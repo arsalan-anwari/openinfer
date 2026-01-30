@@ -80,6 +80,9 @@ fn scalar_bits_from_attr(
                         0.0
                     }
                 }
+                AttrValue::Str(_) | AttrValue::IntList(_) => {
+                    return Err(anyhow!("unsupported scalar attr value for vulkan"))
+                }
                 AttrValue::Var(_) | AttrValue::DType(_) => {
                     return Err(anyhow!("unsupported scalar attr value for vulkan"))
                 }
@@ -100,6 +103,9 @@ fn scalar_bits_from_attr(
                 }
                 AttrValue::Float(_) | AttrValue::Double(_) => {
                     return Err(anyhow!("integer attrs must be int/uint/bool"))
+                }
+                AttrValue::Str(_) | AttrValue::IntList(_) => {
+                    return Err(anyhow!("unsupported scalar attr value for vulkan"))
                 }
                 AttrValue::Var(_) | AttrValue::DType(_) => {
                     return Err(anyhow!("unsupported scalar attr value for vulkan"))
@@ -127,6 +133,9 @@ fn scalar_bits_from_attr(
                 AttrValue::Float(_) | AttrValue::Double(_) => {
                     return Err(anyhow!("unsigned attrs must be int/uint/bool"))
                 }
+                AttrValue::Str(_) | AttrValue::IntList(_) => {
+                    return Err(anyhow!("unsupported scalar attr value for vulkan"))
+                }
                 AttrValue::Var(_) | AttrValue::DType(_) => {
                     return Err(anyhow!("unsupported scalar attr value for vulkan"))
                 }
@@ -141,6 +150,9 @@ fn scalar_bits_from_attr(
                 AttrValue::UInt(v) => *v != 0,
                 AttrValue::Float(_) | AttrValue::Double(_) => {
                     return Err(anyhow!("bool attrs must be bool/int/uint"))
+                }
+                AttrValue::Str(_) | AttrValue::IntList(_) => {
+                    return Err(anyhow!("unsupported scalar attr value for vulkan"))
                 }
                 AttrValue::Var(_) | AttrValue::DType(_) => {
                     return Err(anyhow!("unsupported scalar attr value for vulkan"))
@@ -161,6 +173,9 @@ fn scalar_kind_from_value(value: &AttrValue) -> Result<ScalarAttrKind> {
         AttrValue::Int(_) => Ok(ScalarAttrKind::Int),
         AttrValue::UInt(_) => Ok(ScalarAttrKind::UInt),
         AttrValue::Bool(_) => Ok(ScalarAttrKind::Bool),
+        AttrValue::Str(_) | AttrValue::IntList(_) => {
+            Err(anyhow!("unsupported scalar attr value for vulkan"))
+        }
         AttrValue::Var(_) | AttrValue::DType(_) => {
             Err(anyhow!("unsupported scalar attr value for vulkan"))
         }

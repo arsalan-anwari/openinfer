@@ -12,13 +12,12 @@ pub enum OpMode {
     Accumulate,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct OpKey {
     pub kind: OpKind,
     pub mode: OpMode,
     pub broadcast: bool,
-    pub in0: DType,
-    pub in1: Option<DType>,
+    pub inputs: Vec<DType>,
     pub out0: DType,
 }
 
@@ -58,20 +57,11 @@ pub fn build_op_entries_same_input(
             schema.inputs
         )
     })?;
-    if inputs != 1 && inputs != 2 {
-        return Err(anyhow!(
-            "op {:?} has unsupported input count {}",
-            kind,
-            inputs
-        ));
-    }
-
     let broadcast_flags: &[bool] = if schema.broadcast.allow() {
         &[false, true]
     } else {
         &[false]
     };
-    let in1_for = |in0: DType| if inputs == 2 { Some(in0) } else { None };
 
     let mut entries = Vec::new();
     for in_dtype in support.normal {
@@ -90,8 +80,7 @@ pub fn build_op_entries_same_input(
                 kind,
                 mode: OpMode::Normal,
                 broadcast,
-                in0: *in_dtype,
-                in1: in1_for(*in_dtype),
+                inputs: vec![*in_dtype; inputs],
                 out0: out_dtype,
             };
             if let Some(kernel) = kernel_for_mode(OpMode::Normal) {
@@ -102,8 +91,7 @@ pub fn build_op_entries_same_input(
                     kind,
                     mode: OpMode::Inplace,
                     broadcast,
-                    in0: *in_dtype,
-                    in1: in1_for(*in_dtype),
+                    inputs: vec![*in_dtype; inputs],
                     out0: out_dtype,
                 };
                 if let Some(kernel) = kernel_for_mode(OpMode::Inplace) {
@@ -119,8 +107,78 @@ pub fn build_op_entries_same_input(
                     kind,
                     mode: OpMode::Accumulate,
                     broadcast,
-                    in0: *in_dtype,
-                    in1: in1_for(*in_dtype),
+                    inputs: vec![*in_dtype; inputs],
+                    out0: *out_dtype,
+                };
+                if let Some(kernel) = kernel_for_mode(OpMode::Accumulate) {
+                    entries.push((acc_key, kernel));
+                }
+            }
+        }
+    }
+    Ok(entries)
+}
+
+#[allow(unused)]
+pub fn build_op_entries_with_outputs(
+    kind: OpKind,
+    output_dtypes: &[DType],
+    kernel_for_mode: impl Fn(OpMode) -> Option<KernelFn>,
+) -> Result<Vec<(OpKey, KernelFn)>> {
+    let schema = op_schema(kind).ok_or_else(|| anyhow!("missing op schema {:?}", kind))?;
+    let support = schema
+        .dtype_support
+        .ok_or_else(|| anyhow!("op {:?} has no dtype support", kind))?;
+    let inputs = schema.inputs.fixed().ok_or_else(|| {
+        anyhow!(
+            "op {:?} has non-fixed input arity {:?}",
+            kind,
+            schema.inputs
+        )
+    })?;
+    let broadcast_flags: &[bool] = if schema.broadcast.allow() {
+        &[false, true]
+    } else {
+        &[false]
+    };
+
+    let mut entries = Vec::new();
+    for in_dtype in support.normal {
+        for &out_dtype in output_dtypes {
+            for &broadcast in broadcast_flags {
+                let normal_key = OpKey {
+                    kind,
+                    mode: OpMode::Normal,
+                    broadcast,
+                    inputs: vec![*in_dtype; inputs],
+                    out0: out_dtype,
+                };
+                if let Some(kernel) = kernel_for_mode(OpMode::Normal) {
+                    entries.push((normal_key, kernel));
+                }
+                if schema.inplace.allow() {
+                    let inplace_key = OpKey {
+                        kind,
+                        mode: OpMode::Inplace,
+                        broadcast,
+                        inputs: vec![*in_dtype; inputs],
+                        out0: out_dtype,
+                    };
+                    if let Some(kernel) = kernel_for_mode(OpMode::Inplace) {
+                        entries.push((inplace_key, kernel));
+                    }
+                }
+            }
+        }
+    }
+    if schema.accumulate.allow() {
+        for (in_dtype, out_dtype) in support.accumulate {
+            for &broadcast in broadcast_flags {
+                let acc_key = OpKey {
+                    kind,
+                    mode: OpMode::Accumulate,
+                    broadcast,
+                    inputs: vec![*in_dtype; inputs],
                     out0: *out_dtype,
                 };
                 if let Some(kernel) = kernel_for_mode(OpMode::Accumulate) {

@@ -8,16 +8,16 @@ use crate::tensor::TensorValue;
 pub fn relu_normal_dispatch(_attrs: &OpAttrs, inputs: &[TensorValue], output: Option<&mut TensorValue>) -> Result<()> {
     let out = expect_output(output)?;
     match (&inputs[0], out) {
-        (TensorValue::F8(a), TensorValue::F8(out)) => super::kernels::normal::relu_f8_normal(_attrs, a, out),
-        (TensorValue::BF16(a), TensorValue::BF16(out)) => super::kernels::normal::relu_bf16_normal(_attrs, a, out),
-        (TensorValue::F16(a), TensorValue::F16(out)) => super::kernels::normal::relu_f16_normal(_attrs, a, out),
-        (TensorValue::F32(a), TensorValue::F32(out)) => super::kernels::normal::relu_f32_normal(_attrs, a, out),
-        (TensorValue::F64(a), TensorValue::F64(out)) => super::kernels::normal::relu_f64_normal(_attrs, a, out),
-        (TensorValue::I4(a), TensorValue::I4(out)) => super::kernels::packed::relu_i4_packed(_attrs, a, out),
-        (TensorValue::I8(a), TensorValue::I8(out)) => super::kernels::normal::relu_i8_normal(_attrs, a, out),
-        (TensorValue::I16(a), TensorValue::I16(out)) => super::kernels::normal::relu_i16_normal(_attrs, a, out),
-        (TensorValue::I32(a), TensorValue::I32(out)) => super::kernels::normal::relu_i32_normal(_attrs, a, out),
-        (TensorValue::I64(a), TensorValue::I64(out)) => super::kernels::normal::relu_i64_normal(_attrs, a, out),
+        (TensorValue::F8(a0), TensorValue::F8(out)) => super::kernels::normal::relu_f8_normal(_attrs, a0, out),
+        (TensorValue::BF16(a0), TensorValue::BF16(out)) => super::kernels::normal::relu_bf16_normal(_attrs, a0, out),
+        (TensorValue::F16(a0), TensorValue::F16(out)) => super::kernels::normal::relu_f16_normal(_attrs, a0, out),
+        (TensorValue::F32(a0), TensorValue::F32(out)) => super::kernels::normal::relu_f32_normal(_attrs, a0, out),
+        (TensorValue::F64(a0), TensorValue::F64(out)) => super::kernels::normal::relu_f64_normal(_attrs, a0, out),
+        (TensorValue::I4(a0), TensorValue::I4(out)) => super::kernels::packed::relu_i4_packed(_attrs, a0, out),
+        (TensorValue::I8(a0), TensorValue::I8(out)) => super::kernels::normal::relu_i8_normal(_attrs, a0, out),
+        (TensorValue::I16(a0), TensorValue::I16(out)) => super::kernels::normal::relu_i16_normal(_attrs, a0, out),
+        (TensorValue::I32(a0), TensorValue::I32(out)) => super::kernels::normal::relu_i32_normal(_attrs, a0, out),
+        (TensorValue::I64(a0), TensorValue::I64(out)) => super::kernels::normal::relu_i64_normal(_attrs, a0, out),
         _ => Err(anyhow!("dtype mismatch")),
     }
 }

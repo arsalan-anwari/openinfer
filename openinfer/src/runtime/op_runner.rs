@@ -40,8 +40,7 @@ pub fn exec_op(
         kind: op,
         mode,
         broadcast: is_broadcast,
-        in0: input_dtypes[0],
-        in1: input_dtypes.get(1).copied(),
+        inputs: input_dtypes.clone(),
         out0: output_dtype,
     };
 

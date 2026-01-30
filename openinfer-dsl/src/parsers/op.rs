@@ -1,5 +1,5 @@
 use syn::parse::{ParseStream, Result};
-use syn::{Ident, LitInt, Token};
+use syn::{Ident, LitInt, LitStr, Token};
 
 use crate::parsers::var::parse_indices;
 use crate::types::{OpArg, OpAttrValue, OpSetting, VarRef};
@@ -22,6 +22,29 @@ pub(crate) fn parse_op_arg(input: ParseStream) -> Result<OpArg> {
 }
 
 pub(crate) fn parse_op_attr_value(input: ParseStream) -> Result<OpAttrValue> {
+    if input.peek(syn::token::Bracket) {
+        let content;
+        syn::bracketed!(content in input);
+        let mut values = Vec::new();
+        while !content.is_empty() {
+            let negative = if content.peek(Token![-]) {
+                content.parse::<Token![-]>()?;
+                true
+            } else {
+                false
+            };
+            let lit: LitInt = content.parse()?;
+            let mut value: i64 = lit.base10_parse()?;
+            if negative {
+                value = -value;
+            }
+            values.push(value);
+            if content.peek(Token![,]) {
+                content.parse::<Token![,]>()?;
+            }
+        }
+        return Ok(OpAttrValue::IntList(values));
+    }
     let negative = if input.peek(Token![-]) {
         input.parse::<Token![-]>()?;
         true
@@ -51,6 +74,13 @@ pub(crate) fn parse_op_attr_value(input: ParseStream) -> Result<OpAttrValue> {
             value = -value;
         }
         return Ok(OpAttrValue::Int(value));
+    }
+    if input.peek(LitStr) {
+        let lit: LitStr = input.parse()?;
+        if negative {
+            return Err(input.error("unexpected '-' before string literal"));
+        }
+        return Ok(OpAttrValue::String(lit.value()));
     }
     if input.peek(Ident) {
         let ident: Ident = input.parse()?;

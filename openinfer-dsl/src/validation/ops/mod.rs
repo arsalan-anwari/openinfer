@@ -47,7 +47,7 @@ impl SettingsMap {
 }
 
 fn attr_value_expr(setting: &OpSetting) -> syn::Result<TokenStream> {
-    if setting.name == "acc" {
+    if setting.name == "acc" || setting.name == "to" {
         match &setting.value {
             OpAttrValue::Var(ident) => {
                 let dtype = match_dtype(ident)?;
@@ -94,6 +94,12 @@ fn attr_value_expr(setting: &OpSetting) -> syn::Result<TokenStream> {
         }
         OpAttrValue::Bool(val) => {
             quote! { ::openinfer::AttrValue::Bool(#val) }
+        }
+        OpAttrValue::String(val) => {
+            quote! { ::openinfer::AttrValue::Str(#val.to_string()) }
+        }
+        OpAttrValue::IntList(values) => {
+            quote! { ::openinfer::AttrValue::IntList(vec![#(#values),*]) }
         }
         OpAttrValue::Var(ident) => {
             let s = ident.to_string();

@@ -156,6 +156,8 @@ pub(crate) enum OpAttrValue {
     Double(f64),
     Int(i64),
     Bool(bool),
+    String(String),
+    IntList(Vec<i64>),
     Var(Ident),
 }
 

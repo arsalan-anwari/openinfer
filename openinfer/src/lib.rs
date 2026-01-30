@@ -19,6 +19,7 @@ pub use graph::{
     AttrValue, Block, CacheAccess, CacheIndexExpr, CacheIndexValue, Graph, GraphDeserialize,
     GraphSerialize, MemoryKind, Node, NodeKind, OpAttr, OpAttrs, OpKind, VarDecl,
 };
+pub use registry::{op_schema, TypeRule};
 pub use runtime::ModelLoader;
 pub use tensor::{
     BF16, Bitset, DType, F16, F8, I1, I2, I4, ScalarValue, T1, T2, U1, U2, U4, Tensor,

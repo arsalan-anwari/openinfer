@@ -21,25 +21,25 @@ pub fn warm_kernels() {
 static VULKAN_KERNELS: Lazy<HashMap<OpKey, KernelFn>> = Lazy::new(|| {
     let mut map = HashMap::new();
     for (key, kernel) in add::registry::ENTRIES.iter() {
-        map.insert(*key, *kernel);
+        map.insert(key.clone(), *kernel);
     }
     for (key, kernel) in mul::registry::ENTRIES.iter() {
-        map.insert(*key, *kernel);
+        map.insert(key.clone(), *kernel);
     }
     for (key, kernel) in abs::registry::ENTRIES.iter() {
-        map.insert(*key, *kernel);
+        map.insert(key.clone(), *kernel);
     }
     for (key, kernel) in relu::registry::ENTRIES.iter() {
-        map.insert(*key, *kernel);
+        map.insert(key.clone(), *kernel);
     }
     for (key, kernel) in matmul::registry::ENTRIES.iter() {
-        map.insert(*key, *kernel);
+        map.insert(key.clone(), *kernel);
     }
     for (key, kernel) in is_finite::registry::ENTRIES.iter() {
-        map.insert(*key, *kernel);
+        map.insert(key.clone(), *kernel);
     }
     for (key, kernel) in fill::registry::ENTRIES.iter() {
-        map.insert(*key, *kernel);
+        map.insert(key.clone(), *kernel);
     }
     map
 });

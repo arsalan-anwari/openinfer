@@ -8,11 +8,11 @@ use crate::tensor::TensorValue;
 pub fn is_finite_normal_dispatch(_attrs: &OpAttrs, inputs: &[TensorValue], output: Option<&mut TensorValue>) -> Result<()> {
     let out = expect_output(output)?;
     match (&inputs[0], out) {
-        (TensorValue::F8(a), TensorValue::Bool(out)) => super::kernels::normal::is_finite_f8_normal(a, out),
-        (TensorValue::BF16(a), TensorValue::Bool(out)) => super::kernels::normal::is_finite_bf16_normal(a, out),
-        (TensorValue::F16(a), TensorValue::Bool(out)) => super::kernels::normal::is_finite_f16_normal(a, out),
-        (TensorValue::F32(a), TensorValue::Bool(out)) => super::kernels::normal::is_finite_f32_normal(a, out),
-        (TensorValue::F64(a), TensorValue::Bool(out)) => super::kernels::normal::is_finite_f64_normal(a, out),
+        (TensorValue::F8(a0), TensorValue::Bool(out)) => super::kernels::normal::is_finite_f8_normal(a0, out),
+        (TensorValue::BF16(a0), TensorValue::Bool(out)) => super::kernels::normal::is_finite_bf16_normal(a0, out),
+        (TensorValue::F16(a0), TensorValue::Bool(out)) => super::kernels::normal::is_finite_f16_normal(a0, out),
+        (TensorValue::F32(a0), TensorValue::Bool(out)) => super::kernels::normal::is_finite_f32_normal(a0, out),
+        (TensorValue::F64(a0), TensorValue::Bool(out)) => super::kernels::normal::is_finite_f64_normal(a0, out),
         _ => Err(anyhow!("dtype mismatch")),
     }
 }

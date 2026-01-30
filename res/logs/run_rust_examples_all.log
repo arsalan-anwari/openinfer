@@ -66,57 +66,57 @@ abs_i1_i8: i8 [1, 0, 0, 0, 0, 0, 0, 0]
 
 === Example: branching_bad ===
 ==> cargo run --package openinfer --example branching_bad --features vulkan -- --target cpu
-0 70c2e774-4c79-4618-a00e-9dc8a915d52c [entry] -- op matmul(x,w) >> h -- (223ms 436us 3ns)
-1 03f791f1-9476-46bf-978a-8083a25fa426 [entry] -- op is_finite(h) >> cond -- (0ms 254us 700ns)
-2 c1fe0256-3b97-4df9-8e8d-9a05b8649f41 [entry] -- branch cond ok bad -- (0ms 0us 0ns)
-7 95c5106a-5574-4393-a5c1-41ef8541a90c [bad] -- op fill(x) >> x -- (0ms 476us 730ns)
-8 25662466-1ee6-4963-a564-396dfd6b6870 [bad] -- op fill(h) >> h -- (0ms 365us 860ns)
-9 2045b6b8-66dc-440a-8a80-87385a545791 [bad] -- return -- (0ms 0us 0ns)
-3 03462ebb-1001-42b8-aca5-d1d2b3a7c8ca [entry] -- branch algorithm -- (0ms 0us 0ns)
-10 6da47bd6-0cce-44f1-8fd0-c1ec2698b3c7 [algorithm] -- op add(h,x) >> h -- (25ms 761us 300ns)
-11 d56321e2-eed7-4d45-9afc-41c117ec558a [algorithm] -- return -- (0ms 0us 0ns)
-4 70ba5397-9ec8-44bc-91d5-739c8ce717f2 [entry] -- return -- (0ms 0us 0ns)
+0 a9a4a8d7-9900-498e-a7e0-f2224c793667 [entry] -- op matmul(x,w) >> h -- (198ms 320us 525ns)
+1 f5281849-cd36-49a7-a6f8-95748a910e19 [entry] -- op is_finite(h) >> cond -- (0ms 242us 911ns)
+2 52871b2b-3af2-493b-b903-f4e29550be3b [entry] -- branch cond ok bad -- (0ms 0us 0ns)
+7 3c5810a0-f8aa-47a8-b4a0-2e2b9c4f5f17 [bad] -- op fill(x) >> x -- (0ms 429us 945ns)
+8 c2c77498-9a3d-4794-9197-13f4218cca01 [bad] -- op fill(h) >> h -- (0ms 394us 698ns)
+9 657cccdc-ad3a-48fc-8b72-c6463811dec4 [bad] -- return -- (0ms 0us 0ns)
+3 cecc5564-68b6-4c1a-aff9-d381db60b500 [entry] -- branch algorithm -- (0ms 0us 0ns)
+10 8b58a217-cda7-4f70-b050-a451ca3fe0c7 [algorithm] -- op add(h,x) >> h -- (25ms 340us 730ns)
+11 6727b59c-7512-4ee8-bfc1-dd6ababd73ab [algorithm] -- return -- (0ms 0us 0ns)
+4 93dea07f-05f1-4098-bec7-32ca118ca72e [entry] -- return -- (0ms 0us 0ns)
 branch condition: false
 h[0..100] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
 ==> cargo run --package openinfer --example branching_bad --features vulkan -- --target vulkan
-0 94a4a984-972e-4067-b01e-51a66bacb224 [entry] -- op matmul(x,w) >> h -- (2ms 55us 104ns)
-1 f449d0af-686f-4cce-b156-f1ae2b5e30a9 [entry] -- op is_finite(h) >> cond -- (0ms 21us 41ns)
-2 79bf1060-6529-456e-84ae-51de527236cf [entry] -- branch cond ok bad -- (0ms 0us 0ns)
-7 f71fdedf-8fd9-4ee8-858c-c67f7cbd0319 [bad] -- op fill(x) >> x -- (0ms 154us 583ns)
-8 a03f0e28-cf6f-4c02-a0c3-029a86db9f68 [bad] -- op fill(h) >> h -- (0ms 155us 885ns)
-9 6ba922ab-05d6-4243-911a-4e889e3b486a [bad] -- return -- (0ms 0us 0ns)
-3 576255fd-1b6d-4f26-b030-c020f76067d5 [entry] -- branch algorithm -- (0ms 0us 0ns)
-10 97c41a0a-f029-4eb4-912a-f51f4dc6cd43 [algorithm] -- op add(h,x) >> h -- (0ms 462us 708ns)
-11 43116871-2b1c-45fe-8e26-54c759d4e329 [algorithm] -- return -- (0ms 0us 0ns)
-4 e72136b4-9a76-4cd3-bbac-263547894510 [entry] -- return -- (0ms 0us 0ns)
+0 2afc4298-63c5-480c-bfa7-8a973bd6d9a6 [entry] -- op matmul(x,w) >> h -- (2ms 67us 83ns)
+1 67138594-1eb1-4062-b878-245f2caf9e71 [entry] -- op is_finite(h) >> cond -- (0ms 20us 677ns)
+2 0c87352e-49ed-4633-b387-c96206443f4e [entry] -- branch cond ok bad -- (0ms 0us 0ns)
+7 4ff2764b-860e-4f25-90a3-c965f3c5045a [bad] -- op fill(x) >> x -- (0ms 155us 416ns)
+8 c8cf5b81-5733-4ae4-8f75-4125f7d99ae7 [bad] -- op fill(h) >> h -- (0ms 156us 458ns)
+9 a4e6f4ba-e4b5-4f4c-91ed-471f37d1b164 [bad] -- return -- (0ms 0us 0ns)
+3 f0eb5a2e-61be-478b-861d-d4b25d738661 [entry] -- branch algorithm -- (0ms 0us 0ns)
+10 62417aca-eeab-4dba-9195-c4e3e0ff0f72 [algorithm] -- op add(h,x) >> h -- (0ms 412us 864ns)
+11 4c4a47c6-383e-41ed-b48c-8dad57c90296 [algorithm] -- return -- (0ms 0us 0ns)
+4 a873a232-9bd4-4f34-b6ae-d2d2a58d28ec [entry] -- return -- (0ms 0us 0ns)
 branch condition: false
 h[0..100] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
 === Example: branching_good ===
 ==> cargo run --package openinfer --example branching_good --features vulkan -- --target cpu
-0 452bff50-8cb7-4b08-9cbc-e77d9845e259 [entry] -- op matmul(x,w) >> h -- (298ms 205us 298ns)
-1 66971825-3fec-484d-a09e-f0b377939197 [entry] -- op is_finite(h) >> cond -- (0ms 645us 950ns)
-2 bedf2553-821a-48ca-bf38-bda7720f29cb [entry] -- branch cond ok bad -- (0ms 0us 0ns)
-5 868a6ad4-2e4e-4b03-8559-6055958b4c36 [ok] -- op relu(h) >> h -- (0ms 784us 340ns)
-6 d67ff59d-af12-497f-ad3c-6da0eb105af5 [ok] -- return -- (0ms 0us 0ns)
-3 5ee4e36e-5c69-488b-ba66-6318f6ccd9e1 [entry] -- branch algorithm -- (0ms 0us 0ns)
-10 59f31b16-4afe-47fe-b236-7ddb0a481181 [algorithm] -- op add(h,x) >> h -- (26ms 143us 611ns)
-11 4d43e088-7df0-4e2f-b6f5-29fd983ba781 [algorithm] -- return -- (0ms 0us 0ns)
-4 fc34182f-1f78-485b-9e8c-10d0f2f1d1f5 [entry] -- return -- (0ms 0us 0ns)
+0 f7082395-d08f-4ed5-9fa5-c9edf2ca5120 [entry] -- op matmul(x,w) >> h -- (203ms 977us 552ns)
+1 13e7338a-296e-48e5-a3a1-364f7eca80e4 [entry] -- op is_finite(h) >> cond -- (0ms 566us 119ns)
+2 47f2f79d-8a5b-4e9e-aa3a-26c92fec2004 [entry] -- branch cond ok bad -- (0ms 0us 0ns)
+5 944a46d5-b358-40fd-aa47-a911bde556b0 [ok] -- op relu(h) >> h -- (0ms 741us 180ns)
+6 1d4bb172-f478-4e80-b8d1-799c312f7720 [ok] -- return -- (0ms 0us 0ns)
+3 848315d8-9f9d-4587-80bf-49ba064706cd [entry] -- branch algorithm -- (0ms 0us 0ns)
+10 9cdea9b6-7f7c-4998-9a27-85dfa906442d [algorithm] -- op add(h,x) >> h -- (25ms 776us 348ns)
+11 4d951813-1b33-4331-8c0f-1e9698800834 [algorithm] -- return -- (0ms 0us 0ns)
+4 0f12fba8-59c4-4dbe-a8fc-482aaa31e662 [entry] -- return -- (0ms 0us 0ns)
 branch condition: true
 h[0..100] = [2.0239592, -1.6191635, 2.7444534, -0.5900496, -1.4298182, 1.6507215, 0.81199145, 5.764553, 1.9409258, 5.648092, -1.3911409, 11.957924, 7.077615, -0.5789803, 5.310196, 0.57005286, 5.915538, 15.66467, 3.7640586, 1.8490815, 0.12245965, 2.1702785, 2.8210366, 0.1809628, 1.7674994, 5.9436984, -1.5426888, 13.82932, 2.0954661, -1.372572, 0.15709949, 0.45003772, 0.37553525, 1.013504, -0.46800947, 6.217969, 1.3188826, 12.470707, 7.3582306, -0.71331155, 0.50361085, 7.3153553, -0.9204968, 4.689171, 11.087003, 1.5467954, 1.9723754, -1.0020918, -1.9858856, 4.1264586, 1.080719, 1.5935211, 6.7715373, 5.6089125, 6.0948067, 0.39066052, 16.165125, -1.9280562, 1.7468729, -0.2523806, -1.3370771, 8.58633, 1.7167454, 12.462051, 1.220151, 16.234507, -0.579975, 4.768346, -0.40354446, 1.3154616, 6.3475823, 3.9559436, 4.105328, 8.369709, -1.5992846, 13.363926, -0.28400576, -1.2236832, -1.094735, 10.961312, 5.7909937, 3.2890692, 2.8219156, 1.569963, 1.6063905, 3.0355768, 10.785418, 1.8530431, 11.274473, 0.15377927, 7.9682093, 1.6642103, 5.866636, 2.9095628, 1.7243066, 0.33243966, -0.64327705, 12.276399, 1.7865682, 1.7103577]
 
 ==> cargo run --package openinfer --example branching_good --features vulkan -- --target vulkan
-0 7520f878-9b1c-4a40-ab75-8715029a4779 [entry] -- op matmul(x,w) >> h -- (7ms 40us 260ns)
-1 7f965006-8889-4ba7-bad0-310994b31ad8 [entry] -- op is_finite(h) >> cond -- (116ms 932us 601ns)
-2 619a6eb2-e1d2-48d0-9674-970cc10e7898 [entry] -- branch cond ok bad -- (0ms 0us 0ns)
-5 ffe48d67-4472-4c53-8cb5-a4851f08646a [ok] -- op relu(h) >> h -- (0ms 63us 749ns)
-6 b5c1f04a-0272-4e4c-8aea-6c74e0cf7da4 [ok] -- return -- (0ms 0us 0ns)
-3 2f3dbf15-34f9-4fbc-beb5-726359779634 [entry] -- branch algorithm -- (0ms 0us 0ns)
-10 2135450d-fc14-4932-a5b2-d18694984362 [algorithm] -- op add(h,x) >> h -- (0ms 98us 20ns)
-11 193cb051-3aaa-4174-8561-e84c15f5a151 [algorithm] -- return -- (0ms 0us 0ns)
-4 9109353f-e73d-4597-a263-135f3c78b8fe [entry] -- return -- (0ms 0us 0ns)
+0 4b1a304d-6c74-4f85-a9a9-f5006d689f8b [entry] -- op matmul(x,w) >> h -- (2ms 49us 843ns)
+1 b3837762-46e3-4822-a33f-1805e23c43cf [entry] -- op is_finite(h) >> cond -- (113ms 502us 340ns)
+2 852cc0d2-e83d-4638-be9e-d341f8da9232 [entry] -- branch cond ok bad -- (0ms 0us 0ns)
+5 0bba9fed-07e3-43d2-9db2-01b8ce2821fd [ok] -- op relu(h) >> h -- (0ms 78us 906ns)
+6 16a23b70-ae70-4908-8aef-33089740d777 [ok] -- return -- (0ms 0us 0ns)
+3 456d563e-9ec6-42cf-8afe-a5988e587f96 [entry] -- branch algorithm -- (0ms 0us 0ns)
+10 fe5c51c6-c087-4377-b2d4-ac2df3614030 [algorithm] -- op add(h,x) >> h -- (0ms 97us 916ns)
+11 50637081-fe40-4696-9d32-4123bd637bbf [algorithm] -- return -- (0ms 0us 0ns)
+4 18d942da-724f-4348-baa3-37420cd0a142 [entry] -- return -- (0ms 0us 0ns)
 branch condition: true
 h[0..100] = [2.0239592, -1.6191635, 2.744454, -0.5900496, -1.4298182, 1.6507204, 0.81199145, 5.764553, 1.9409255, 5.648093, -1.3911409, 11.957923, 7.077614, -0.5789803, 5.3101964, 0.57005286, 5.915539, 15.664672, 3.7640586, 1.8490815, 0.12245965, 2.1702774, 2.8210373, 0.1809628, 1.7674994, 5.9436994, -1.5426888, 13.82932, 2.095467, -1.372572, 0.15709949, 0.45003772, 0.37553525, 1.013504, -0.4680097, 6.217968, 1.3188831, 12.470709, 7.35823, -0.71331155, 0.50361085, 7.3153563, -0.9204968, 4.68917, 11.087004, 1.5467951, 1.9723754, -1.0020918, -1.9858856, 4.12646, 1.080719, 1.5935214, 6.7715373, 5.6089115, 6.0948076, 0.39066052, 16.165125, -1.9280562, 1.7468729, -0.2523806, -1.3370771, 8.586332, 1.7167454, 12.462051, 1.220151, 16.234509, -0.579975, 4.768345, -0.40354517, 1.3154616, 6.3475823, 3.9559426, 4.105327, 8.369709, -1.5992846, 13.363925, -0.28400642, -1.2236832, -1.094735, 10.961312, 5.7909937, 3.2890697, 2.8219156, 1.569963, 1.6063905, 3.0355773, 10.7854185, 1.8530431, 11.274473, 0.15377927, 7.9682093, 1.6642103, 5.8666353, 2.909561, 1.7243066, 0.33243966, -0.64327705, 12.2764, 1.7865682, 1.7103577]
 
@@ -185,17 +185,17 @@ step 2 out[0..4] = [0.62680745, -1.5604872, 2.0454118, -0.7754921]
 
 === Example: deserialize ===
 ==> cargo run --package openinfer --example deserialize --features vulkan -- --target cpu
-0 f1f1fdfd-5441-4210-874d-33108436e673 [entry] -- assign t0 -- (0ms 0us 0ns)
-1 1f8a1798-79f1-4bbf-b19e-a580f14deb24 [entry] -- op add(x,a) >> t0 -- (0ms 0us 0ns)
-2 dad8e3a7-6d18-497e-aab2-ba267a888d78 [entry] -- op mul(y,t0) >> y -- (0ms 0us 0ns)
-3 694fb41a-56db-44c4-b366-5ab8300d5bc4 [entry] -- return -- (0ms 0us 0ns)
+0 704e2ddc-7ad9-451c-81e1-3a895f7317a7 [entry] -- assign t0 -- (0ms 0us 0ns)
+1 77148ce5-a159-4738-a3bb-d01fd0e75fbf [entry] -- op add(x,a) >> t0 -- (0ms 0us 0ns)
+2 d5cfcaec-e42a-4b0a-875a-546b1703cc7a [entry] -- op mul(y,t0) >> y -- (0ms 0us 0ns)
+3 522653ab-c2ff-4f9e-8cf0-4194c9198a92 [entry] -- return -- (0ms 0us 0ns)
 y[0..100] = [30.264147, 27.615976, 1.9704801, 31.83252, 29.052525, -48.182278, 20.4248, 7.507924, 37.558743, -28.50735, -35.1819, 27.580126, -44.666138, -25.246027, 26.937254, 28.90633, 8.0797615, 23.964973, 0.05002767, 44.516903, 37.50197, 47.43583, -21.900875, -31.254988, -40.761982, -36.465603, 49.469322, 44.252487, -32.795532, -40.36075, -6.7792597, -11.271144, 16.422276, -1.1752007, -29.752789, 46.59925, 44.940166, -27.010052, -10.770239, 1.5567281, 20.003702, -30.934765, 23.028147, 31.150932, -0.14228255, -29.447533, -42.323906, 2.8432312, 34.513756, 16.971205, 26.575024, 0.75591534, -18.642351, 40.631363, 26.2729, 32.881565, 26.748686, -40.06402, 46.28954, 48.408157, -36.104546, -33.249332, -4.846969, 49.904427, -16.938805, 39.563164, -14.025449, 19.113659, -9.0368395, -43.860786, 28.370054, -43.25571, 39.53979, 11.042625, 20.978024, 6.621832, 18.90035, 32.71466, -14.236973, 20.444061, 38.066776, -44.103844, 34.30115, -44.486805, 48.789642, -2.5016356, 39.35639, 21.938873, -25.855982, 34.94481, -31.510696, -44.453808, -27.462963, -19.82955, 37.413155, -32.052902, 34.575325, 3.5758142, 11.11801, 49.920616]
 
 ==> cargo run --package openinfer --example deserialize --features vulkan -- --target vulkan
-0 f1f1fdfd-5441-4210-874d-33108436e673 [entry] -- assign t0 -- (0ms 0us 0ns)
-1 1f8a1798-79f1-4bbf-b19e-a580f14deb24 [entry] -- op add(x,a) >> t0 -- (0ms 0us 0ns)
-2 dad8e3a7-6d18-497e-aab2-ba267a888d78 [entry] -- op mul(y,t0) >> y -- (0ms 0us 0ns)
-3 694fb41a-56db-44c4-b366-5ab8300d5bc4 [entry] -- return -- (0ms 0us 0ns)
+0 704e2ddc-7ad9-451c-81e1-3a895f7317a7 [entry] -- assign t0 -- (0ms 0us 0ns)
+1 77148ce5-a159-4738-a3bb-d01fd0e75fbf [entry] -- op add(x,a) >> t0 -- (0ms 0us 0ns)
+2 d5cfcaec-e42a-4b0a-875a-546b1703cc7a [entry] -- op mul(y,t0) >> y -- (0ms 0us 0ns)
+3 522653ab-c2ff-4f9e-8cf0-4194c9198a92 [entry] -- return -- (0ms 0us 0ns)
 y[0..100] = [30.264147, 27.615976, 1.9704801, 31.83252, 29.052525, -48.182278, 20.4248, 7.507924, 37.558743, -28.50735, -35.1819, 27.580126, -44.666138, -25.246027, 26.937254, 28.90633, 8.0797615, 23.964973, 0.05002767, 44.516903, 37.50197, 47.43583, -21.900875, -31.254988, -40.761982, -36.465603, 49.469322, 44.252487, -32.795532, -40.36075, -6.7792597, -11.271144, 16.422276, -1.1752007, -29.752789, 46.59925, 44.940166, -27.010052, -10.770239, 1.5567281, 20.003702, -30.934765, 23.028147, 31.150932, -0.14228255, -29.447533, -42.323906, 2.8432312, 34.513756, 16.971205, 26.575024, 0.75591534, -18.642351, 40.631363, 26.2729, 32.881565, 26.748686, -40.06402, 46.28954, 48.408157, -36.104546, -33.249332, -4.846969, 49.904427, -16.938805, 39.563164, -14.025449, 19.113659, -9.0368395, -43.860786, 28.370054, -43.25571, 39.53979, 11.042625, 20.978024, 6.621832, 18.90035, 32.71466, -14.236973, 20.444061, 38.066776, -44.103844, 34.30115, -44.486805, 48.789642, -2.5016356, 39.35639, 21.938873, -25.855982, 34.94481, -31.510696, -44.453808, -27.462963, -19.82955, 37.413155, -32.052902, 34.575325, 3.5758142, 11.11801, 49.920616]
 
 === Example: dtypes ===
@@ -314,43 +314,43 @@ v_t1: dtype=T1 shape=[8]
 === Example: graph_nodes_traverse ===
 ==> cargo run --package openinfer --example graph_nodes_traverse --features vulkan -- --target cpu
 y={5.00, 5.00 ... 5.00, 5.00}      -- [Assign] entry ::  (0ms 0us 0ns)
-y={5.00, 5.00 ... 5.00, 5.00}      -- [OpExecute] entry :: add (1ms 235us 46ns)
-y={30.26, 27.62 ... 33.23, -39.93} -- [OpExecute] entry :: mul (1ms 106us 588ns)
+y={5.00, 5.00 ... 5.00, 5.00}      -- [OpExecute] entry :: add (1ms 101us 440ns)
+y={30.26, 27.62 ... 33.23, -39.93} -- [OpExecute] entry :: mul (0ms 885us 464ns)
 y={30.26, 27.62 ... 33.23, -39.93} -- [Return] entry ::  (0ms 0us 0ns)
 
 ==> cargo run --package openinfer --example graph_nodes_traverse --features vulkan -- --target vulkan
 y={5.00, 5.00 ... 5.00, 5.00}      -- [Assign] entry ::  (0ms 0us 0ns)
-y={5.00, 5.00 ... 5.00, 5.00}      -- [OpExecute] entry :: add (0ms 26us 979ns)
-y={30.26, 27.62 ... 33.23, -39.93} -- [OpExecute] entry :: mul (0ms 19us 791ns)
+y={5.00, 5.00 ... 5.00, 5.00}      -- [OpExecute] entry :: add (0ms 23us 906ns)
+y={30.26, 27.62 ... 33.23, -39.93} -- [OpExecute] entry :: mul (0ms 21us 874ns)
 y={30.26, 27.62 ... 33.23, -39.93} -- [Return] entry ::  (0ms 0us 0ns)
 
 === Example: loop ===
 ==> cargo run --package openinfer --example loop --features vulkan -- --target cpu
-0 d504d314-bc12-4630-9c42-e02c1d7ecb3c [entry] -- op add(x,QKV[0,0]) >> y -- (0ms 0us 0ns)
-3 9b025d5c-c6a8-4735-9fd3-e137436239b0 [entry] -- loop layers (l in 0..num_layers) -- (0ms 0us 0ns)
-2 3899819d-afd5-41e4-84b7-3e5eaea1cbef [entry] -- loop heads (h in 0..num_heads) -- (0ms 0us 0ns)
-1 78b1d365-91de-4188-b33f-4088b21c181b [entry] -- op add(y,QKV[l,h]) >> y -- (0ms 0us 0ns)
-1 78b1d365-91de-4188-b33f-4088b21c181b [entry] -- op add(y,QKV[l,h]) >> y -- (0ms 0us 0ns)
-1 78b1d365-91de-4188-b33f-4088b21c181b [entry] -- op add(y,QKV[l,h]) >> y -- (0ms 0us 0ns)
-2 3899819d-afd5-41e4-84b7-3e5eaea1cbef [entry] -- loop heads (h in 0..num_heads) -- (0ms 0us 0ns)
-1 78b1d365-91de-4188-b33f-4088b21c181b [entry] -- op add(y,QKV[l,h]) >> y -- (0ms 0us 0ns)
-1 78b1d365-91de-4188-b33f-4088b21c181b [entry] -- op add(y,QKV[l,h]) >> y -- (0ms 0us 0ns)
-1 78b1d365-91de-4188-b33f-4088b21c181b [entry] -- op add(y,QKV[l,h]) >> y -- (0ms 0us 0ns)
-4 b5fae2b2-ae1e-4f55-bba1-6004242cacf5 [entry] -- return -- (0ms 0us 0ns)
+0 a9144044-bd44-4bd5-84db-0e7f1a9276be [entry] -- op add(x,QKV[0,0]) >> y -- (0ms 0us 0ns)
+3 5ab78c18-0587-404f-86a9-273be2450e72 [entry] -- loop layers (l in 0..num_layers) -- (0ms 0us 0ns)
+2 e7c885a1-8783-4b3c-8b42-52330e1f34e9 [entry] -- loop heads (h in 0..num_heads) -- (0ms 0us 0ns)
+1 745e951b-9d8b-4927-a98c-271addbe0d12 [entry] -- op add(y,QKV[l,h]) >> y -- (0ms 0us 0ns)
+1 745e951b-9d8b-4927-a98c-271addbe0d12 [entry] -- op add(y,QKV[l,h]) >> y -- (0ms 0us 0ns)
+1 745e951b-9d8b-4927-a98c-271addbe0d12 [entry] -- op add(y,QKV[l,h]) >> y -- (0ms 0us 0ns)
+2 e7c885a1-8783-4b3c-8b42-52330e1f34e9 [entry] -- loop heads (h in 0..num_heads) -- (0ms 0us 0ns)
+1 745e951b-9d8b-4927-a98c-271addbe0d12 [entry] -- op add(y,QKV[l,h]) >> y -- (0ms 0us 0ns)
+1 745e951b-9d8b-4927-a98c-271addbe0d12 [entry] -- op add(y,QKV[l,h]) >> y -- (0ms 0us 0ns)
+1 745e951b-9d8b-4927-a98c-271addbe0d12 [entry] -- op add(y,QKV[l,h]) >> y -- (0ms 0us 0ns)
+4 e01351ff-65e2-40e3-bef5-7c4c08b48b8e [entry] -- return -- (0ms 0us 0ns)
 y[0..8] = [-0.7331805, 0.05311477, -0.50252336, 0.08545053, 0.73685336, 0.27293026, 0.98016953, -0.18819654]
 
 ==> cargo run --package openinfer --example loop --features vulkan -- --target vulkan
-0 39d82e3c-787a-467a-98f7-77f9ad6b083b [entry] -- op add(x,QKV[0,0]) >> y -- (0ms 0us 0ns)
-3 980296ec-d982-4177-9469-01ad2c6f8649 [entry] -- loop layers (l in 0..num_layers) -- (0ms 0us 0ns)
-2 3ec81377-c9ae-4d0f-b43f-5ab20ab1a555 [entry] -- loop heads (h in 0..num_heads) -- (0ms 0us 0ns)
-1 0fcae2bf-e23b-45f3-b485-0eb79ef672c8 [entry] -- op add(y,QKV[l,h]) >> y -- (0ms 0us 0ns)
-1 0fcae2bf-e23b-45f3-b485-0eb79ef672c8 [entry] -- op add(y,QKV[l,h]) >> y -- (0ms 0us 0ns)
-1 0fcae2bf-e23b-45f3-b485-0eb79ef672c8 [entry] -- op add(y,QKV[l,h]) >> y -- (0ms 0us 0ns)
-2 3ec81377-c9ae-4d0f-b43f-5ab20ab1a555 [entry] -- loop heads (h in 0..num_heads) -- (0ms 0us 0ns)
-1 0fcae2bf-e23b-45f3-b485-0eb79ef672c8 [entry] -- op add(y,QKV[l,h]) >> y -- (0ms 0us 0ns)
-1 0fcae2bf-e23b-45f3-b485-0eb79ef672c8 [entry] -- op add(y,QKV[l,h]) >> y -- (0ms 0us 0ns)
-1 0fcae2bf-e23b-45f3-b485-0eb79ef672c8 [entry] -- op add(y,QKV[l,h]) >> y -- (0ms 0us 0ns)
-4 77140926-6472-4ae8-ae98-ed2c2f1f7903 [entry] -- return -- (0ms 0us 0ns)
+0 495b0e26-1ae0-4078-a235-c929b7fe0bc6 [entry] -- op add(x,QKV[0,0]) >> y -- (0ms 0us 0ns)
+3 783359c1-9222-4d0c-9ece-ab37076d5b25 [entry] -- loop layers (l in 0..num_layers) -- (0ms 0us 0ns)
+2 c8f6eb12-91eb-4ba6-a36f-67a73dbc6e5d [entry] -- loop heads (h in 0..num_heads) -- (0ms 0us 0ns)
+1 c2d2404f-4cbe-4688-bc34-b000ddd98660 [entry] -- op add(y,QKV[l,h]) >> y -- (0ms 0us 0ns)
+1 c2d2404f-4cbe-4688-bc34-b000ddd98660 [entry] -- op add(y,QKV[l,h]) >> y -- (0ms 0us 0ns)
+1 c2d2404f-4cbe-4688-bc34-b000ddd98660 [entry] -- op add(y,QKV[l,h]) >> y -- (0ms 0us 0ns)
+2 c8f6eb12-91eb-4ba6-a36f-67a73dbc6e5d [entry] -- loop heads (h in 0..num_heads) -- (0ms 0us 0ns)
+1 c2d2404f-4cbe-4688-bc34-b000ddd98660 [entry] -- op add(y,QKV[l,h]) >> y -- (0ms 0us 0ns)
+1 c2d2404f-4cbe-4688-bc34-b000ddd98660 [entry] -- op add(y,QKV[l,h]) >> y -- (0ms 0us 0ns)
+1 c2d2404f-4cbe-4688-bc34-b000ddd98660 [entry] -- op add(y,QKV[l,h]) >> y -- (0ms 0us 0ns)
+4 8f14dd76-415f-439a-aecc-ea458d25f369 [entry] -- return -- (0ms 0us 0ns)
 y[0..8] = [-0.7331805, 0.05311477, -0.50252336, 0.08545053, 0.73685336, 0.27293026, 0.98016953, -0.18819654]
 
 === Example: minimal ===
@@ -1505,37 +1505,37 @@ ops_variants completed on Vulkan
 
 === Example: prefix_table ===
 ==> cargo run --package openinfer --example prefix_table --features vulkan -- --target cpu
-0 821ea28c-1919-476b-87ba-429372a60beb [entry] -- op add(x,W[0]) >> y -- (0ms 0us 0ns)
-1 201a01d4-46ed-4646-b423-adbb1f722f32 [entry] -- op add(y,W[1]) >> y -- (0ms 0us 0ns)
-2 91176594-befd-4b42-a093-db05867b16d9 [entry] -- op add(y,W[2]) >> y -- (0ms 0us 0ns)
-3 29c6f0c0-cf25-4856-adea-fc52b247670d [entry] -- op add(y,W[3]) >> y -- (0ms 0us 0ns)
-4 1e1feb5a-dd6d-4cc4-801d-72b972949add [entry] -- op add(y,W[4]) >> y -- (0ms 0us 0ns)
-5 22a66fc9-df09-47d6-9bb1-220b0f7a3aad [entry] -- op add(y,W[5]) >> y -- (0ms 0us 0ns)
-6 16592a15-846a-4d70-b049-937e811c52ac [entry] -- op add(y,W[6]) >> y -- (0ms 0us 0ns)
-7 26e6eee2-6b2b-4f75-ae59-03dadd917b19 [entry] -- op add(y,W[7]) >> y -- (0ms 0us 0ns)
-8 cb7b1598-f624-4d44-b6e8-b50c575fcd97 [entry] -- op add(y,W[8]) >> y -- (0ms 0us 0ns)
-9 92706732-3478-4c06-8307-d8f245dbf035 [entry] -- op add(y,W[9]) >> y -- (0ms 0us 0ns)
-10 311031d4-71d9-48a5-9148-4a8de4644777 [entry] -- op add(y,W[10]) >> y -- (0ms 0us 0ns)
-11 03307136-4e03-42c1-8bdb-8d47340bd0fb [entry] -- op add(y,QKV[0,0]) >> y -- (0ms 0us 0ns)
-12 9881f214-8f86-427f-90c9-db912c90c0d8 [entry] -- op add(y,QKV[1,2]) >> y -- (0ms 0us 0ns)
-13 14bcac11-b6a0-47b0-b067-19f22c7ad1ce [entry] -- return -- (0ms 0us 0ns)
+0 58f44c08-f56c-4a78-9754-c4f657a5e7f8 [entry] -- op add(x,W[0]) >> y -- (0ms 0us 0ns)
+1 d29b711a-e24e-4e4a-bea7-ec936ff45349 [entry] -- op add(y,W[1]) >> y -- (0ms 0us 0ns)
+2 2821b896-cb29-4b2d-9c97-6e51fad33061 [entry] -- op add(y,W[2]) >> y -- (0ms 0us 0ns)
+3 67927b62-a3de-4df3-afff-e3f54dd6cb08 [entry] -- op add(y,W[3]) >> y -- (0ms 0us 0ns)
+4 dc815547-3899-4e12-b74a-b35718195c26 [entry] -- op add(y,W[4]) >> y -- (0ms 0us 0ns)
+5 5d596b01-c0d5-4453-ba45-0e5f2a534b9d [entry] -- op add(y,W[5]) >> y -- (0ms 0us 0ns)
+6 192b70ed-dfdc-48fe-8867-eaac89e7ee3f [entry] -- op add(y,W[6]) >> y -- (0ms 0us 0ns)
+7 3677d9a6-a7b7-4d75-88da-0b44ab0e720c [entry] -- op add(y,W[7]) >> y -- (0ms 0us 0ns)
+8 69489f8e-da9c-4a02-bd1a-500943eb207e [entry] -- op add(y,W[8]) >> y -- (0ms 0us 0ns)
+9 09d38057-6c2a-4a99-8371-8e76b1bf545e [entry] -- op add(y,W[9]) >> y -- (0ms 0us 0ns)
+10 b1a8238c-de4c-41a7-b81e-774203d6c3af [entry] -- op add(y,W[10]) >> y -- (0ms 0us 0ns)
+11 f3c9e03b-8408-49ae-9bb3-18c5565ef70e [entry] -- op add(y,QKV[0,0]) >> y -- (0ms 0us 0ns)
+12 083e239b-5509-44a4-bbb9-33a954e8fbb1 [entry] -- op add(y,QKV[1,2]) >> y -- (0ms 0us 0ns)
+13 a9eacf30-534f-4003-b209-35a9b0e42c22 [entry] -- return -- (0ms 0us 0ns)
 y[0..8] = [-0.16671813, -0.9393654, -0.7148936, -0.38582748, -0.87854815, -0.7147157, 0.3036996, 0.08503449]
 
 ==> cargo run --package openinfer --example prefix_table --features vulkan -- --target vulkan
-0 178f2718-d4b0-44fb-a3fc-db7461545e3a [entry] -- op add(x,W[0]) >> y -- (0ms 0us 0ns)
-1 60ff3bfd-b40a-4dfa-836d-3d560f55b6a0 [entry] -- op add(y,W[1]) >> y -- (0ms 0us 0ns)
-2 d72ce1ab-2308-4ec7-a249-f5b911e20cdf [entry] -- op add(y,W[2]) >> y -- (0ms 0us 0ns)
-3 9e0d6573-5bf4-4b23-866f-1aa044888834 [entry] -- op add(y,W[3]) >> y -- (0ms 0us 0ns)
-4 e314f3ff-3d27-4099-b521-7bad4f1eed8e [entry] -- op add(y,W[4]) >> y -- (0ms 0us 0ns)
-5 4c06f0e5-67a6-4790-a9fa-e4b4638d945f [entry] -- op add(y,W[5]) >> y -- (0ms 0us 0ns)
-6 a5eccdc8-30fc-4658-a7c7-82d5a7fa25a7 [entry] -- op add(y,W[6]) >> y -- (0ms 0us 0ns)
-7 8b4f4622-9d4e-4363-8953-a7d4441c78e7 [entry] -- op add(y,W[7]) >> y -- (0ms 0us 0ns)
-8 601456a5-489f-4318-9e29-213b40eee235 [entry] -- op add(y,W[8]) >> y -- (0ms 0us 0ns)
-9 42c18c70-9c27-4c89-ba09-555ae66071a2 [entry] -- op add(y,W[9]) >> y -- (0ms 0us 0ns)
-10 992c2774-394b-4d7d-8f96-0ccbac917180 [entry] -- op add(y,W[10]) >> y -- (0ms 0us 0ns)
-11 fc13cae4-38b6-4a34-84d3-5e43488410c5 [entry] -- op add(y,QKV[0,0]) >> y -- (0ms 0us 0ns)
-12 c638167d-f512-4547-b2ea-af0d4600a47c [entry] -- op add(y,QKV[1,2]) >> y -- (0ms 0us 0ns)
-13 768601f9-c5ce-46e0-8c59-48fa38b86545 [entry] -- return -- (0ms 0us 0ns)
+0 a50e4481-cee2-4ae7-b257-66c4901cd8f1 [entry] -- op add(x,W[0]) >> y -- (0ms 0us 0ns)
+1 ae100a17-1b96-426f-b467-075af6960ca1 [entry] -- op add(y,W[1]) >> y -- (0ms 0us 0ns)
+2 da1fef60-1675-448f-a7ac-b5efb7ff6856 [entry] -- op add(y,W[2]) >> y -- (0ms 0us 0ns)
+3 648e16a0-6063-455d-9c4c-ce52db8786cc [entry] -- op add(y,W[3]) >> y -- (0ms 0us 0ns)
+4 0962f6ab-a0cd-40f4-8fc2-126da7d72134 [entry] -- op add(y,W[4]) >> y -- (0ms 0us 0ns)
+5 f966f95f-ff77-4ee4-aac3-7f4988406bce [entry] -- op add(y,W[5]) >> y -- (0ms 0us 0ns)
+6 c7642e82-3b1e-4baa-85ae-ca382d7d37d4 [entry] -- op add(y,W[6]) >> y -- (0ms 0us 0ns)
+7 a5f1c911-b035-40e5-ace8-765139831083 [entry] -- op add(y,W[7]) >> y -- (0ms 0us 0ns)
+8 5d940a60-a880-4172-8733-202f11d9a5c6 [entry] -- op add(y,W[8]) >> y -- (0ms 0us 0ns)
+9 08ce6a5a-4a77-4511-a18f-cae7e6df79c1 [entry] -- op add(y,W[9]) >> y -- (0ms 0us 0ns)
+10 cac1bdee-c5ed-4007-b083-5fa3ad542d05 [entry] -- op add(y,W[10]) >> y -- (0ms 0us 0ns)
+11 f69cf665-cc9e-4622-96ef-09d0a0f634ad [entry] -- op add(y,QKV[0,0]) >> y -- (0ms 0us 0ns)
+12 87fa0cfb-122a-48ef-9691-0fb6f1425056 [entry] -- op add(y,QKV[1,2]) >> y -- (0ms 0us 0ns)
+13 9cfaf0f9-ad1b-4c34-a2af-b534e9cb9c33 [entry] -- return -- (0ms 0us 0ns)
 y[0..8] = [-0.16671813, -0.9393654, -0.7148936, -0.38582748, -0.87854815, -0.7147157, 0.3036996, 0.08503449]
 
 === Example: reference ===
@@ -1561,37 +1561,37 @@ y[0..100] = [0.0, 0.0, 0.0, 0.0, 0.0, -0.0, 0.0, 0.0, 0.0, -0.0, -0.0, 0.0, -0.0
 
 === Example: trace_example ===
 ==> cargo run --package openinfer --example trace_example --features vulkan -- --target cpu
-0 25ef2a8a-e179-45a9-afcd-bd9415fd0a7c [entry] -- assign t0 -- (0ms 0us 0ns)
-1 ad818e51-bec1-4097-9b13-5c99edf826d2 [entry] -- op add(x,a) >> t0 -- (1ms 204us 293ns)
-2 50db922b-d23e-4ba0-ad70-da557db5795c [entry] -- op mul(y,t0) >> y -- (1ms 103us 699ns)
-3 9749ef8c-eb02-4243-9dc4-258e1d12b342 [entry] -- return -- (0ms 0us 0ns)
+0 0ee043aa-bf99-448b-bcc4-abc70626ef60 [entry] -- assign t0 -- (0ms 0us 0ns)
+1 31cfdc9f-4f6e-4a03-abcd-19ccf68175ee [entry] -- op add(x,a) >> t0 -- (0ms 811us 670ns)
+2 7d88576d-5523-428e-a165-8e4a273f3536 [entry] -- op mul(y,t0) >> y -- (0ms 656us 444ns)
+3 bf28a9fe-2b63-44c7-972e-f8a055928922 [entry] -- return -- (0ms 0us 0ns)
 
 ==> cargo run --package openinfer --example trace_example --features vulkan -- --target vulkan
-0 f11212e3-0ea6-4b50-9a10-63f1b95a17d2 [entry] -- assign t0 -- (0ms 0us 0ns)
-1 ff727bb7-51cb-4cc4-a1aa-65c1fac54085 [entry] -- op add(x,a) >> t0 -- (0ms 25us 833ns)
-2 6e35c7e2-9fde-47a1-9a50-f708a4ac3991 [entry] -- op mul(y,t0) >> y -- (0ms 22us 83ns)
-3 de930f69-575f-49d7-8023-90c752802ec1 [entry] -- return -- (0ms 0us 0ns)
+0 c61dcf7b-3bb9-4708-a0e9-ebb6eae3b1f8 [entry] -- assign t0 -- (0ms 0us 0ns)
+1 5808e0e2-2d60-4896-ae9f-7e09bccf6f4d [entry] -- op add(x,a) >> t0 -- (0ms 26us 822ns)
+2 3c386fc4-7f19-4d72-9d55-98027abaee0d [entry] -- op mul(y,t0) >> y -- (0ms 21us 406ns)
+3 010b617d-71e9-4ea9-a21e-2d4b848bc015 [entry] -- return -- (0ms 0us 0ns)
 
 === Example: worst_case ===
 ==> cargo run --package openinfer --example worst_case --features vulkan -- --target cpu
-2 c11c3180-8903-4652-bac0-6199378097ab [entry] -- loop steps (l in 0..2) -- (0ms 0us 0ns)
-0 7bdae07d-5f21-4db4-a8fd-52be5934ef5f [entry] -- op add(x,w) >> x2 -- (1ms 268us 538ns)
-1 7d21ef18-3b61-4e2e-b73a-5be3bc4810b3 [entry] -- op abs(x2) >> x2 -- (0ms 75us 198ns)
-0 7bdae07d-5f21-4db4-a8fd-52be5934ef5f [entry] -- op add(x,w) >> x2 -- (0ms 925us 869ns)
-1 7d21ef18-3b61-4e2e-b73a-5be3bc4810b3 [entry] -- op abs(x2) >> x2 -- (0ms 44us 454ns)
-3 e39cf2d8-9973-4390-a25c-3209c13c8d56 [entry] -- return -- (0ms 0us 0ns)
+2 9dfb1a50-05a8-4cfb-a4bf-e13ac3db5683 [entry] -- loop steps (l in 0..2) -- (0ms 0us 0ns)
+0 d5bcd314-185a-4b56-958e-663e314c7041 [entry] -- op add(x,w) >> x2 -- (0ms 859us 345ns)
+1 d886e420-d0ea-428f-a0d6-b372ea54f534 [entry] -- op abs(x2) >> x2 -- (0ms 45us 606ns)
+0 d5bcd314-185a-4b56-958e-663e314c7041 [entry] -- op add(x,w) >> x2 -- (0ms 738us 205ns)
+1 d886e420-d0ea-428f-a0d6-b372ea54f534 [entry] -- op abs(x2) >> x2 -- (0ms 61us 913ns)
+3 b408f223-a2f8-40c0-be67-9d315840dee7 [entry] -- return -- (0ms 0us 0ns)
 x.len() = 1024
 x[0..100] = [-0.16671813, -0.9393654, -0.7148936, -0.38582748, -0.87854815, -0.7147157, 0.3036996, 0.08503449, 0.23736966, -0.4550056, 0.47413385, 0.9022627, 0.19213736, -0.64907694, 0.48714817, -0.48646826, -0.05994904, -0.7495589, -0.24614131, 0.44690382, 0.003882289, 0.27775252, -0.21279514, -0.95874715, -0.8135228, -0.8299129, -0.36529082, -0.2522146, -0.43624967, 0.25772655, 0.5744362, 0.76358485, -0.22134578, 0.77832747, 0.85434985, 0.1356157, 0.77634215, 0.0027629137, -0.831239, 0.28714335, -0.7529645, -0.17295873, -0.54874533, -0.2433368, -0.9985719, -0.04233539, -0.278022, 0.57400775, -0.756546, -0.53142184, 0.6971016, -0.46289104, 0.7777593, 0.81742597, 0.69351697, 0.7984781, -0.45996612, -0.9440856, -0.86730146, 0.8551948, -0.54006046, -0.17054927, 0.032194257, -0.075229526, -0.6594403, 0.9118509, -0.828043, -0.38320726, 0.28036344, 0.12787855, -0.22944152, -0.97249293, 0.4989444, 0.35415804, -0.6027867, 0.17603004, -0.43186492, -0.10353005, 0.11264527, -0.43713707, 0.48052323, -0.5725362, 0.7939911, 0.33389223, -0.36337918, -0.7343564, -0.28584117, 0.935297, -0.9363947, -0.07592833, 0.76071167, 0.27405608, -0.33965844, -0.4273774, 0.4500414, -0.19091976, 0.8967991, -0.619878, -0.8046601, -0.4368667]
 x2.len() = 1024
 x2[0..100] = [0.7866814, 1.1789739, 0.13159889, 0.8624426, 1.2403541, 1.4785333, 0.21276778, 0.27789766, 1.165528, 0.927706, 0.3561461, 1.1220043, 0.91937995, 0.0784384, 0.8369108, 0.16671956, 0.41156635, 1.3040516, 0.90200895, 1.1877338, 0.87584037, 0.64513034, 0.1296809, 0.7367112, 1.6932483, 0.12562567, 0.48738757, 0.18702456, 1.429985, 0.23973924, 1.2914171, 0.6141815, 0.2502922, 1.6224139, 0.16129822, 1.1201341, 0.1410057, 0.8829887, 1.6574728, 0.22356477, 0.09498608, 0.6108542, 0.18943769, 0.7094964, 0.31514454, 0.14458819, 0.5370051, 0.53934664, 1.5721829, 1.0780556, 0.77023405, 0.0035722554, 0.67558086, 0.42842752, 1.5882361, 1.3005458, 0.5158692, 1.0295339, 0.37462586, 1.5659945, 0.95305735, 0.29607973, 0.6498557, 0.69894445, 1.6097739, 0.93694985, 0.6024716, 0.82250935, 0.18462689, 0.19032073, 0.7478276, 1.9605366, 0.09847903, 0.13209036, 0.9212971, 0.717966, 0.77887595, 0.70681363, 0.77107507, 0.1628938, 0.34859532, 1.1322153, 1.1563431, 0.3972876, 0.5496482, 1.4613085, 0.3095631, 0.93188405, 1.3269793, 0.6075162, 1.546728, 0.029129088, 1.1869676, 1.3597636, 0.37326807, 0.5567282, 0.59801805, 0.027163088, 0.08973807, 1.3027853]
 
 ==> cargo run --package openinfer --example worst_case --features vulkan -- --target vulkan
-2 58a1fa5b-2279-4abc-8f78-35fbd2d55302 [entry] -- loop steps (l in 0..2) -- (0ms 0us 0ns)
-0 79817997-c639-4e95-83b7-c3e34a1aa50b [entry] -- op add(x,w) >> x2 -- (0ms 17us 916ns)
-1 5123d879-c731-4b2a-b99b-f82fcfeba8cd [entry] -- op abs(x2) >> x2 -- (0ms 12us 135ns)
-0 79817997-c639-4e95-83b7-c3e34a1aa50b [entry] -- op add(x,w) >> x2 -- (0ms 14us 947ns)
-1 5123d879-c731-4b2a-b99b-f82fcfeba8cd [entry] -- op abs(x2) >> x2 -- (0ms 14us 270ns)
-3 2e1ee4b7-7e9c-4ad9-a5fa-b7da902468f3 [entry] -- return -- (0ms 0us 0ns)
+2 deccc08f-fa34-465f-b386-f38567d61ef0 [entry] -- loop steps (l in 0..2) -- (0ms 0us 0ns)
+0 ec1db395-65ca-473b-ab38-374b56110101 [entry] -- op add(x,w) >> x2 -- (0ms 24us 322ns)
+1 7fbc51bc-f516-4ef8-a07d-f2a7de7cc989 [entry] -- op abs(x2) >> x2 -- (0ms 17us 968ns)
+0 ec1db395-65ca-473b-ab38-374b56110101 [entry] -- op add(x,w) >> x2 -- (0ms 29us 166ns)
+1 7fbc51bc-f516-4ef8-a07d-f2a7de7cc989 [entry] -- op abs(x2) >> x2 -- (0ms 20us 572ns)
+3 e8d3e6aa-9b02-4f1f-838a-be2f9751b05c [entry] -- return -- (0ms 0us 0ns)
 x.len() = 1024
 x[0..100] = [-0.16671813, -0.9393654, -0.7148936, -0.38582748, -0.87854815, -0.7147157, 0.3036996, 0.08503449, 0.23736966, -0.4550056, 0.47413385, 0.9022627, 0.19213736, -0.64907694, 0.48714817, -0.48646826, -0.05994904, -0.7495589, -0.24614131, 0.44690382, 0.003882289, 0.27775252, -0.21279514, -0.95874715, -0.8135228, -0.8299129, -0.36529082, -0.2522146, -0.43624967, 0.25772655, 0.5744362, 0.76358485, -0.22134578, 0.77832747, 0.85434985, 0.1356157, 0.77634215, 0.0027629137, -0.831239, 0.28714335, -0.7529645, -0.17295873, -0.54874533, -0.2433368, -0.9985719, -0.04233539, -0.278022, 0.57400775, -0.756546, -0.53142184, 0.6971016, -0.46289104, 0.7777593, 0.81742597, 0.69351697, 0.7984781, -0.45996612, -0.9440856, -0.86730146, 0.8551948, -0.54006046, -0.17054927, 0.032194257, -0.075229526, -0.6594403, 0.9118509, -0.828043, -0.38320726, 0.28036344, 0.12787855, -0.22944152, -0.97249293, 0.4989444, 0.35415804, -0.6027867, 0.17603004, -0.43186492, -0.10353005, 0.11264527, -0.43713707, 0.48052323, -0.5725362, 0.7939911, 0.33389223, -0.36337918, -0.7343564, -0.28584117, 0.935297, -0.9363947, -0.07592833, 0.76071167, 0.27405608, -0.33965844, -0.4273774, 0.4500414, -0.19091976, 0.8967991, -0.619878, -0.8046601, -0.4368667]
 x2.len() = 1024
@@ -1599,19 +1599,19 @@ x2[0..100] = [0.7866814, 1.1789739, 0.13159889, 0.8624426, 1.2403541, 1.4785333,
 
 === Example: yield ===
 ==> cargo run --package openinfer --example yield --features vulkan -- --target cpu
-0 23833dbf-e041-4ae0-b3d9-4b70674b15ad [entry] -- op matmul(x,w) >> h -- (617ms 719us 267ns)
-1 d9876330-5835-4bcc-9f77-28000eae1c37 [entry] -- yield x -- (0ms 0us 0ns)
-2 5f8e3103-8973-4635-9f25-5c97f51fe304 [entry] -- op relu(h) >> h -- (0ms 139us 173ns)
-3 74963ae8-7b25-4907-a701-b9136f72921c [entry] -- await x -- (0ms 0us 0ns)
-4 1ec664b1-55bc-411c-a476-5e914081eb6c [entry] -- return -- (0ms 0us 0ns)
+0 5a999165-3036-4fbf-a58a-a4b5282b7588 [entry] -- op matmul(x,w) >> h -- (222ms 666us 485ns)
+1 d15b2f8e-e8d8-4333-b008-23e2a66eeca3 [entry] -- yield x -- (0ms 0us 0ns)
+2 9f786e51-40ec-4540-9789-51718daa4067 [entry] -- op relu(h) >> h -- (0ms 122us 406ns)
+3 e9eb7240-333e-41e7-84a7-3da5261dd633 [entry] -- await x -- (0ms 0us 0ns)
+4 8a7f04f5-7b5d-429d-bfdc-902fc0e44aaa [entry] -- return -- (0ms 0us 0ns)
 x[0..8] = [0.600452, 0.45852458, 0.11033394, 0.53058904, 0.6259034, -0.9439832, 0.3392783, 0.18437307]
 
 ==> cargo run --package openinfer --example yield --features vulkan -- --target vulkan
-0 e2f1bb4e-981b-45aa-9792-53b094712dae [entry] -- op matmul(x,w) >> h -- (1ms 460us 208ns)
-1 f1b383a7-e60a-4e44-be85-0d4caad1a47e [entry] -- yield x -- (0ms 0us 0ns)
-2 53b73f6f-4386-4d29-a492-c8ff30ec06cd [entry] -- op relu(h) >> h -- (0ms 27us 760ns)
-3 6246336a-9e04-4b3a-ac1f-4ecbecb6e717 [entry] -- await x -- (0ms 0us 0ns)
-4 07714c06-c213-42bb-9948-39cddd0be532 [entry] -- return -- (0ms 0us 0ns)
+0 4841277e-cb8c-4967-97e3-2ceebd70e1dd [entry] -- op matmul(x,w) >> h -- (1ms 662us 812ns)
+1 7385249c-97f0-47ed-beb3-d9745cba242a [entry] -- yield x -- (0ms 0us 0ns)
+2 b12ceab5-c885-4978-93c6-b994201578e1 [entry] -- op relu(h) >> h -- (0ms 43us 385ns)
+3 d6c48ba2-337c-4c76-aae9-50008219dcbf [entry] -- await x -- (0ms 0us 0ns)
+4 40ba80e4-b2cf-42c9-b623-e250dc661ffa [entry] -- return -- (0ms 0us 0ns)
 x[0..8] = [0.600452, 0.45976013, 0.108111076, 0.5444539, 0.6162177, -0.9507775, 0.34048885, 0.16585201]
 
 All Rust examples completed successfully.

@@ -165,8 +165,7 @@ fn cpu_fallback(
         kind: OpKind::IsFinite,
         mode,
         broadcast: false,
-        in0: inputs[0].dtype(),
-        in1: None,
+        inputs: inputs.iter().map(|tensor| tensor.dtype()).collect(),
         out0: output_dtype,
     };
     let kernel = crate::ops::cpu::registry::lookup_kernel(key)?;
