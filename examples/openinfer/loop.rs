@@ -55,7 +55,7 @@ fn main() -> anyhow::Result<()> {
     exec.step()?;
 
     fetch_executor!(exec, { y: Tensor<f32> });
-    openinfer::trace!("y[0..8] = {:?}", &y.data[..8.min(y.len())]);
+    openinfer::log!("y[0..8] = {:?}", &y.data[..8.min(y.len())]);
 
     Ok(())
 }

@@ -68,14 +68,14 @@ fn main() -> anyhow::Result<()> {
     exec.step()?;
 
     fetch_executor!(exec, { h: Tensor<f32>, cond: bool });
-    openinfer::trace!("branch condition: {}", cond);
-    openinfer::trace!("h[0..100] = {:?}", &h.data[..100.min(h.len())]);
+    openinfer::log!("branch condition: {}", cond);
+    openinfer::log!("h[0..100] = {:?}", &h.data[..100.min(h.len())]);
 
-    let trace = exec.trace();
+    let log = exec.trace();
     let out_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../examples/openinfer/out");
     std::fs::create_dir_all(&out_dir)?;
-    let out_path = out_dir.join("branching_good_trace.json");
-    std::fs::write(out_path, serde_json::to_string_pretty(&trace)?)?;
+    let out_path = out_dir.join("branching_good_log.json");
+    std::fs::write(out_path, serde_json::to_string_pretty(&log)?)?;
 
     Ok(())
 }

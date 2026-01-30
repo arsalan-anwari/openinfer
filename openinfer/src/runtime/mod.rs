@@ -12,6 +12,7 @@ mod model_loader;
 mod op_runner;
 mod tensor_store;
 mod trace;
+pub mod validation;
 
 pub use executor::{Executor, Fetchable};
 pub use model_loader::ModelLoader;

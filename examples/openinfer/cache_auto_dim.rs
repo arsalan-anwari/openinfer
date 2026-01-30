@@ -57,25 +57,25 @@ fn main() -> anyhow::Result<()> {
     insert_executor!(exec, { bias: 1.0f32 });
     exec.step()?;
     fetch_executor!(exec, { out_l: Tensor<f32>, out_m: Tensor<f32>, out_n: Tensor<f32> });
-    openinfer::trace!("step 1 L shape = {:?}", out_l.shape());
-    openinfer::trace!("step 1 M shape = {:?}", out_m.shape());
-    openinfer::trace!("step 1 N shape = {:?}", out_n.shape());
+    openinfer::log!("step 1 L shape = {:?}", out_l.shape());
+    openinfer::log!("step 1 M shape = {:?}", out_m.shape());
+    openinfer::log!("step 1 N shape = {:?}", out_n.shape());
 
-    openinfer::trace!("");
+    openinfer::log!("");
     insert_executor!(exec, { bias: 1.0f32 });
     exec.step()?;
     fetch_executor!(exec, { out_l: Tensor<f32>, out_m: Tensor<f32>, out_n: Tensor<f32> });
-    openinfer::trace!("step 2 L shape = {:?}", out_l.shape());
-    openinfer::trace!("step 2 M shape = {:?}", out_m.shape());
-    openinfer::trace!("step 2 N shape = {:?}", out_n.shape());
+    openinfer::log!("step 2 L shape = {:?}", out_l.shape());
+    openinfer::log!("step 2 M shape = {:?}", out_m.shape());
+    openinfer::log!("step 2 N shape = {:?}", out_n.shape());
 
-    openinfer::trace!("");
+    openinfer::log!("");
     insert_executor!(exec, { bias: 1.0f32 });
     exec.step()?;
     fetch_executor!(exec, { out_l: Tensor<f32>, out_m: Tensor<f32>, out_n: Tensor<f32> });
-    openinfer::trace!("step 3 L shape = {:?}", out_l.shape());
-    openinfer::trace!("step 3 M shape = {:?}", out_m.shape());
-    openinfer::trace!("step 3 N shape = {:?}", out_n.shape());
+    openinfer::log!("step 3 L shape = {:?}", out_l.shape());
+    openinfer::log!("step 3 M shape = {:?}", out_m.shape());
+    openinfer::log!("step 3 N shape = {:?}", out_n.shape());
 
     Ok(())
 }

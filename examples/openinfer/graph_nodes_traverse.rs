@@ -43,7 +43,7 @@ fn main() -> anyhow::Result<()> {
         fetch_executor!(node, { y: Tensor<f32> });
         let y_str = format_truncated(&y.data);
         let y_pad = format!("{:<width$}", y_str, width = 32);
-        openinfer::trace!(
+        openinfer::log!(
             "y={} -- [{}] {} :: {} ({})",
             y_pad,
             ev.kind,

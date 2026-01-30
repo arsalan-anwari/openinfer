@@ -293,7 +293,7 @@ fn validate_tensor<T: TensorElement + FormatValue>(
     let formatted = format_tensor::<T>(exec, name)?;
     let ref_val = refs.get(name).cloned().unwrap_or_else(|| "<missing>".to_string());
     let status = if formatted == ref_val { "✅" } else { "❌" };
-    openinfer::trace!("[{}] {} = {} -- ref = {}", status, name, formatted, ref_val);
+    openinfer::log!("[{}] {} = {} -- ref = {}", status, name, formatted, ref_val);
     Ok(())
 }
 
@@ -314,7 +314,7 @@ fn validate_tensor_float<T: TensorElement + FormatValue + Copy + ToF64>(
         }
         None => "❌",
     };
-    openinfer::trace!("[{}] {} = {} -- ref = {}", status, name, formatted, ref_val);
+    openinfer::log!("[{}] {} = {} -- ref = {}", status, name, formatted, ref_val);
     Ok(())
 }
 
@@ -327,7 +327,7 @@ fn validate_scalar<T: FormatValue + Copy + Fetchable>(
     let formatted = format_scalar(value);
     let ref_val = refs.get(name).cloned().unwrap_or_else(|| "<missing>".to_string());
     let status = if formatted == ref_val { "✅" } else { "❌" };
-    openinfer::trace!("[{}] {} = {} -- ref = {}", status, name, formatted, ref_val);
+    openinfer::log!("[{}] {} = {} -- ref = {}", status, name, formatted, ref_val);
     Ok(())
 }
 
@@ -1474,7 +1474,7 @@ fn main() -> anyhow::Result<()> {
     populate_exec(&mut exec, v, m, k, n, b)?;
     exec.step()?;
 
-    openinfer::trace!("⚠️ == Pass but drift. ✅ == Pass with no drift. ❌ == Fail");
+    openinfer::log!("⚠️ == Pass but drift. ✅ == Pass with no drift. ❌ == Fail");
 
     for_each_tensor_output_validate!(
         validate_tensor,
@@ -1485,7 +1485,7 @@ fn main() -> anyhow::Result<()> {
     );
     for_each_scalar_output!(validate_scalar, &mut exec, &refs);
 
-    openinfer::trace!("ops_accumulate_inplace completed on {:?}", device);
+    openinfer::log!("ops_accumulate_inplace completed on {:?}", device);
 
     Ok(())
 }
