@@ -176,8 +176,8 @@ Typical usage:
 ```bash
 python examples/openinfer-oinf/simple_oinf.py
 python examples/openinfer-oinf/minimal_oinf.py
-python openinfer-oinf/verify_oinf.py res/simple_model.oinf
-python openinfer-oinf/verify_oinf.py res/minimal_model.oinf
+python openinfer-oinf/verify_oinf.py res/models/simple_model.oinf
+python openinfer-oinf/verify_oinf.py res/models/minimal_model.oinf
 ```
 
 ### Create a Binary from a Dataclass
@@ -272,7 +272,7 @@ python openinfer-oinf/dataclass_to_oinf.py --input my_pkg.my_model:MyModel --jso
 
 ## Verifier Output Examples
 
-`res/minimal_model.oinf` (values truncated):
+`res/models/minimal_model.oinf` (values truncated):
 
 ```
 B := 1024
@@ -285,7 +285,7 @@ a: f32[1024] = { 0.0123, -0.451, 0.998, 0.104, -0.731, ..., 0.882, -0.143, 0.221
     ...
 ```
 
-`res/simple_model.oinf` (values truncated):
+`res/models/simple_model.oinf` (values truncated):
 
 ```
 D := 128

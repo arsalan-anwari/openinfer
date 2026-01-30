@@ -152,7 +152,7 @@ graph! {
 
   volatile {
     z: f32[B, D];
-    W(l): f32[D, D] pattern("W.{l}");
+    W(l): f32[D, D] @pattern("W.{l}");
   }
 
   persistent {
@@ -185,7 +185,8 @@ graph! {
 }
 ```
 
-> `transfer` is not guaranteed to be a deep copy, it can be pointer alias, reference or just reusing existing variable in `Synthesizer`.
+> `transfer` is not guaranteed to be a deep copy; it can be pointer aliasing or
+> reuse depending on the runtime and future optimization passes.
 
 ## Multiple Steps in the Simulator
 

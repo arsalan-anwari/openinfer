@@ -6,21 +6,16 @@ slices and do not need shape-aware logic.
 
 ## Policy and Where to Configure It
 
-Set the policy in `openinfer/src/ops/registry.rs`:
-
-- `BroadcastPolicy::None`: broadcasting disabled (default)
-- `BroadcastPolicy::CpuOnly`: elementwise broadcast on CPU, require identical shapes on Vulkan
-- `BroadcastPolicy::AllDevices`: elementwise broadcast on CPU and Vulkan
-- `BroadcastPolicy::BatchOnly`: batch-dim broadcast for matmul-like ops (all devices)
-
-The switch lives in `broadcast_policy(op: OpKind)`.
+Broadcasting support is configured per op in
+`openinfer/src/registry/op_defs.rs` via `BroadcastSupport::Allow` or
+`BroadcastSupport::Deny` in each `OpSchema`.
 
 ## CPU Behavior
 
 When broadcasting is enabled for an op, the CPU backend:
 
 1) Computes the output shape with `broadcast_shapes`
-2) For `add`/`mul`, uses stride-aware indexing to read inputs without materializing
+2) Uses stride-aware indexing to read inputs without materializing
 3) Runs the op kernel on the broadcasted shape
 
 If broadcasting is disabled, mismatched shapes return an error.
@@ -30,17 +25,15 @@ If broadcasting is disabled, mismatched shapes return an error.
 When broadcasting is enabled for an op, the Vulkan backend:
 
 1) Computes the output shape with `broadcast_shapes`
-2) For `add`/`mul`, passes per-input metadata and indexes inputs directly in the shader
+2) Passes per-input metadata (shape/strides) via `TensorDesc`
 3) Runs the op kernel without allocating expanded buffers
 
 Broadcast expansion also applies to inplace variants on Vulkan when the op
 supports broadcasting, so `op add(x, y) >> x` can work with broadcasted `y`.
 
-The broadcast pass uses `openinfer/src/ops/vulkan/broadcast/broadcast.slang`.
-
 Timer notes:
-- The broadcast pass does not write to the timer.
-- Op durations only cover the actual op kernel dispatch.
+- Broadcasting is handled inside the op kernels, so timings only include the op
+  itself (there is no separate broadcast node).
 
 ## Limits and Notes
 

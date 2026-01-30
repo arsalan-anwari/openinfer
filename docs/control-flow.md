@@ -24,7 +24,7 @@ Blocks form a **control-flow graph**, not just a flat list of ops.
 
 * `assign` declares a temporary tensor or scalar stored in `volatile`.
 * `op` executes a computation and produces an output
-* output is alwasy stored in the variable following `>>`.
+* output is always stored in the variable following `>>`.
 
 ```rust
 assign h: f32[B, D];
@@ -36,7 +36,7 @@ Assignments are **ephemeral**:
 * They exist only during execution
 * The runtime may reuse or alias memory
 * They do not persist across steps
-* The synthizier might optimize them out or use them as reference instead of deep copies.
+* The runtime may optimize them out or treat them as aliases instead of deep copies.
 
 ## Loops
 
@@ -56,7 +56,7 @@ Characteristics:
 * Loop bounds are symbolic
 * Loop indices are explicit variables
 * Loop bodies form nested regions
-* Repetition is visible to the Synthesizer
+* Repetition is explicit and visible to analysis/optimization passes
 
 ## Barriers and Control Dependencies
 
@@ -85,7 +85,7 @@ This is useful when:
 
 * you must enforce "write happens after compute" even if the value isn't used later
 * you need deterministic traces
-* you interface with an external effect that the Synthesizer must not reorder
+* you interface with an external effect that must not be reordered
 
 Example: ensure a cache write happens after an op, but the output tensor itself is not otherwise consumed.
 
@@ -105,7 +105,7 @@ block entry {
 }
 ```
 
-> The syntheziser is free to reorder pure ops, but it must respect explicit deps around effects.
+> The runtime (and future optimizers) may reorder pure ops, but must respect explicit deps around effects.
 
 ## Branching and Yielding Across Blocks
 
@@ -175,7 +175,7 @@ block entry {
   // Waiting for all consumers to be done.
   await x;
   // do something with x modified by consumer blocks...
-  return h;
+  return;
 }
 
 // A different device, core or thread could execute this
@@ -202,7 +202,7 @@ block consumer_3 {
 
 Notes:
 
-* For sub blocks `yield` is a terminator like `return`. For the entry block its an invokation.
+* For sub blocks `yield` is a terminator like `return`. For the entry block it's an invocation.
 * It defines an explicit control-flow edge to a continuation block.
 * Backends may interpret `yield` as "pause and resume", "send to a queue", or "schedule on another device". Implementation depends on device.
 * Each consumer will have the last known value of the variable that was yielded by the entry block. This means that the consumer which mutates x will not affect other consumers which read x.

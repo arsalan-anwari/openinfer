@@ -20,6 +20,8 @@ Graph and Execution Traces
 --------------------------
 - Enable execution tracing to see op order, block names, and timings:
   `OPENINFER_TRACE=1 cargo run --example <name>`
+- Use `OPENINFER_TRACE=full` for verbose tracing, and
+  `OPENINFER_VULKAN_TRACE=1` for Vulkan runtime logs.
 - Use the Rust examples to validate branching and per-op behavior:
   - `examples/openinfer/branching_good.rs`
   - `examples/openinfer/branching_bad.rs`
@@ -42,11 +44,9 @@ CPU Backend Debugging
 - The CPU backend is the reference implementation for correctness.
 - To isolate CPU output, run without GPU features:
   `cargo run --example ops_matrix`
-- AVX/AVX2 variants can be tested explicitly with:
-  - `cargo run --example ops_matrix -- --target=avx`
-  - `cargo run --example ops_matrix -- --target=avx2`
-- If SIMD output diverges, compare against the CPU reference printed by
-  `ops_matrix.rs`.
+- Example device selection:
+  - `cargo run --example ops_matrix -- --target=cpu`
+  - `cargo run --example ops_matrix --features vulkan -- --target=vulkan`
 
 Vulkan Backend Debugging
 ------------------------
@@ -58,8 +58,8 @@ Vulkan Backend Debugging
 - If you hit a kernel lookup error, verify that:
   - The dtype is supported on Vulkan (see `docs/ops.md`).
   - The op has a shader entry in `openinfer/src/ops/vulkan/shaders.json`.
-- If a shader fails to compile, check the Slang file path printed by the build
-  script and the specific type reported by `slangc`.
+- If a shader fails to compile, run `cargo build-spv` to rebuild SPIR-V and
+  check the Slang file path and error from `slangc`.
 
 Descriptor Set Limits
 ---------------------
@@ -78,7 +78,7 @@ Op-Specific Debugging
 
 Common Failure Modes
 --------------------
-- Unknown op or attribute: check the DSL input and `openinfer/src/graph.rs`.
+- Unknown op or attribute: check the DSL input and `openinfer/src/graph/types.rs`.
 - Kernel not found: check registry wiring and dtype support in `docs/ops.md`.
 - Segfaults on Vulkan: run with `OPENINFER_VULKAN_TRACE=1` and reduce the
   number of dtypes or ops in a single graph to isolate.
@@ -89,8 +89,8 @@ Useful Files
   - `openinfer/src/ops/cpu/registry.rs`
   - `openinfer/src/ops/vulkan/registry.rs`
 - Vulkan runtime:
-  - `openinfer/src/backend/vulkan/mod.rs`
-  - `openinfer/src/backend/vulkan/runtime.rs`
+  - `openinfer/src/ops/vulkan/runtime/`
+  - `openinfer/src/ops/vulkan/dispatch.rs`
 - Graph and DSL:
-  - `openinfer/src/graph.rs`
-  - `openinfer-dsl/src/validation/ops/`
+  - `openinfer/src/graph/`
+  - `openinfer/src/runtime/validation/`

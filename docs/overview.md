@@ -23,20 +23,18 @@
 
 4. **That graph can be**
 
-   * Simulated for correctness
-   * Analyzed and optimized
-   * Compiled into device-specific code
+   * Simulated for correctness on CPU or Vulkan
+   * Traced and serialized for inspection
+   * Analyzed and optimized (planned)
 
 ## Mental Model
 
-Think of OpenInfer as:
+Think of OpenInfer as a small, explicit IR embedded in Rust:
 
-> **A small, ML-focused Synthesizer frontend embedded in Rust.**
+> **You describe what happens and in what order.**
 
-You describe **what happens and in what order**.
-OpenInfer decides **how to execute it efficiently**.
-
-The DSL is closer in spirit to **ONNX / XLA / TVM IRs** than to eager frameworks like PyTorch.
+The runtime executes the graph deterministically and makes tracing/debugging easy.
+Longer-term analysis and synthesis passes are planned but not implemented yet.
 
 ## High-Level Workflow
 
@@ -44,16 +42,15 @@ The DSL is closer in spirit to **ONNX / XLA / TVM IRs** than to eager frameworks
 Model Package (.oinf)
         │
         ▼
- graph! DSL  ──▶  Symbolic Graph
+ graph! DSL  ──▶  Graph (blocks + nodes)
                         │
-                        ├─▶ Simulator (correctness-first)
+                        ├─▶ Simulator / Executor (CPU | Vulkan)
                         │
-                        └─▶ Analyzer / Synthesizer
-                               ▼
-                        Device-specific source code
+                        ├─▶ Trace + JSON serialization
+                        │
+                        └─▶ Analyzer / Synthesizer (planned)
 ```
 
-For more information see [docs/implementation.md](implementation.md)
+For more information see [docs/implementation.md](implementation.md).
 
-See [docs/types.md](types.md) for dtype support, CPU/AVX/AVX2 parity, and Vulkan
-fallback behavior.
+See [docs/types.md](types.md) for dtype support and Vulkan fallback behavior.
