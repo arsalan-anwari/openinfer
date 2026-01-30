@@ -21,7 +21,7 @@ use openinfer::{
 };
 
 fn main() -> anyhow::Result<()> {
-    let model = ModelLoader::open("model.oinf")?;
+    let model = ModelLoader::open("res/models/minimal_model.oinf")?;
 
     let g = graph! {
         dynamic {
@@ -57,7 +57,7 @@ fn main() -> anyhow::Result<()> {
 }
 ```
 
-Variables like `[B]` are named sizes, which are defined in the `model.oinf`; these can be dynamic. The `Simulator` and `Synthesizer` check if the dimensions for the data used with the ops are consistent.
+Variables like `[B]` are named sizes, which are defined in the `.oinf` model; these can be dynamic. The `Simulator` validates that dimensions and dtypes are consistent with the model.
 
 The variables defined in the model binary and the DSL do not need to be exactly the same. The DSL can have new variables not found in the binary, but the DSL cannot have the same variable name with a different data type or dimension. By default the variables are linked between the binary and DSL. So `a: f32[B]` in the DSL is directly linked to `a: f32[B]` in the binary by default.
 

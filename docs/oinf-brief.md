@@ -25,7 +25,7 @@ python examples/openinfer-oinf/minimal_oinf.py
 Inspect it:
 
 ```bash
-python openinfer-oinf/verify_oinf.py minimal_model.oinf
+python openinfer-oinf/verify_oinf.py res/models/minimal_model.oinf
 ```
 
 For the full technical spec and layout, see [docs/oinf.md](oinf.md).

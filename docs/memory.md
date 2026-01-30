@@ -1,6 +1,6 @@
 # Inputs and Outputs
 
-Data used for the model should always defined at the top, before `block entry {}`.
+Data used for the model should always be defined at the top, before `block entry {}`.
 
 ```rust
 dynamic {
@@ -23,13 +23,13 @@ persistent {
 
 There are 4 different types of memory that can used with the model:
 1. `dynamic`: This is memory that can be mutated by an external program and is cleared every inference step.
-    - This is usefull to feed things like: user input, tokens, weights, images and other data that gets generated on the fly.
+    - This is useful to feed things like user input, tokens, weights, images, and other data generated on the fly.
 2. `volatile`: This is memory that can be mutated from within a block of logic in the DSL and is filled with the content of the model binary file. Data is reset every inference step.
-    - This is essentially the memory used for things like weights, tensors, etc in the binary file which can be used for performing calculations with the ops.
-3. `constant`: This is similar to `volatile` where data is copied from the model binary, however this memory cannot be mutated, only read.
-    - This is usefull for things like metadata, settings, op params, etc.
-4. `persistent`: This is memory which can be mutated from within a block of logic in the DSL but stays peristant every inference step. This means you can store values from previous inference steps as history.
-    - This is usefull for things like KV-cache, rolling windows, recurrent hidden state and anything that needs to persist for every inference step.
+    - This is essentially the memory used for weights/tensors from the model package.
+3. `constant`: This is similar to `volatile` where data is copied from the model binary; however this memory cannot be mutated, only read.
+    - This is useful for metadata, settings, op params, etc.
+4. `persistent`: This is memory that can be mutated from within a block of logic in the DSL but stays persistent every inference step. This means you can store values from previous inference steps as history.
+    - This is useful for KV-cache, rolling windows, recurrent hidden state, and anything that must persist across steps.
 
 ## Interacting with memory
 
@@ -45,10 +45,10 @@ churn and helps large graphs run within tight memory budgets. See
 
 ## Attributes on variable definitions
 
-Atrributes can be used only on variable definitions for things like linking model data, expressing layouts, quantization, or other metadata relevant for the Simulator and Synthesizer.
+Attributes can be used only on variable definitions for things like linking model data, expressing layouts, quantization, or other metadata relevant for the simulator and future tooling.
 
 ```rust
-constants {
+constant {
   alpha: f32 @ref("alpha");
   beta:  f32 @ref("beta");
   bias:  f32 @ref("gamma");
@@ -62,7 +62,7 @@ constants {
 Operations do **not** use attributes. Instead, operator configuration is expressed via **named parameters**.
 
 ```rust
-op relu(h, alpha=0.0, clamp_min=0.0, clamp_max=inf) >> h;
+op relu(h, alpha=0.0, clamp_max=6.0) >> h;
 ```
 
 Examples of realistic activation settings you might see in real deployments:
@@ -77,13 +77,13 @@ op relu(h, alpha=0.01) >> h;
 // Clipped ReLU / ReLU6 (common in mobile / quantization-aware)
 op relu(h, alpha=0.0, clamp_max=6.0) >> h;
 
-// Lower clamp (occasionally used for numerical stabilization)
-op relu(h, alpha=0.0, clamp_min=-1e-6) >> h;
+// Clamp only upper bound
+op relu(h, alpha=0.0, clamp_max=6.0) >> h;
 ```
 
 ## What attributes mean
 
-* Attributes are **declarative**: they restrict or guide Simulator and Synthesizer decisions.
+* Attributes are **declarative**: they restrict or guide simulator and future tooling decisions.
 * They do not guarantee a specific implementation.
 * Unknown attributes can be preserved (for tooling) or rejected (for strict mode).
 

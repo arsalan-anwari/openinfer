@@ -36,7 +36,7 @@ Packed dtype ranges:
 ## CPU Backend
 
 - Supports all universal and special tensor types (t1/t2 reserved).
-- f16/bf16/f8 are cast inline to f32 for arithmetic and converted back per element.
+- f16/bf16/f8 are always cast inline to f32 for arithmetic and converted back per element.
 - Packed types remain packed; kernels read/write packed bytes directly without
   materializing full unpacked buffers.
 
@@ -53,17 +53,15 @@ Inline float handling:
 
 - f8/bf16 are cast to f32 inside shaders per element (no intermediate f32 buffers
   on the host).
-- f16 uses native half when `shader_float16` is available; otherwise shaders cast
-  to f32 and write back. Use `Simulator::with_simulated_float()` to force the
-  simulated f16 path for benchmarks or drift analysis.
+- f16 is always cast to f32 inside shaders and written back to f16 (no native half path).
 
 Packed types:
 
 - i1/i2/i4/u1/u2/u4 are stored as packed bytes in GPU buffers.
 - Shaders decode/operate/encode in-place with byte-addressed buffers.
 - Packed types are never expanded to i8 buffers.
-## CPU AVX / AVX2 Backends
+## CPU Target Features
 
-- Match CPU dtype coverage, including packed types.
-- SIMD kernels operate directly on packed bytes for i2/i4/u2/u4.
-- i1/u1 packed types fall back to the CPU implementation.
+- The workspace `.cargo/config.toml` enables `+avx,+avx2` for x86_64 Linux builds.
+- There are no separate runtime device variants; SIMD is handled by the compiler
+  when available.

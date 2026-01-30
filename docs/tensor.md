@@ -6,7 +6,7 @@ OpenInfer tensors store:
 - shape (rank and dimension sizes)
 - strides (indexing layout)
 
-The primary type is `Tensor<T>` in `openinfer/src/tensor.rs`.
+The primary type is `Tensor<T>` in `openinfer/src/tensor/tensor.rs`.
 
 ## Creating Tensors
 
@@ -59,15 +59,7 @@ You can index with a fixed-size array to get a view:
 let row = t[[1]].to_vec();
 ```
 
-```rust
-let row = t.at(&[1]);
-```
-
-Or single element reference:
-
-```rust
-let row = t[[1, 0]].to_vec();
-```
+Or a single element reference:
 
 ```rust
 let value = t.at(&[1, 0]);

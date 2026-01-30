@@ -9,11 +9,9 @@ the execution path from `graph!{}` to kernel selection.
 
 The simulator does not emit trace logs or time ops by default. Enable tracing
 and timing explicitly on construction, for example
-`Simulator::new(&model, &graph, Device::Cpu)?.with_trace().with_timer()`. Use
-`with_simulated_float()` to force simulated float paths (e.g. f16 emulation)
-even when native support is available. Trace events are only stored when tracing
-is enabled. The simulator retains the validated
-graph, so `make_executor()` no longer needs it as an argument.
+`Simulator::new(&model, &graph, Device::Cpu)?.with_trace().with_timer()`. Trace
+events are only stored when tracing is enabled. The simulator retains the
+validated graph, so `make_executor()` no longer needs it as an argument.
 During construction the simulator validates the graph against the model (sizevars,
 dtype compatibility, constant mutation, scalar-only attributes, and per-op
 attribute type checks) and stores the validated graph for executor creation.
@@ -37,6 +35,7 @@ Node types inside a block:
 - `op add(x, y) >> out;` invokes an op
 - `cache.read`, `cache.write`, `cache.increment`, `cache.decrement`, `cache.reset` for persistent cache access
 - `branch cond then else;` or `branch target;` for control flow
+- `barrier;`, `dep after(x) before(y);`, and `transfer a >> b;` for ordering and movement
 - `yield a, b;` and `await a, b;` for concurrent block execution
 - `loop name (i in start..end) { ... }` for repeated blocks
 - `return;` stops the block
@@ -45,7 +44,7 @@ Node types inside a block:
 
 ### Op attributes and literal types
 
-Op settings are parsed into `AttrValue` in `openinfer/src/graph.rs`. Literals are
+Op settings are parsed into `AttrValue` in `openinfer/src/graph/types.rs`. Literals are
 typed at parse time:
 
 - `Float(f32)` for float literals (e.g. `0.1`)
@@ -54,11 +53,12 @@ typed at parse time:
   model)
 - `Bool(bool)` for `true`/`false`
 - `Var(String)` for constant references
+- `DType(DType)` for dtype literals (e.g. `acc=i16`)
 
 The executor resolves attribute variables by reading scalar constants and
 preserves the literal type. This matters for `fill`, which requires the
 value dtype to match the input dtype (validated in
-`openinfer/src/simulator/validation/block.rs`).
+`openinfer/src/runtime/validation/ops.rs`).
 
 ### Parsing and expansion
 
@@ -83,7 +83,7 @@ the `Graph` value at runtime.
 
 ### What the Graph looks like
 
-`Graph` is defined in `openinfer/src/graph.rs` and is serializable via serde.
+`Graph` is defined in `openinfer/src/graph/types.rs` and is serializable via serde.
 It has:
 
 - `vars: HashMap<String, VarDecl>` describing memory, dtype, dims, optional init
@@ -96,7 +96,8 @@ Each `Block` holds an ordered list of `Node`, and each `Node` contains:
 - `index`: the order in which it was inserted
 - `uuid`: a unique identifier
 - `kind`: one of `Assign`, `Op`, `CacheRead`, `CacheWrite`, `CacheIncrement`,
-  `CacheDecrement`, `CacheReset`, `Branch`, `Yield`, `Await`, `Loop`, or `Return`
+  `CacheDecrement`, `CacheReset`, `Branch`, `Barrier`, `Dep`, `Transfer`,
+  `Yield`, `Await`, `Loop`, or `Return`
 
 Example (conceptual):
 
@@ -121,14 +122,14 @@ Graph {
 
 ## Loading `.oinf` and Lazy Access
 
-The `.oinf` loader is `ModelLoader` in `openinfer/src/model_loader.rs`.
-`ModelLoader::open(path)` does a full header + index parse, but does not load
-tensor payloads into memory. Instead, it stores offsets and sizes for each
-tensor, so payloads are fetched only when needed.
+The `.oinf` loader is `ModelLoader` in `openinfer/src/runtime/model_loader.rs`.
+`ModelLoader::open(path)` memory-maps the file, performs a full header + index
+parse, and does not load tensor payloads into memory. Instead, it stores offsets
+and sizes for each tensor, so payloads are fetched only when needed.
 
 ### What is parsed
 
-`ModelLoader::open` reads the file into memory once and validates:
+`ModelLoader::open` memory-maps the file and validates:
 
 - Magic/version and header integrity
 - Ascending, aligned section offsets
@@ -148,7 +149,7 @@ This becomes `ModelLoader.vars: HashMap<String, VarInfo>`.
 
 ### Lazy loading path
 
-Lazy access happens in the `Executor` (`openinfer/src/simulator/executor/mod.rs`):
+Lazy access happens in the `Executor` (`openinfer/src/runtime/executor/mod.rs`):
 
 1. `Executor::new` sets non-dynamic variables to `StoredTensor::Unloaded`.
 2. When an op needs an input, `Executor::get_tensor` is called.
@@ -199,7 +200,7 @@ Runtime op selection flows through `Executor::exec_op`:
 3. `output_dtype` is taken from the graph’s var declaration if it exists;
    otherwise it falls back to the first input dtype.
 4. The backend chooses a kernel via `ops::lookup_kernel` based on:
-   - `Device` (Cpu / CpuAvx / CpuAvx2 / Vulkan)
+   - `Device` (Cpu / Vulkan)
    - `OpKind` and `OpAttrs`
    - `output_dtype` and `input_dtypes`
 
@@ -208,16 +209,16 @@ to device-specific registries (e.g. `openinfer/src/ops/cpu/registry.rs`).
 
 ### In-place ops and preprocessing
 
-Backends also expose an in-place execution path. The dispatcher for those lives
-in `openinfer/src/ops/registry.rs` via `lookup_kernel_inplace`, which forwards
-to per-op `registry_inplace.rs` modules for each device. The CPU backend uses
-this lookup directly, while Vulkan reuses the same pattern.
+Backends expose in-place and accumulation variants via `OpKey` and `OpMode`
+(`Normal`, `Inplace`, `Accumulate`). The dispatcher builds an `OpKey` from the
+op, mode, broadcast flag, and dtypes, then calls `lookup_kernel` in
+`openinfer/src/ops/registry.rs`, which forwards to the device-specific registry.
 
 Broadcasting is treated as backend preprocessing rather than an op. CPU uses
-`broadcast_shapes` plus `openinfer/src/backend/cpu/broadcast.rs` to expand
-inputs before kernel dispatch, and Vulkan uses
-`openinfer/src/backend/vulkan/broadcast.rs` to expand buffers when an op allows
-broadcasting.
+`broadcast_shapes` plus `openinfer/src/ops/cpu/broadcast.rs` to expand inputs
+before kernel dispatch. Vulkan uses broadcasted strides and metadata via
+`openinfer/src/ops/vulkan/descriptor.rs` and `openinfer/src/ops/vulkan/op_helpers.rs`
+without materializing expanded buffers.
 
 ### Accumulation output reuse
 
@@ -228,32 +229,25 @@ output exists, the kernel allocates a new buffer and returns it as usual.
 
 ### Vulkan execution notes
 
-The Vulkan backend compiles Slang shaders into SPIR-V at build time and embeds
-them in `OUT_DIR`. During dispatch, the runtime:
+The Vulkan backend consumes precompiled SPIR-V blobs and embeds them via
+`OUT_DIR/spv_embedded.rs`. During dispatch, the runtime:
 
-- Selects a SPIR-V blob by target name (e.g. `add_f32`)
-- Extracts the descriptor set index from the SPIR-V and binds a descriptor set
-  at that index
-- Uses a fixed descriptor layout (bindings 0/1/2 for input0/input1/output) and
-  a 16-byte push constant block (`len`, `flags`, `pad0`, `pad1`)
-
-This allows ops to split float/signed/unsigned kernels into separate shaders
-without exceeding descriptor set limits.
+- Selects a SPIR-V blob by target name (e.g. `add_f32_normal`)
+- Builds descriptor sets based on the number of bound buffers
+- Uses per-op push constants defined in `shaders/common.slang`
 
 Low-bit float types (f8/bf16) are cast to f32 inside shaders per element and
-written back in the original dtype. f16 uses native half when `shader_float16`
-is available, otherwise it follows the same cast-to-f32 path. Use
-`Simulator::with_simulated_float()` to force the simulated path for f16 even
-when native support is present. Packed integer
+written back in the original dtype. f16 always follows the same cast-to-f32 path.
+Packed integer
 types are decoded and encoded in-place from packed bytes using shared helpers in
-`openinfer/src/ops/vulkan/packed_utils.slang`.
+`openinfer/src/ops/vulkan/shaders/packed_utils.slang`.
 
 When a Vulkan device does not expose `shader_int64` or `shader_float64`, the
 backend falls back to CPU for i64/u64/f64 kernels and prints a warning.
 
-Yield/await scheduling is implemented in `openinfer/src/backend/vulkan/`. Consumer
-blocks are dispatched asynchronously on the GPU and synchronized back to the entry
-block via host-side fences.
+Yield/await scheduling is implemented in `openinfer/src/runtime/async_scheduler.rs`
+and `openinfer/src/runtime/yield_await.rs`. Non-entry blocks can execute out of
+order, and the runtime enforces await/yield ownership rules.
 
 ### Example serialized graph
 
