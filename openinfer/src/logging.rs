@@ -102,7 +102,9 @@ pub fn emit_critical(args: Arguments) {
 }
 
 pub fn emit_trace(args: Arguments) {
-    emit("TRACE", COLOR_TRACE, args);
+    if trace_basic_enabled() {
+        emit("TRACE", COLOR_TRACE, args);
+    }
 }
 
 #[macro_export]

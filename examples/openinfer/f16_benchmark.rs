@@ -50,7 +50,7 @@ fn run_benchmark(
     inputs: &Inputs,
     simulated: bool,
 ) -> anyhow::Result<()> {
-    openinfer::trace!("\n=== {} ===", label);
+    openinfer::log!("\n=== {} ===", label);
     let sim = Simulator::new(model, graph, device)?;
     let sim = if simulated {
         sim.with_trace().with_timer().with_simulated_float()

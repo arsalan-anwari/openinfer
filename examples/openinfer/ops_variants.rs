@@ -169,7 +169,7 @@ fn main() -> Result<()> {
     insert_tensor(&mut exec, "in_mm_b", ma_vals, vec![b, m, k])?;
 
     exec.step()?;
-    openinfer::trace!("ops_variants completed on {:?}", device);
+    openinfer::log!("ops_variants completed on {:?}", device);
 
     Ok(())
 }

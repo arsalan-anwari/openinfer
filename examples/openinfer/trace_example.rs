@@ -38,11 +38,11 @@ fn main() -> anyhow::Result<()> {
 
     exec.step()?;
 
-    let trace = exec.trace();
+    let log = exec.trace();
     let out_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../examples/openinfer/out");
     std::fs::create_dir_all(&out_dir)?;
-    let out_path = out_dir.join("trace_example.json");
-    std::fs::write(out_path, serde_json::to_string_pretty(&trace)?)?;
+    let out_path = out_dir.join("log_example.json");
+    std::fs::write(out_path, serde_json::to_string_pretty(&log)?)?;
 
     Ok(())
 }

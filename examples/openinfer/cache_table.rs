@@ -49,9 +49,9 @@ fn main() -> anyhow::Result<()> {
     exec.step()?;
 
     fetch_executor!(exec, { out_full: Tensor<f32>, out_slice: Tensor<f32>, out_reset: Tensor<f32> });
-    openinfer::trace!("out_full shape = {:?}", out_full.shape());
-    openinfer::trace!("out_slice shape = {:?}", out_slice.shape());
-    openinfer::trace!(
+    openinfer::log!("out_full shape = {:?}", out_full.shape());
+    openinfer::log!("out_slice shape = {:?}", out_slice.shape());
+    openinfer::log!(
         "out_reset[0..8] = {:?}",
         &out_reset.data[..8.min(out_reset.len())]
     );

@@ -50,10 +50,10 @@ fn main() -> anyhow::Result<()> {
 
 
     fetch_executor!(exec, { x: Tensor<f32>, x2: Tensor<f32> });
-    openinfer::trace!("x.len() = {}", x.len());
-    openinfer::trace!("x[0..100] = {:?}", &x.data[..100.min(x.len())]);
+    openinfer::log!("x.len() = {}", x.len());
+    openinfer::log!("x[0..100] = {:?}", &x.data[..100.min(x.len())]);
 
-    openinfer::trace!("x2.len() = {}", x2.len());
-    openinfer::trace!("x2[0..100] = {:?}", &x2.data[..100.min(x2.len())]);
+    openinfer::log!("x2.len() = {}", x2.len());
+    openinfer::log!("x2[0..100] = {:?}", &x2.data[..100.min(x2.len())]);
     Ok(())
 }
