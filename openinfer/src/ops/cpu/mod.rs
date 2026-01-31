@@ -1,5 +1,6 @@
 pub mod abs;
 pub mod add;
+pub mod cast;
 pub mod sub;
 pub mod div;
 pub mod floor_div;

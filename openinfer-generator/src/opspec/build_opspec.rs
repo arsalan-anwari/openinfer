@@ -1,3 +1,4 @@
+use std::env;
 use std::fs;
 use std::io::{self, Write};
 use std::path::Path;
@@ -27,6 +28,11 @@ fn main() {
         }
     };
     let total = specs.len();
+    let term_width = env::var("COLUMNS")
+        .ok()
+        .and_then(|value: String| value.parse::<usize>().ok())
+        .unwrap_or(120)
+        .max(40);
     for (idx, spec) in specs.iter().enumerate() {
         let line = format!(
             "[{}/{}] -- generating opspec for {}[inplace={}, broadcast={}, accumulate={}]",
@@ -37,7 +43,8 @@ fn main() {
             spec.broadcast,
             spec.accumulate
         );
-        print!("\r{:<120}", line);
+        let line = truncate_to_width(&line, term_width.saturating_sub(1));
+        print!("\r{line:<width$}", width = term_width);
         let _ = io::stdout().flush();
         thread::sleep(Duration::from_millis(200));
     }
@@ -180,7 +187,21 @@ fn op_kind_name(kind: &str) -> Result<String, String> {
         "MinAxis" => "min_axis",
         "ArgmaxAxis" => "argmax_axis",
         "ArgminAxis" => "argmin_axis",
+        "Cast" => "cast",
         _ => return Err(format!("unknown OpKind::{kind}")),
     };
     Ok(name.to_string())
+}
+
+fn truncate_to_width(text: &str, width: usize) -> String {
+    if text.len() <= width {
+        return text.to_string();
+    }
+    if width <= 3 {
+        return text.chars().take(width).collect();
+    }
+    let keep = width - 3;
+    let mut out = text.chars().take(keep).collect::<String>();
+    out.push_str("...");
+    out
 }

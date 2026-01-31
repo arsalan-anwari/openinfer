@@ -648,6 +648,17 @@ pub const OPS: &[OpSchema] = &[
         accumulate: AccumulateSupport::Deny,
         type_rule: TypeRule::Fixed(DType::I64),
         dtype_support: Some(&super::ARGMIN_AXIS_DTYPE_SUPPORT),
+    },
+    OpSchema {
+        kind: OpKind::Cast,
+        inputs: InputArity::Fixed(1),
+        outputs: OutputArity::Fixed(1),
+        attrs: &[TO_ATTR, ROUNDING_MODE_ATTR, SATURATE_ATTR],
+        broadcast: BroadcastSupport::Deny,
+        inplace: InplaceSupport::Deny,
+        accumulate: AccumulateSupport::Deny,
+        type_rule: TypeRule::AccFromAttr { attr: "to" },
+        dtype_support: Some(&super::CAST_DTYPE_SUPPORT),
     }
 ];
 

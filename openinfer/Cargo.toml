@@ -127,3 +127,7 @@ path = "../examples/openinfer/ops_variants.rs"
 [[example]]
 name = "ops_v2"
 path = "../examples/openinfer/ops_v2.rs"
+
+[[example]]
+name = "cast"
+path = "../examples/openinfer/cast.rs"

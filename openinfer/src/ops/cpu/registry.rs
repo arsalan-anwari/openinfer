@@ -1,10 +1,10 @@
 use anyhow::{anyhow, Result};
 
 use crate::ops::cpu::{
-    abs, add, and, argmax_axis, argmin_axis, ceil, clamp, div, eq, fill, filter, floor, floor_div,
-    fma, ge, gt, is_finite, is_inf, is_nan, is_neg, le, lt, matmul, max, max_axis, mean_axis, min,
-    min_axis, mul, ne, neg, not, or, popcount, prod_axis, recip, relu, rem, round, shl, shr, sign,
-    sub, sum_axis, trunc, xor,
+    abs, add, and, argmax_axis, argmin_axis, cast, ceil, clamp, div, eq, fill, filter, floor,
+    floor_div, fma, ge, gt, is_finite, is_inf, is_nan, is_neg, le, lt, matmul, max, max_axis,
+    mean_axis, min, min_axis, mul, ne, neg, not, or, popcount, prod_axis, recip, relu, rem, round,
+    shl, shr, sign, sub, sum_axis, trunc, xor,
 };
 use std::collections::HashMap;
 
@@ -167,6 +167,9 @@ static CPU_KERNELS: Lazy<HashMap<OpKey, KernelFn>> = Lazy::new(|| {
         map.insert(key.clone(), *kernel);
     }
     for (key, kernel) in fill::registry::ENTRIES.iter() {
+        map.insert(key.clone(), *kernel);
+    }
+    for (key, kernel) in cast::registry::ENTRIES.iter() {
         map.insert(key.clone(), *kernel);
     }
     map
