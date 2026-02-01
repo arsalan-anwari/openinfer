@@ -1,8 +1,12 @@
+#![allow(dead_code)]
+#![allow(unused_imports)]
+
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use serde_json::Value;
 use syn::{
     Expr, ExprArray, ExprCall, ExprLit, ExprMatch, ExprPath, ExprReference, File, Item, ItemConst,
     ItemImpl, Lit, Pat, Type,
@@ -10,14 +14,16 @@ use syn::{
 
 #[derive(Debug)]
 struct OpSchemaInfo {
-    kind_ident: String,
+    name: String,
+    category: String,
     inputs: InputArityInfo,
     inplace: bool,
     accumulate: bool,
-    dtype_support: Option<String>,
+    dtype_support_ref: String,
     uses_attrs: bool,
     fixed_output: Option<String>,
     output_from_attr: bool,
+    output_dtypes_ref: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -38,43 +44,36 @@ impl InputArityInfo {
 }
 
 pub fn generate_cpu_kernels(manifest_dir: &Path) -> Result<(), Box<dyn Error>> {
-    let op_defs_path = manifest_dir.join("src/registry/op_defs.rs");
-    let types_path = manifest_dir.join("src/graph/types.rs");
+    let ops_json = load_ops_json(manifest_dir)?;
 
-    let op_schemas = parse_ops(&op_defs_path)?;
-    let opkind_map = parse_opkind_map(&types_path)?;
-    let op_dtype_paths = collect_op_dtype_paths(manifest_dir)?;
-
-    for schema in op_schemas {
-        let op_name = opkind_map
-            .get(&schema.kind_ident)
-            .ok_or_else(|| format!("missing OpKind::{} in OpKind::as_str()", schema.kind_ident))?;
-        let dtype_support = schema
-            .dtype_support
-            .as_deref()
-            .ok_or_else(|| format!("missing dtype_support for OpKind::{}", schema.kind_ident))?;
+    for schema in ops_json.ops {
+        let dtype_support = ops_json
+            .dtype_sets
+            .get(&schema.dtype_support_ref)
+            .ok_or_else(|| format!("missing dtype support {}", schema.dtype_support_ref))?;
         let inputs = schema
             .inputs
             .fixed()
-            .ok_or_else(|| format!("non-fixed input arity for OpKind::{}", schema.kind_ident))?;
-        let (normal_name, acc_name) = find_dtype_support_fields(&op_dtype_paths, dtype_support)?;
-        let normal_dtypes = parse_dtype_list_in_files(&op_dtype_paths, &normal_name)?;
-        let acc_pairs = parse_dtype_pairs_in_files(&op_dtype_paths, &acc_name)?;
-        let op_dir = cpu_op_dir(manifest_dir, op_name)?;
+            .ok_or_else(|| format!("non-fixed input arity for op {}", schema.name))?;
+        let normal_dtypes = &dtype_support.normal;
+        let acc_pairs = &dtype_support.accumulate;
+        let op_dir = cpu_op_dir(manifest_dir, &schema.category, &schema.name)?;
         if schema.output_from_attr {
-            let output_const = format!("{}_OUTPUT_DTYPES", schema.kind_ident.to_uppercase());
-            let output_dtypes =
-                parse_dtype_list_in_files(&op_dtype_paths, &output_const).unwrap_or_else(|_| {
-                    normal_dtypes.clone()
-                });
-            write_cast_kernel_rs(&op_dir, op_name, &normal_dtypes, &output_dtypes)?;
+            let output_ref = schema.output_dtypes_ref.as_deref().ok_or_else(|| {
+                format!("missing output_dtypes_ref for op {}", schema.name)
+            })?;
+            let output_dtypes = ops_json
+                .output_dtype_sets
+                .get(output_ref)
+                .ok_or_else(|| format!("missing output dtype set {output_ref}"))?;
+            write_cast_kernel_rs(&op_dir, &schema.name, normal_dtypes, output_dtypes)?;
             continue;
         }
         write_kernel_rs(
             &op_dir,
-            op_name,
-            &normal_dtypes,
-            &acc_pairs,
+            &schema.name,
+            normal_dtypes,
+            acc_pairs,
             inputs,
             schema.inplace,
             schema.accumulate,
@@ -86,28 +85,232 @@ pub fn generate_cpu_kernels(manifest_dir: &Path) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn cpu_op_dir(manifest_dir: &Path, op_name: &str) -> Result<PathBuf, Box<dyn Error>> {
-    let category = match op_name {
-        "abs" | "add" | "div" | "floor_div" | "fma" | "mul" | "neg" | "recip" | "rem" | "sub" => {
-            "arithmetic"
+#[derive(Debug)]
+struct DTypeSupportSet {
+    normal: Vec<String>,
+    accumulate: Vec<(String, String)>,
+}
+
+#[derive(Debug)]
+struct OpsJsonInfo {
+    ops: Vec<OpSchemaInfo>,
+    dtype_sets: HashMap<String, DTypeSupportSet>,
+    output_dtype_sets: HashMap<String, Vec<String>>,
+}
+
+fn load_ops_json(manifest_dir: &Path) -> Result<OpsJsonInfo, Box<dyn Error>> {
+    let ops_path = manifest_dir.join("../ops.json");
+    let contents = fs::read_to_string(&ops_path)?;
+    let root: Value = serde_json::from_str(&contents)?;
+
+    let dtype_sets = parse_dtype_sets(root.get("dtype_sets"))?;
+    let output_dtype_sets = parse_output_dtype_sets(root.get("output_dtype_sets"))?;
+    let ops = parse_ops_from_json(root.get("ops"))?;
+
+    Ok(OpsJsonInfo {
+        ops,
+        dtype_sets,
+        output_dtype_sets,
+    })
+}
+
+fn parse_ops_from_json(value: Option<&Value>) -> Result<Vec<OpSchemaInfo>, Box<dyn Error>> {
+    let ops = value
+        .and_then(|v| v.as_array())
+        .ok_or_else(|| "ops.json missing ops array".to_string())?;
+    let mut out = Vec::with_capacity(ops.len());
+    for op in ops {
+        let obj = op
+            .as_object()
+            .ok_or_else(|| "ops.json op must be an object".to_string())?;
+        let name = get_string(obj.get("name"), "op name")?;
+        let category = get_string(obj.get("category"), "op category")?;
+        let inputs = parse_input_arity_json(obj.get("inputs"))?;
+        let inplace = parse_allow(obj.get("inplace"), "inplace")?;
+        let accumulate = parse_allow(obj.get("accumulate"), "accumulate")?;
+        let dtype_support_ref = get_string(obj.get("dtype_support_ref"), "dtype_support_ref")?;
+        let uses_attrs = obj
+            .get("attrs")
+            .and_then(|v| v.as_array())
+            .map(|attrs| attrs.iter().any(|attr| attr.as_str() != Some("acc")))
+            .unwrap_or(false);
+        let (fixed_output, output_from_attr) = parse_type_rule_json(obj.get("type_rule"))?;
+        let output_dtypes_ref = obj
+            .get("output_dtypes_ref")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+        out.push(OpSchemaInfo {
+            name,
+            category,
+            inputs,
+            inplace,
+            accumulate,
+            dtype_support_ref,
+            uses_attrs,
+            fixed_output,
+            output_from_attr,
+            output_dtypes_ref,
+        });
+    }
+    Ok(out)
+}
+
+fn parse_input_arity_json(value: Option<&Value>) -> Result<InputArityInfo, Box<dyn Error>> {
+    let obj = value
+        .and_then(|v| v.as_object())
+        .ok_or_else(|| "inputs must be an object".to_string())?;
+    let arity = get_string(obj.get("arity"), "inputs.arity")?;
+    match arity.as_str() {
+        "fixed" => {
+            let count = obj
+                .get("count")
+                .and_then(|v| v.as_u64())
+                .ok_or_else(|| "inputs.count missing for fixed arity".to_string())?;
+            Ok(InputArityInfo::Fixed(count as usize))
         }
-        "and" | "not" | "or" | "popcount" | "shl" | "shr" | "xor" => "bitwise",
-        "cast" => "casting",
-        "eq" | "ge" | "gt" | "le" | "lt" | "ne" => "comparison",
-        "filter" | "is_finite" | "is_inf" | "is_nan" | "is_neg" => "filter",
-        "fill" => "mutation",
-        "matmul" | "relu" => "numerical",
-        "argmax_axis"
-        | "argmin_axis"
-        | "max_axis"
-        | "mean_axis"
-        | "min_axis"
-        | "prod_axis"
-        | "sum_axis" => "reduction",
-        "ceil" | "clamp" | "floor" | "round" | "trunc" => "rounding",
-        "max" | "min" | "sign" => "statistics",
-        _ => return Err(format!("unknown cpu op category for {op_name}").into()),
+        "at_least" => {
+            let count = obj
+                .get("count")
+                .and_then(|v| v.as_u64())
+                .ok_or_else(|| "inputs.count missing for at_least arity".to_string())?;
+            Ok(InputArityInfo::AtLeast(count as usize))
+        }
+        "any" => Ok(InputArityInfo::Any),
+        other => Err(format!("unknown input arity {other}").into()),
+    }
+}
+
+fn parse_type_rule_json(value: Option<&Value>) -> Result<(Option<String>, bool), Box<dyn Error>> {
+    let obj = value
+        .and_then(|v| v.as_object())
+        .ok_or_else(|| "type_rule must be an object".to_string())?;
+    let kind = get_string(obj.get("kind"), "type_rule.kind")?;
+    match kind.as_str() {
+        "fixed" => {
+            let dtype = get_string(obj.get("dtype"), "type_rule.dtype")?;
+            Ok((Some(to_dtype_variant(&dtype)?), false))
+        }
+        "acc_from_attr" => Ok((None, true)),
+        "same_as_input" => Ok((None, false)),
+        other => Err(format!("unknown type_rule kind {other}").into()),
+    }
+}
+
+fn parse_allow(value: Option<&Value>, label: &str) -> Result<bool, Box<dyn Error>> {
+    let value = get_string(value, label)?;
+    match value.as_str() {
+        "allow" => Ok(true),
+        "deny" => Ok(false),
+        other => Err(format!("unknown {label} value {other}").into()),
+    }
+}
+
+fn parse_dtype_sets(value: Option<&Value>) -> Result<HashMap<String, DTypeSupportSet>, Box<dyn Error>> {
+    let obj = value
+        .and_then(|v| v.as_object())
+        .ok_or_else(|| "ops.json missing dtype_sets object".to_string())?;
+    let mut out = HashMap::new();
+    for (name, entry) in obj {
+        let entry_obj = entry
+            .as_object()
+            .ok_or_else(|| format!("dtype_sets.{name} must be an object"))?;
+        let normal = entry_obj
+            .get("normal")
+            .and_then(|v| v.as_array())
+            .ok_or_else(|| format!("dtype_sets.{name}.normal missing"))?
+            .iter()
+            .map(|v| v.as_str().ok_or_else(|| "dtype normal must be string".to_string()))
+            .collect::<Result<Vec<_>, _>>()?
+            .into_iter()
+            .map(to_dtype_variant)
+            .collect::<Result<Vec<_>, _>>()?;
+        let accumulate = entry_obj
+            .get("accumulate")
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .map(|pair| {
+                        let pair_obj = pair.as_object().ok_or("accumulate pair must be object")?;
+                        let input = get_string(pair_obj.get("input"), "accumulate.input")?;
+                        let acc = get_string(pair_obj.get("acc"), "accumulate.acc")?;
+                        Ok((to_dtype_variant(&input)?, to_dtype_variant(&acc)?))
+                    })
+                    .collect::<Result<Vec<_>, Box<dyn Error>>>()
+            })
+            .unwrap_or_else(|| Ok(Vec::new()))?;
+        out.insert(
+            name.clone(),
+            DTypeSupportSet {
+                normal,
+                accumulate,
+            },
+        );
+    }
+    Ok(out)
+}
+
+fn parse_output_dtype_sets(
+    value: Option<&Value>,
+) -> Result<HashMap<String, Vec<String>>, Box<dyn Error>> {
+    let mut out = HashMap::new();
+    let Some(obj) = value.and_then(|v| v.as_object()) else {
+        return Ok(out);
     };
+    for (name, entry) in obj {
+        let dtypes = entry
+            .as_array()
+            .ok_or_else(|| format!("output_dtype_sets.{name} must be array"))?
+            .iter()
+            .map(|v| v.as_str().ok_or_else(|| "output dtype must be string".to_string()))
+            .collect::<Result<Vec<_>, _>>()?
+            .into_iter()
+            .map(to_dtype_variant)
+            .collect::<Result<Vec<_>, _>>()?;
+        out.insert(name.clone(), dtypes);
+    }
+    Ok(out)
+}
+
+fn get_string(value: Option<&Value>, label: &str) -> Result<String, Box<dyn Error>> {
+    value
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+        .ok_or_else(|| format!("missing {label}").into())
+}
+
+fn to_dtype_variant(ident: &str) -> Result<String, Box<dyn Error>> {
+    let variant = match ident {
+        "f8" => "F8",
+        "bf16" => "BF16",
+        "f16" => "F16",
+        "f32" => "F32",
+        "f64" => "F64",
+        "i1" => "I1",
+        "i2" => "I2",
+        "i4" => "I4",
+        "i8" => "I8",
+        "i16" => "I16",
+        "i32" => "I32",
+        "i64" => "I64",
+        "u1" => "U1",
+        "u2" => "U2",
+        "u4" => "U4",
+        "u8" => "U8",
+        "u16" => "U16",
+        "u32" => "U32",
+        "u64" => "U64",
+        "bool" => "Bool",
+        "bitset" => "Bitset",
+        other => return Err(format!("unsupported dtype {other}").into()),
+    };
+    Ok(variant.to_string())
+}
+
+fn cpu_op_dir(
+    manifest_dir: &Path,
+    category: &str,
+    op_name: &str,
+) -> Result<PathBuf, Box<dyn Error>> {
     Ok(manifest_dir.join(format!("src/ops/cpu/{category}/{op_name}")))
 }
 
@@ -254,84 +457,12 @@ fn write_cast_kernel_rs(
     Ok(())
 }
 
-fn parse_ops(path: &Path) -> Result<Vec<OpSchemaInfo>, Box<dyn Error>> {
-    let file = parse_file(path)?;
-    for item in file.items {
-        if let Item::Const(item_const) = item {
-            if item_const.ident == "OPS" {
-                return parse_ops_const(&item_const);
-            }
-        }
-    }
-    Err(format!("missing OPS const in {}", path.display()).into())
+fn parse_ops(_: &Path) -> Result<Vec<OpSchemaInfo>, Box<dyn Error>> {
+    Err("deprecated: parse ops from ops.json instead".into())
 }
 
-fn parse_ops_const(item_const: &ItemConst) -> Result<Vec<OpSchemaInfo>, Box<dyn Error>> {
-    let expr = unwrap_reference(item_const.expr.as_ref())?;
-    let array = match expr {
-        Expr::Array(array) => array,
-        _ => return Err("OPS const is not an array literal".into()),
-    };
-
-    let mut ops = Vec::new();
-    for elem in &array.elems {
-        let expr = unwrap_reference(elem)?;
-        if let Expr::Struct(struct_expr) = expr {
-            let mut kind_ident = None;
-            let mut inputs = None;
-            let mut inplace = false;
-            let mut accumulate = false;
-            let mut dtype_support = None;
-            let mut uses_attrs = false;
-            let mut fixed_output = None;
-            let mut output_from_attr = false;
-            for field in &struct_expr.fields {
-                let field_name = match &field.member {
-                    syn::Member::Named(ident) => ident.to_string(),
-                    syn::Member::Unnamed(_) => continue,
-                };
-                match field_name.as_str() {
-                    "kind" => {
-                        kind_ident = extract_path_ident(&field.expr);
-                    }
-                    "inputs" => {
-                        inputs = Some(extract_input_arity(&field.expr)?);
-                    }
-                    "inplace" => {
-                        inplace = extract_allow_flag(&field.expr)?;
-                    }
-                    "accumulate" => {
-                        accumulate = extract_allow_flag(&field.expr)?;
-                    }
-                    "dtype_support" => {
-                        dtype_support = extract_dtype_support(&field.expr)?;
-                    }
-                    "type_rule" => {
-                    let (fixed, from_attr) = extract_type_rule_info(&field.expr)?;
-                    fixed_output = fixed;
-                    output_from_attr = from_attr;
-                    }
-                    "attrs" => {
-                        uses_attrs = extract_attrs_use(&field.expr)?;
-                    }
-                    _ => {}
-                }
-            }
-            let kind_ident = kind_ident.ok_or("OpSchema missing kind")?;
-            let inputs = inputs.ok_or("OpSchema missing inputs")?;
-            ops.push(OpSchemaInfo {
-                kind_ident,
-                inputs,
-                inplace,
-                accumulate,
-                dtype_support,
-                uses_attrs,
-                fixed_output,
-                output_from_attr,
-            });
-        }
-    }
-    Ok(ops)
+fn parse_ops_const(_: &ItemConst) -> Result<Vec<OpSchemaInfo>, Box<dyn Error>> {
+    Err("deprecated: parse ops from ops.json instead".into())
 }
 
 fn parse_opkind_map(path: &Path) -> Result<HashMap<String, String>, Box<dyn Error>> {

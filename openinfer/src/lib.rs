@@ -2,8 +2,7 @@ pub use openinfer_dsl::graph;
 
 mod simulator;
 mod graph;
-#[macro_use]
-mod registry;
+mod op_defs;
 mod runtime;
 mod macros;
 mod tensor;
@@ -19,7 +18,7 @@ pub use graph::{
     AttrValue, Block, CacheAccess, CacheIndexExpr, CacheIndexValue, Graph, GraphDeserialize,
     GraphSerialize, MemoryKind, Node, NodeKind, OpAttr, OpAttrs, OpKind, VarDecl,
 };
-pub use registry::{op_schema, TypeRule};
+pub use op_defs::{op_schema, TypeRule};
 pub use runtime::ModelLoader;
 pub use tensor::{
     BF16, Bitset, DType, F16, F8, I1, I2, I4, ScalarValue, T1, T2, U1, U2, U4, Tensor,

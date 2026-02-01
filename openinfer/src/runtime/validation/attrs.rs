@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use anyhow::{anyhow, Result};
 
 use crate::graph::{AttrValue, OpAttrs, OpKind};
-use crate::registry::{OpAttrDef, OpAttrType};
+use crate::op_defs::{OpAttrDef, OpAttrType};
 
 use super::context::ValidationContext;
 

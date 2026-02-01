@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 
 use crate::graph::{OpAttrs, OpKind};
-use crate::registry::{op_schema, TypeRule};
+use crate::op_defs::{op_schema, TypeRule};
 use crate::simulator::Device;
 use crate::tensor::{DType, TensorValue};
 

@@ -3,7 +3,7 @@ use anyhow::{anyhow, Result};
 use crate::graph::{OpAttrs, OpKind};
 use crate::ops::cpu::broadcast::broadcast_shape;
 use crate::ops::registry::{op_supports_dtype, OpKey, OpMode};
-use crate::registry::acc_dtype;
+use crate::op_defs::acc_dtype;
 use crate::tensor::{DType, TensorValue};
 
 use bytemuck::{Pod, Zeroable};

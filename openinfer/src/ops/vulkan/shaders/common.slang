@@ -25,9 +25,7 @@ struct TensorDesc {
 #define HAS_F64 0
 #endif
 
-#ifndef HAS_F16
-#define HAS_F16 0
-#endif
+
 
 
 uint load_u8(ByteAddressBuffer buf, uint byte_offset) {

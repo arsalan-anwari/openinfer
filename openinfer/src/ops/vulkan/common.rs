@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use anyhow::{anyhow, Result};
 
 use crate::graph::{AttrValue, OpAttrs, OpKind};
-use crate::registry::{op_schema, OpAttrType, ScalarAttrKind};
+use crate::op_defs::{op_schema, OpAttrType, ScalarAttrKind};
 use crate::tensor::DType;
 
 #[derive(Clone, Copy, Debug, Default)]

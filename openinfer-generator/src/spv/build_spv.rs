@@ -15,34 +15,45 @@ fn main() -> Result<()> {
         .expect("missing workspace root");
     let settings_path = workspace_root.join("settings.json");
     let openinfer_dir = workspace_root.join("openinfer");
-    let shaders_json = openinfer_dir.join("src/ops/vulkan/shaders.json");
-    let contents =
-        fs::read_to_string(&shaders_json).with_context(|| format!("read {}", shaders_json.display()))?;
+    let ops_json = workspace_root.join("ops.json");
+    let contents = fs::read_to_string(&ops_json).with_context(|| format!("read {}", ops_json.display()))?;
     let value: Value = serde_json::from_str(&contents)?;
     let ops = value
         .get("ops")
-        .and_then(|ops| ops.as_object())
-        .ok_or_else(|| anyhow!("shaders.json missing ops object"))?;
+        .and_then(|ops| ops.as_array())
+        .ok_or_else(|| anyhow!("ops.json missing ops array"))?;
 
     let mut planned = Vec::new();
-    for (op, config) in ops {
+    for op in ops {
+        let op_name = op
+            .get("name")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow!("ops.json op missing name"))?;
         if let Some(filter) = &ops_filter {
-            if !filter.contains(op) {
+            if !filter.contains(op_name) {
                 continue;
             }
         }
-        let shader_dir = config
+        let vulkan = op
+            .get("devices")
+            .and_then(|v| v.as_object())
+            .and_then(|v| v.get("vulkan"))
+            .and_then(|v| v.as_object());
+        let Some(vulkan) = vulkan else {
+            continue;
+        };
+        let shader_dir = vulkan
             .get("shader_dir")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| anyhow!("{} missing shader_dir", op))?;
-        let spv_dir = config
+            .ok_or_else(|| anyhow!("{op_name} missing shader_dir"))?;
+        let spv_dir = vulkan
             .get("spv_dir")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| anyhow!("{} missing spv_dir", op))?;
-        let shader_files = config
+            .ok_or_else(|| anyhow!("{op_name} missing spv_dir"))?;
+        let shader_files = vulkan
             .get("shader_files")
             .and_then(|v| v.as_array())
-            .ok_or_else(|| anyhow!("{} missing shader_files", op))?;
+            .ok_or_else(|| anyhow!("{op_name} missing shader_files"))?;
 
         let shader_dir = openinfer_dir.join(shader_dir);
         let spv_dir = openinfer_dir.join(spv_dir);
@@ -53,13 +64,13 @@ fn main() -> Result<()> {
         for file in shader_files {
             let file = file
                 .as_str()
-                .ok_or_else(|| anyhow!("{} shader_files must be strings", op))?;
+                .ok_or_else(|| anyhow!("{op_name} shader_files must be strings"))?;
             let shader_path = shader_dir.join(file);
             let entrypoints = parse_entrypoints(&shader_path)?;
             for entry in entrypoints {
-                let (has_f16, has_f64, has_i64, has_u64) =
+                let (has_f64, has_i64, has_u64) =
                     resolve_feature_flags(&settings_path)?;
-                if should_skip_entry(&entry, has_f16, has_f64, has_i64, has_u64) {
+                if should_skip_entry(&entry, has_f64, has_i64, has_u64) {
                     continue;
                 }
                 let spv_path = spv_dir.join(format!("{}.spv", entry));
@@ -69,14 +80,13 @@ fn main() -> Result<()> {
                     .display()
                     .to_string();
                 planned.push(PlannedCompile {
-                    op_name: op.to_string(),
+                    op_name: op_name.to_string(),
                     shader_path: shader_path.clone(),
                     shader_dir: shader_dir.clone(),
                     include_dir: include_dir.clone(),
                     entry,
                     spv_path,
                     spv_display,
-                    has_f16,
                     has_f64,
                     has_i64,
                     has_u64,
@@ -103,8 +113,6 @@ fn main() -> Result<()> {
             .arg(&item.shader_dir)
             .arg("-I")
             .arg(&item.include_dir)
-            .arg("-D")
-            .arg(format!("HAS_F16={}", item.has_f16))
             .arg("-D")
             .arg(format!("HAS_F64={}", item.has_f64))
             .arg("-D")
@@ -170,28 +178,26 @@ struct PlannedCompile {
     entry: String,
     spv_path: PathBuf,
     spv_display: String,
-    has_f16: u32,
     has_f64: u32,
     has_i64: u32,
     has_u64: u32,
 }
 
-fn resolve_feature_flags(settings_path: &Path) -> Result<(u32, u32, u32, u32)> {
+fn resolve_feature_flags(settings_path: &Path) -> Result<(u32, u32, u32)> {
     if let Some(flags) = read_settings_flags(settings_path)? {
         return Ok(flags);
     }
     if let Some(caps) = probe_vulkan_caps() {
         return Ok((
-            if caps.float16 { 1 } else { 0 },
             if caps.float64 { 1 } else { 0 },
             if caps.int64 { 1 } else { 0 },
             if caps.int64 { 1 } else { 0 },
         ));
     }
-    Ok((0, 0, 0, 0))
+    Ok((0, 0, 0))
 }
 
-fn read_settings_flags(settings_path: &Path) -> Result<Option<(u32, u32, u32, u32)>> {
+fn read_settings_flags(settings_path: &Path) -> Result<Option<(u32, u32, u32)>> {
     if !settings_path.exists() {
         return Ok(None);
     }
@@ -205,15 +211,14 @@ fn read_settings_flags(settings_path: &Path) -> Result<Option<(u32, u32, u32, u3
     let Some(vulkan) = vulkan else {
         return Ok(None);
     };
-    let has_f16 = vulkan.get("has_f16").and_then(|v| v.as_bool());
+
     let has_f64 = vulkan.get("has_f64").and_then(|v| v.as_bool());
     let has_i64 = vulkan.get("has_i64").and_then(|v| v.as_bool());
     let has_u64 = vulkan.get("has_u64").and_then(|v| v.as_bool());
-    if has_f16.is_none() && has_f64.is_none() && has_i64.is_none() && has_u64.is_none() {
+    if  has_f64.is_none() && has_i64.is_none() && has_u64.is_none() {
         return Ok(None);
     }
     Ok(Some((
-        if has_f16.unwrap_or(false) { 1 } else { 0 },
         if has_f64.unwrap_or(false) { 1 } else { 0 },
         if has_i64.unwrap_or(false) { 1 } else { 0 },
         if has_u64.unwrap_or(false) { 1 } else { 0 },
@@ -223,8 +228,7 @@ fn read_settings_flags(settings_path: &Path) -> Result<Option<(u32, u32, u32, u3
 #[derive(Clone, Copy)]
 struct VulkanCaps {
     int64: bool,
-    float64: bool,
-    float16: bool,
+    float64: bool
 }
 
 fn probe_vulkan_caps() -> Option<VulkanCaps> {
@@ -251,25 +255,16 @@ fn probe_vulkan_caps() -> Option<VulkanCaps> {
             .copied()
     }?;
     let device_features = unsafe { instance.get_physical_device_features(physical_device) };
-    let mut float16_int8 = vk::PhysicalDeviceFloat16Int8FeaturesKHR::default();
-    let mut features2 = vk::PhysicalDeviceFeatures2::default();
-    unsafe {
-        features2.p_next = &mut float16_int8 as *mut _ as *mut std::ffi::c_void;
-        instance.get_physical_device_features2(physical_device, &mut features2);
-        instance.destroy_instance(None);
-    }
+    
     Some(VulkanCaps {
         int64: device_features.shader_int64 == vk::TRUE,
-        float64: device_features.shader_float64 == vk::TRUE,
-        float16: float16_int8.shader_float16 == vk::TRUE,
+        float64: device_features.shader_float64 == vk::TRUE
     })
 }
 
-fn should_skip_entry(entry: &str, has_f16: u32, has_f64: u32, has_i64: u32, has_u64: u32) -> bool {
+fn should_skip_entry(entry: &str, has_f64: u32, has_i64: u32, has_u64: u32) -> bool {
     let lower = entry.to_ascii_lowercase();
-    if has_f16 == 0 && lower.contains("_native") {
-        return true;
-    }
+
     if has_f64 == 0 && (lower.contains("_f64") || lower.starts_with("add_f64")) {
         return true;
     }

@@ -3,7 +3,7 @@ use once_cell::sync::Lazy;
 
 use crate::graph::OpKind;
 use crate::ops::registry::{KernelFn, OpKey, OpMode};
-use crate::registry::{op_schema, CAST_OUTPUT_DTYPES};
+use crate::op_defs::op_schema;
 use super::kernel;
 
 pub static ENTRIES: Lazy<Vec<(OpKey, KernelFn)>> = Lazy::new(|| {
@@ -30,8 +30,11 @@ fn build_cast_entries() -> Result<Vec<(OpKey, KernelFn)>> {
     };
 
     let mut entries = Vec::new();
+    let output_dtypes = schema
+        .output_dtypes
+        .ok_or_else(|| anyhow!("op {:?} missing output dtypes", kind))?;
     for in_dtype in support.normal {
-        for &out_dtype in CAST_OUTPUT_DTYPES {
+        for &out_dtype in output_dtypes {
             if !kernel::is_allowed_cast(*in_dtype, out_dtype) {
                 continue;
             }

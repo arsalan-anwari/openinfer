@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 
 use crate::graph::{AttrValue, OpAttrs, OpKind};
 use crate::ops::{lookup_kernel, OpKey, OpMode};
-use crate::registry::op_schema;
+use crate::op_defs::op_schema;
 use crate::runtime::state::SharedTensor;
 use crate::simulator::Device;
 use crate::tensor::{DType, TensorValue};

@@ -35,6 +35,7 @@ impl Simulator {
         if !device.is_supported() {
             return Err(anyhow!("device {:?} not supported for this build", device));
         }
+        crate::op_defs::init_ops_registry();
         crate::runtime::validation::validate_graph(model, graph)?;
         Self::warm_kernels_for_device(device);
         Ok(Self {

@@ -1,6 +1,9 @@
 #ifndef OPENINFER_REDUCE_UTILS_SLANG
 #define OPENINFER_REDUCE_UTILS_SLANG 1
 
+#include "generated_config.slang"
+#include "common.slang"
+
 void linear_to_coords(uint linear, TensorDesc desc, out uint coords[OPENINFER_VK_MAX_DIMS]) {
     uint idx = linear;
     for (int i = int(desc.rank) - 1; i >= 0; --i) {

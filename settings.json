@@ -2,7 +2,6 @@
   "openinfer": {
     "vulkan": {
       "max_tensor_rank": 8,
-      "has_f16": true,
       "has_i64": true,
       "has_u64": true,
       "has_f64": false

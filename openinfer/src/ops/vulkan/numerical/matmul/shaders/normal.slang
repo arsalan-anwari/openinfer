@@ -2,9 +2,7 @@
 #include "../../../shaders/float_utils.slang"
 #include "common.slang"
 
-#ifndef HAS_F16
-#define HAS_F16 0
-#endif
+
 
 #ifndef HAS_I64
 #define HAS_I64 0

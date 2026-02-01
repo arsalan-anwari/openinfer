@@ -3,30 +3,43 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 pub fn generate_spv_map(manifest_dir: &Path) -> Result<(), Box<dyn Error>> {
-    let shaders_json = manifest_dir.join("src/ops/vulkan/shaders.json");
-    println!("cargo:rerun-if-changed={}", shaders_json.display());
-    let contents = fs::read_to_string(&shaders_json)?;
+    let ops_json = manifest_dir.join("../ops.json");
+    println!("cargo:rerun-if-changed={}", ops_json.display());
+    let contents = fs::read_to_string(&ops_json)?;
     let value: serde_json::Value = serde_json::from_str(&contents)?;
     let ops = value
         .get("ops")
-        .and_then(|ops| ops.as_object())
-        .ok_or("shaders.json missing ops object")?;
+        .and_then(|ops| ops.as_array())
+        .ok_or("ops.json missing ops array")?;
 
     let mut entries: Vec<(String, PathBuf)> = Vec::new();
 
-    for (op, config) in ops {
-        let shader_dir = config
+    for op in ops {
+        let op_name = op
+            .get("name")
+            .and_then(|v| v.as_str())
+            .ok_or("ops.json op missing name")?;
+        let vulkan = match op
+            .get("devices")
+            .and_then(|v| v.as_object())
+            .and_then(|v| v.get("vulkan"))
+            .and_then(|v| v.as_object())
+        {
+            Some(vulkan) => vulkan,
+            None => continue,
+        };
+        let shader_dir = vulkan
             .get("shader_dir")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| format!("{op} missing shader_dir"))?;
-        let spv_dir = config
+            .ok_or_else(|| format!("{op_name} missing shader_dir"))?;
+        let spv_dir = vulkan
             .get("spv_dir")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| format!("{op} missing spv_dir"))?;
-        let shader_files = config
+            .ok_or_else(|| format!("{op_name} missing spv_dir"))?;
+        let shader_files = vulkan
             .get("shader_files")
             .and_then(|v| v.as_array())
-            .ok_or_else(|| format!("{op} missing shader_files"))?;
+            .ok_or_else(|| format!("{op_name} missing shader_files"))?;
 
         let shader_dir = manifest_dir.join(shader_dir);
         let spv_dir = manifest_dir.join(spv_dir);
@@ -34,7 +47,7 @@ pub fn generate_spv_map(manifest_dir: &Path) -> Result<(), Box<dyn Error>> {
         for file in shader_files {
             let file = file
                 .as_str()
-                .ok_or_else(|| format!("{op} shader_files must be strings"))?;
+                .ok_or_else(|| format!("{op_name} shader_files must be strings"))?;
             let shader_path = shader_dir.join(file);
             println!("cargo:rerun-if-changed={}", shader_path.display());
             let entrypoints = parse_entrypoints(&shader_path)?;

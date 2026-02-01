@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 
 use crate::graph::{MemoryKind, OpAttrs, OpKind};
 use crate::ops::OpMode;
-use crate::registry::{acc_dtype, op_schema};
+use crate::op_defs::{acc_dtype, op_schema};
 use super::attrs;
 use super::context::ValidationContext;
 

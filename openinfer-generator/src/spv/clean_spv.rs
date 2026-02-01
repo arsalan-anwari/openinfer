@@ -9,21 +9,34 @@ fn main() -> Result<()> {
         .parent()
         .expect("missing workspace root");
     let openinfer_dir = workspace_root.join("openinfer");
-    let shaders_json = openinfer_dir.join("src/ops/vulkan/shaders.json");
+    let ops_json = workspace_root.join("ops.json");
     let contents =
-        fs::read_to_string(&shaders_json).with_context(|| format!("read {}", shaders_json.display()))?;
+        fs::read_to_string(&ops_json).with_context(|| format!("read {}", ops_json.display()))?;
     let value: Value = serde_json::from_str(&contents)?;
     let ops = value
         .get("ops")
-        .and_then(|ops| ops.as_object())
-        .ok_or_else(|| anyhow!("shaders.json missing ops object"))?;
+        .and_then(|ops| ops.as_array())
+        .ok_or_else(|| anyhow!("ops.json missing ops array"))?;
 
     let mut deleted = 0usize;
-    for (op, config) in ops {
-        let spv_dir = config
+    for op in ops {
+        let op_name = op
+            .get("name")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow!("ops.json op missing name"))?;
+        let vulkan = match op
+            .get("devices")
+            .and_then(|v| v.as_object())
+            .and_then(|v| v.get("vulkan"))
+            .and_then(|v| v.as_object())
+        {
+            Some(vulkan) => vulkan,
+            None => continue,
+        };
+        let spv_dir = vulkan
             .get("spv_dir")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| anyhow!("{} missing spv_dir", op))?;
+            .ok_or_else(|| anyhow!("{op_name} missing spv_dir"))?;
         let spv_dir = openinfer_dir.join(spv_dir);
         if !spv_dir.exists() {
             continue;

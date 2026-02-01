@@ -23,7 +23,7 @@ High-Level Flow
 Maintainability Notes
 ---------------------
 - `settings.json` at repo root controls `openinfer.vulkan.max_tensor_rank` and
-  optional feature flags (`has_f16`, `has_f64`, `has_i64`, `has_u64`). The build
+  optional feature flags (`has_f64`, `has_i64`, `has_u64`). The build
   emits `OPENINFER_VK_MAX_DIMS`, generates
   `openinfer/src/ops/vulkan/shaders/generated_config.slang`, and writes
   `OUT_DIR/vulkan_config.rs`.
