@@ -25,26 +25,46 @@ fn main() {
             }
         };
         for entry in entries.flatten() {
-            let path = entry.path().join("kernel.rs");
-            if path.ends_with("src/ops/cpu/cast/kernel.rs")
-                || path.ends_with("ops/cpu/cast/kernel.rs")
-            {
+            let category_path = entry.path();
+            if !category_path.is_dir() {
                 continue;
             }
-            if path.exists() {
-                let metadata = match fs::metadata(&path) {
-                    Ok(meta) => meta,
-                    Err(err) => {
-                        eprintln!("clean_opspec: failed to stat {}: {err}", path.display());
-                        std::process::exit(1);
+            let ops = match fs::read_dir(&category_path) {
+                Ok(ops) => ops,
+                Err(err) => {
+                    eprintln!(
+                        "clean_opspec: failed to read cpu category dir {}: {err}",
+                        category_path.display()
+                    );
+                    std::process::exit(1);
+                }
+            };
+            for op_entry in ops.flatten() {
+                let op_path = op_entry.path();
+                if !op_path.is_dir() {
+                    continue;
+                }
+                let path = op_path.join("kernel.rs");
+                if path.ends_with("src/ops/cpu/casting/cast/kernel.rs")
+                    || path.ends_with("ops/cpu/casting/cast/kernel.rs")
+                {
+                    continue;
+                }
+                if path.exists() {
+                    let metadata = match fs::metadata(&path) {
+                        Ok(meta) => meta,
+                        Err(err) => {
+                            eprintln!("clean_opspec: failed to stat {}: {err}", path.display());
+                            std::process::exit(1);
+                        }
+                    };
+                    if metadata.len() > 0 {
+                        if let Err(err) = fs::write(&path, "") {
+                            eprintln!("clean_opspec: failed to clear {}: {err}", path.display());
+                            std::process::exit(1);
+                        }
+                        cleaned += 1;
                     }
-                };
-                if metadata.len() > 0 {
-                    if let Err(err) = fs::write(&path, "") {
-                        eprintln!("clean_opspec: failed to clear {}: {err}", path.display());
-                        std::process::exit(1);
-                    }
-                    cleaned += 1;
                 }
             }
         }

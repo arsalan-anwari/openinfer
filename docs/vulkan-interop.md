@@ -29,7 +29,7 @@ Maintainability Notes
   `OUT_DIR/vulkan_config.rs`.
 - `TensorDesc` remains universal across ops, but push constants and descriptor
   bindings are per-op. For example, add declares `AddPush` in
-  `openinfer/src/ops/vulkan/add/shaders/common.slang`.
+  `openinfer/src/ops/vulkan/arithmetic/add/shaders/common.slang`.
 - Kernel launchers use `VulkanOpSpec` and `dispatch_compute` to avoid per-op
   Vulkan boilerplate.
 - The runtime lives under `openinfer/src/ops/vulkan/runtime/` for device setup,
@@ -61,9 +61,9 @@ Example entry:
 {
   "ops": {
     "add": {
-      "shader_dir": "src/ops/vulkan/add/shaders",
+      "shader_dir": "src/ops/vulkan/arithmetic/add/shaders",
       "shader_files": ["normal.slang", "accumulate.slang", "packed.slang"],
-      "spv_dir": "src/ops/vulkan/add/bin"
+      "spv_dir": "src/ops/vulkan/arithmetic/add/bin"
     }
   }
 }
@@ -71,11 +71,11 @@ Example entry:
 
 Slang Shader Conventions
 ------------------------
-- Each op has shaders under `openinfer/src/ops/vulkan/<op>/shaders/`.
+- Each op has shaders under `openinfer/src/ops/vulkan/<category>/<op>/shaders/`.
   Common patterns use `normal.slang`, `accumulate.slang`, and `packed.slang`.
 - Entry points are compiled per target name (e.g., `add_f32`), and the runtime
   selects the appropriate SPIR-V by target name.
-- SPIR-V output lives under `openinfer/src/ops/vulkan/<op>/bin/` after running
+- SPIR-V output lives under `openinfer/src/ops/vulkan/<category>/<op>/bin/` after running
   `cargo build-spv`.
 - Packed dtypes use `ByteAddressBuffer` with shared helpers in
   `openinfer/src/ops/vulkan/shaders/packed_utils.slang`.
@@ -89,20 +89,20 @@ Slang Shader Conventions
 Adding a New Vulkan Op
 ----------------------
 1) Create the op folder and Slang shader(s):
-   - `openinfer/src/ops/vulkan/<op>/mod.rs`
-   - `openinfer/src/ops/vulkan/<op>/registry.rs`
-   - Shaders under `openinfer/src/ops/vulkan/<op>/shaders/` (multiple entrypoints
+   - `openinfer/src/ops/vulkan/<category>/<op>/mod.rs`
+   - `openinfer/src/ops/vulkan/<category>/<op>/registry.rs`
+   - Shaders under `openinfer/src/ops/vulkan/<category>/<op>/shaders/` (multiple entrypoints
      per file is preferred).
 2) Ensure each `.slang` file defines a compute entrypoint that matches the
    target name (e.g. `add_f32_normal`).
 3) Add the op to `openinfer/src/ops/vulkan/shaders.json` so `cargo build-spv`
-   generates `src/ops/vulkan/<op>/bin/<entry>.spv`.
+   generates `src/ops/vulkan/<category>/<op>/bin/<entry>.spv`.
 4) Add target selection patterns:
    - `openinfer/src/ops/vulkan/mod.rs` for per-op dispatch.
-   - `openinfer/src/ops/vulkan/<op>/mod.rs` for the op-specific matcher.
+   - `openinfer/src/ops/vulkan/<category>/<op>/mod.rs` for the op-specific matcher.
 5) Add the op kernel and registry entries:
-   - `openinfer/src/ops/vulkan/<op>/mod.rs` should call `runtime.dispatch(...)`.
-   - `openinfer/src/ops/vulkan/<op>/registry.rs` should register the Vulkan kernel.
+   - `openinfer/src/ops/vulkan/<category>/<op>/mod.rs` should call `runtime.dispatch(...)`.
+   - `openinfer/src/ops/vulkan/<category>/<op>/registry.rs` should register the Vulkan kernel.
 6) Ensure dtype support is enforced:
    - `openinfer/src/ops/vulkan/mod.rs` checks feature flags and dtype rules.
    - Return a clean error if the dtype is not supported on the current GPU.

@@ -60,14 +60,13 @@ pub fn generate_cpu_kernels(manifest_dir: &Path) -> Result<(), Box<dyn Error>> {
         let (normal_name, acc_name) = find_dtype_support_fields(&op_dtype_paths, dtype_support)?;
         let normal_dtypes = parse_dtype_list_in_files(&op_dtype_paths, &normal_name)?;
         let acc_pairs = parse_dtype_pairs_in_files(&op_dtype_paths, &acc_name)?;
-        let op_dir = manifest_dir.join(format!("src/ops/cpu/{op_name}"));
+        let op_dir = cpu_op_dir(manifest_dir, op_name)?;
         if schema.output_from_attr {
             let output_const = format!("{}_OUTPUT_DTYPES", schema.kind_ident.to_uppercase());
             let output_dtypes =
                 parse_dtype_list_in_files(&op_dtype_paths, &output_const).unwrap_or_else(|_| {
                     normal_dtypes.clone()
                 });
-            let op_dir = manifest_dir.join(format!("src/ops/cpu/{op_name}"));
             write_cast_kernel_rs(&op_dir, op_name, &normal_dtypes, &output_dtypes)?;
             continue;
         }
@@ -85,6 +84,31 @@ pub fn generate_cpu_kernels(manifest_dir: &Path) -> Result<(), Box<dyn Error>> {
     }
 
     Ok(())
+}
+
+fn cpu_op_dir(manifest_dir: &Path, op_name: &str) -> Result<PathBuf, Box<dyn Error>> {
+    let category = match op_name {
+        "abs" | "add" | "div" | "floor_div" | "fma" | "mul" | "neg" | "recip" | "rem" | "sub" => {
+            "arithmetic"
+        }
+        "and" | "not" | "or" | "popcount" | "shl" | "shr" | "xor" => "bitwise",
+        "cast" => "casting",
+        "eq" | "ge" | "gt" | "le" | "lt" | "ne" => "comparison",
+        "filter" | "is_finite" | "is_inf" | "is_nan" | "is_neg" => "filter",
+        "fill" => "mutation",
+        "matmul" | "relu" => "numerical",
+        "argmax_axis"
+        | "argmin_axis"
+        | "max_axis"
+        | "mean_axis"
+        | "min_axis"
+        | "prod_axis"
+        | "sum_axis" => "reduction",
+        "ceil" | "clamp" | "floor" | "round" | "trunc" => "rounding",
+        "max" | "min" | "sign" => "statistics",
+        _ => return Err(format!("unknown cpu op category for {op_name}").into()),
+    };
+    Ok(manifest_dir.join(format!("src/ops/cpu/{category}/{op_name}")))
 }
 
 fn write_cast_kernel_rs(

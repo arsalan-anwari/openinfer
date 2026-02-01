@@ -1,239 +1,239 @@
 {
   "ops": {
     "add": {
-      "shader_dir": "src/ops/vulkan/add/shaders",
+      "shader_dir": "src/ops/vulkan/arithmetic/add/shaders",
       "shader_files": ["normal.slang", "accumulate.slang", "packed.slang"],
-      "spv_dir": "src/ops/vulkan/add/bin"
+      "spv_dir": "src/ops/vulkan/arithmetic/add/bin"
     },
     "sub": {
-      "shader_dir": "src/ops/vulkan/sub/shaders",
+      "shader_dir": "src/ops/vulkan/arithmetic/sub/shaders",
       "shader_files": ["normal.slang", "accumulate.slang", "packed.slang"],
-      "spv_dir": "src/ops/vulkan/sub/bin"
+      "spv_dir": "src/ops/vulkan/arithmetic/sub/bin"
     },
     "div": {
-      "shader_dir": "src/ops/vulkan/div/shaders",
+      "shader_dir": "src/ops/vulkan/arithmetic/div/shaders",
       "shader_files": ["normal.slang", "packed.slang"],
-      "spv_dir": "src/ops/vulkan/div/bin"
+      "spv_dir": "src/ops/vulkan/arithmetic/div/bin"
     },
     "floor_div": {
-      "shader_dir": "src/ops/vulkan/floor_div/shaders",
+      "shader_dir": "src/ops/vulkan/arithmetic/floor_div/shaders",
       "shader_files": ["normal.slang", "packed.slang"],
-      "spv_dir": "src/ops/vulkan/floor_div/bin"
+      "spv_dir": "src/ops/vulkan/arithmetic/floor_div/bin"
     },
     "rem": {
-      "shader_dir": "src/ops/vulkan/rem/shaders",
+      "shader_dir": "src/ops/vulkan/arithmetic/rem/shaders",
       "shader_files": ["normal.slang", "packed.slang"],
-      "spv_dir": "src/ops/vulkan/rem/bin"
+      "spv_dir": "src/ops/vulkan/arithmetic/rem/bin"
     },
     "neg": {
-      "shader_dir": "src/ops/vulkan/neg/shaders",
+      "shader_dir": "src/ops/vulkan/arithmetic/neg/shaders",
       "shader_files": ["normal.slang", "packed.slang"],
-      "spv_dir": "src/ops/vulkan/neg/bin"
+      "spv_dir": "src/ops/vulkan/arithmetic/neg/bin"
     },
     "recip": {
-      "shader_dir": "src/ops/vulkan/recip/shaders",
+      "shader_dir": "src/ops/vulkan/arithmetic/recip/shaders",
       "shader_files": ["normal.slang"],
-      "spv_dir": "src/ops/vulkan/recip/bin"
+      "spv_dir": "src/ops/vulkan/arithmetic/recip/bin"
     },
     "sign": {
-      "shader_dir": "src/ops/vulkan/sign/shaders",
+      "shader_dir": "src/ops/vulkan/statistics/sign/shaders",
       "shader_files": ["normal.slang", "packed.slang"],
-      "spv_dir": "src/ops/vulkan/sign/bin"
+      "spv_dir": "src/ops/vulkan/statistics/sign/bin"
     },
     "min": {
-      "shader_dir": "src/ops/vulkan/min/shaders",
+      "shader_dir": "src/ops/vulkan/statistics/min/shaders",
       "shader_files": ["normal.slang", "packed.slang"],
-      "spv_dir": "src/ops/vulkan/min/bin"
+      "spv_dir": "src/ops/vulkan/statistics/min/bin"
     },
     "max": {
-      "shader_dir": "src/ops/vulkan/max/shaders",
+      "shader_dir": "src/ops/vulkan/statistics/max/shaders",
       "shader_files": ["normal.slang", "packed.slang"],
-      "spv_dir": "src/ops/vulkan/max/bin"
+      "spv_dir": "src/ops/vulkan/statistics/max/bin"
     },
     "clamp": {
-      "shader_dir": "src/ops/vulkan/clamp/shaders",
+      "shader_dir": "src/ops/vulkan/rounding/clamp/shaders",
       "shader_files": ["normal.slang", "packed.slang"],
-      "spv_dir": "src/ops/vulkan/clamp/bin"
+      "spv_dir": "src/ops/vulkan/rounding/clamp/bin"
     },
     "floor": {
-      "shader_dir": "src/ops/vulkan/floor/shaders",
+      "shader_dir": "src/ops/vulkan/rounding/floor/shaders",
       "shader_files": ["normal.slang"],
-      "spv_dir": "src/ops/vulkan/floor/bin"
+      "spv_dir": "src/ops/vulkan/rounding/floor/bin"
     },
     "ceil": {
-      "shader_dir": "src/ops/vulkan/ceil/shaders",
+      "shader_dir": "src/ops/vulkan/rounding/ceil/shaders",
       "shader_files": ["normal.slang"],
-      "spv_dir": "src/ops/vulkan/ceil/bin"
+      "spv_dir": "src/ops/vulkan/rounding/ceil/bin"
     },
     "round": {
-      "shader_dir": "src/ops/vulkan/round/shaders",
+      "shader_dir": "src/ops/vulkan/rounding/round/shaders",
       "shader_files": ["normal.slang"],
-      "spv_dir": "src/ops/vulkan/round/bin"
+      "spv_dir": "src/ops/vulkan/rounding/round/bin"
     },
     "trunc": {
-      "shader_dir": "src/ops/vulkan/trunc/shaders",
+      "shader_dir": "src/ops/vulkan/rounding/trunc/shaders",
       "shader_files": ["normal.slang"],
-      "spv_dir": "src/ops/vulkan/trunc/bin"
+      "spv_dir": "src/ops/vulkan/rounding/trunc/bin"
     },
     "and": {
-      "shader_dir": "src/ops/vulkan/and/shaders",
+      "shader_dir": "src/ops/vulkan/bitwise/and/shaders",
       "shader_files": ["normal.slang", "packed.slang"],
-      "spv_dir": "src/ops/vulkan/and/bin"
+      "spv_dir": "src/ops/vulkan/bitwise/and/bin"
     },
     "or": {
-      "shader_dir": "src/ops/vulkan/or/shaders",
+      "shader_dir": "src/ops/vulkan/bitwise/or/shaders",
       "shader_files": ["normal.slang", "packed.slang"],
-      "spv_dir": "src/ops/vulkan/or/bin"
+      "spv_dir": "src/ops/vulkan/bitwise/or/bin"
     },
     "xor": {
-      "shader_dir": "src/ops/vulkan/xor/shaders",
+      "shader_dir": "src/ops/vulkan/bitwise/xor/shaders",
       "shader_files": ["normal.slang", "packed.slang"],
-      "spv_dir": "src/ops/vulkan/xor/bin"
+      "spv_dir": "src/ops/vulkan/bitwise/xor/bin"
     },
     "not": {
-      "shader_dir": "src/ops/vulkan/not/shaders",
+      "shader_dir": "src/ops/vulkan/bitwise/not/shaders",
       "shader_files": ["normal.slang", "packed.slang"],
-      "spv_dir": "src/ops/vulkan/not/bin"
+      "spv_dir": "src/ops/vulkan/bitwise/not/bin"
     },
     "shl": {
-      "shader_dir": "src/ops/vulkan/shl/shaders",
+      "shader_dir": "src/ops/vulkan/bitwise/shl/shaders",
       "shader_files": ["normal.slang", "packed.slang"],
-      "spv_dir": "src/ops/vulkan/shl/bin"
+      "spv_dir": "src/ops/vulkan/bitwise/shl/bin"
     },
     "shr": {
-      "shader_dir": "src/ops/vulkan/shr/shaders",
+      "shader_dir": "src/ops/vulkan/bitwise/shr/shaders",
       "shader_files": ["normal.slang", "packed.slang"],
-      "spv_dir": "src/ops/vulkan/shr/bin"
+      "spv_dir": "src/ops/vulkan/bitwise/shr/bin"
     },
     "popcount": {
-      "shader_dir": "src/ops/vulkan/popcount/shaders",
+      "shader_dir": "src/ops/vulkan/bitwise/popcount/shaders",
       "shader_files": ["normal.slang", "packed.slang"],
-      "spv_dir": "src/ops/vulkan/popcount/bin"
+      "spv_dir": "src/ops/vulkan/bitwise/popcount/bin"
     },
     "eq": {
-      "shader_dir": "src/ops/vulkan/eq/shaders",
+      "shader_dir": "src/ops/vulkan/comparison/eq/shaders",
       "shader_files": ["normal.slang", "packed.slang"],
-      "spv_dir": "src/ops/vulkan/eq/bin"
+      "spv_dir": "src/ops/vulkan/comparison/eq/bin"
     },
     "ne": {
-      "shader_dir": "src/ops/vulkan/ne/shaders",
+      "shader_dir": "src/ops/vulkan/comparison/ne/shaders",
       "shader_files": ["normal.slang", "packed.slang"],
-      "spv_dir": "src/ops/vulkan/ne/bin"
+      "spv_dir": "src/ops/vulkan/comparison/ne/bin"
     },
     "lt": {
-      "shader_dir": "src/ops/vulkan/lt/shaders",
+      "shader_dir": "src/ops/vulkan/comparison/lt/shaders",
       "shader_files": ["normal.slang", "packed.slang"],
-      "spv_dir": "src/ops/vulkan/lt/bin"
+      "spv_dir": "src/ops/vulkan/comparison/lt/bin"
     },
     "le": {
-      "shader_dir": "src/ops/vulkan/le/shaders",
+      "shader_dir": "src/ops/vulkan/comparison/le/shaders",
       "shader_files": ["normal.slang", "packed.slang"],
-      "spv_dir": "src/ops/vulkan/le/bin"
+      "spv_dir": "src/ops/vulkan/comparison/le/bin"
     },
     "gt": {
-      "shader_dir": "src/ops/vulkan/gt/shaders",
+      "shader_dir": "src/ops/vulkan/comparison/gt/shaders",
       "shader_files": ["normal.slang", "packed.slang"],
-      "spv_dir": "src/ops/vulkan/gt/bin"
+      "spv_dir": "src/ops/vulkan/comparison/gt/bin"
     },
     "ge": {
-      "shader_dir": "src/ops/vulkan/ge/shaders",
+      "shader_dir": "src/ops/vulkan/comparison/ge/shaders",
       "shader_files": ["normal.slang", "packed.slang"],
-      "spv_dir": "src/ops/vulkan/ge/bin"
+      "spv_dir": "src/ops/vulkan/comparison/ge/bin"
     },
     "is_nan": {
-      "shader_dir": "src/ops/vulkan/is_nan/shaders",
+      "shader_dir": "src/ops/vulkan/filtering/is_nan/shaders",
       "shader_files": ["normal.slang"],
-      "spv_dir": "src/ops/vulkan/is_nan/bin"
+      "spv_dir": "src/ops/vulkan/filtering/is_nan/bin"
     },
     "is_inf": {
-      "shader_dir": "src/ops/vulkan/is_inf/shaders",
+      "shader_dir": "src/ops/vulkan/filtering/is_inf/shaders",
       "shader_files": ["normal.slang"],
-      "spv_dir": "src/ops/vulkan/is_inf/bin"
+      "spv_dir": "src/ops/vulkan/filtering/is_inf/bin"
     },
     "is_neg": {
-      "shader_dir": "src/ops/vulkan/is_neg/shaders",
+      "shader_dir": "src/ops/vulkan/filtering/is_neg/shaders",
       "shader_files": ["normal.slang", "packed.slang"],
-      "spv_dir": "src/ops/vulkan/is_neg/bin"
+      "spv_dir": "src/ops/vulkan/filtering/is_neg/bin"
     },
     "filter": {
-      "shader_dir": "src/ops/vulkan/filter/shaders",
+      "shader_dir": "src/ops/vulkan/filtering/filter/shaders",
       "shader_files": ["normal.slang", "packed.slang"],
-      "spv_dir": "src/ops/vulkan/filter/bin"
+      "spv_dir": "src/ops/vulkan/filtering/filter/bin"
     },
     "fma": {
-      "shader_dir": "src/ops/vulkan/fma/shaders",
+      "shader_dir": "src/ops/vulkan/arithmetic/fma/shaders",
       "shader_files": ["normal.slang"],
-      "spv_dir": "src/ops/vulkan/fma/bin"
+      "spv_dir": "src/ops/vulkan/arithmetic/fma/bin"
     },
     "sum_axis": {
-      "shader_dir": "src/ops/vulkan/sum_axis/shaders",
+      "shader_dir": "src/ops/vulkan/reduction/sum_axis/shaders",
       "shader_files": ["normal.slang", "packed.slang", "accumulate.slang"],
-      "spv_dir": "src/ops/vulkan/sum_axis/bin"
+      "spv_dir": "src/ops/vulkan/reduction/sum_axis/bin"
     },
     "mean_axis": {
-      "shader_dir": "src/ops/vulkan/mean_axis/shaders",
+      "shader_dir": "src/ops/vulkan/reduction/mean_axis/shaders",
       "shader_files": ["normal.slang", "packed.slang", "accumulate.slang"],
-      "spv_dir": "src/ops/vulkan/mean_axis/bin"
+      "spv_dir": "src/ops/vulkan/reduction/mean_axis/bin"
     },
     "prod_axis": {
-      "shader_dir": "src/ops/vulkan/prod_axis/shaders",
+      "shader_dir": "src/ops/vulkan/reduction/prod_axis/shaders",
       "shader_files": ["normal.slang", "packed.slang", "accumulate.slang"],
-      "spv_dir": "src/ops/vulkan/prod_axis/bin"
+      "spv_dir": "src/ops/vulkan/reduction/prod_axis/bin"
     },
     "max_axis": {
-      "shader_dir": "src/ops/vulkan/max_axis/shaders",
+      "shader_dir": "src/ops/vulkan/reduction/max_axis/shaders",
       "shader_files": ["normal.slang", "packed.slang"],
-      "spv_dir": "src/ops/vulkan/max_axis/bin"
+      "spv_dir": "src/ops/vulkan/reduction/max_axis/bin"
     },
     "min_axis": {
-      "shader_dir": "src/ops/vulkan/min_axis/shaders",
+      "shader_dir": "src/ops/vulkan/reduction/min_axis/shaders",
       "shader_files": ["normal.slang", "packed.slang"],
-      "spv_dir": "src/ops/vulkan/min_axis/bin"
+      "spv_dir": "src/ops/vulkan/reduction/min_axis/bin"
     },
     "argmax_axis": {
-      "shader_dir": "src/ops/vulkan/argmax_axis/shaders",
+      "shader_dir": "src/ops/vulkan/reduction/argmax_axis/shaders",
       "shader_files": ["normal.slang", "packed.slang"],
-      "spv_dir": "src/ops/vulkan/argmax_axis/bin"
+      "spv_dir": "src/ops/vulkan/reduction/argmax_axis/bin"
     },
     "argmin_axis": {
-      "shader_dir": "src/ops/vulkan/argmin_axis/shaders",
+      "shader_dir": "src/ops/vulkan/reduction/argmin_axis/shaders",
       "shader_files": ["normal.slang", "packed.slang"],
-      "spv_dir": "src/ops/vulkan/argmin_axis/bin"
+      "spv_dir": "src/ops/vulkan/reduction/argmin_axis/bin"
     },
     "cast": {
-      "shader_dir": "src/ops/vulkan/cast/shaders",
+      "shader_dir": "src/ops/vulkan/casting/cast/shaders",
       "shader_files": ["normal.slang", "packed.slang"],
-      "spv_dir": "src/ops/vulkan/cast/bin"
+      "spv_dir": "src/ops/vulkan/casting/cast/bin"
     },
     "mul": {
-      "shader_dir": "src/ops/vulkan/mul/shaders",
+      "shader_dir": "src/ops/vulkan/arithmetic/mul/shaders",
       "shader_files": ["normal.slang", "accumulate.slang", "packed.slang"],
-      "spv_dir": "src/ops/vulkan/mul/bin"
+      "spv_dir": "src/ops/vulkan/arithmetic/mul/bin"
     },
     "abs": {
-      "shader_dir": "src/ops/vulkan/abs/shaders",
+      "shader_dir": "src/ops/vulkan/arithmetic/abs/shaders",
       "shader_files": ["normal.slang", "accumulate.slang", "packed.slang"],
-      "spv_dir": "src/ops/vulkan/abs/bin"
+      "spv_dir": "src/ops/vulkan/arithmetic/abs/bin"
     },
     "relu": {
-      "shader_dir": "src/ops/vulkan/relu/shaders",
+      "shader_dir": "src/ops/vulkan/numerical/relu/shaders",
       "shader_files": ["normal.slang", "packed.slang"],
-      "spv_dir": "src/ops/vulkan/relu/bin"
+      "spv_dir": "src/ops/vulkan/numerical/relu/bin"
     },
     "matmul": {
-      "shader_dir": "src/ops/vulkan/matmul/shaders",
+      "shader_dir": "src/ops/vulkan/numerical/matmul/shaders",
       "shader_files": ["normal.slang", "accumulate.slang", "packed.slang"],
-      "spv_dir": "src/ops/vulkan/matmul/bin"
+      "spv_dir": "src/ops/vulkan/numerical/matmul/bin"
     },
     "is_finite": {
-      "shader_dir": "src/ops/vulkan/is_finite/shaders",
+      "shader_dir": "src/ops/vulkan/filtering/is_finite/shaders",
       "shader_files": ["normal.slang"],
-      "spv_dir": "src/ops/vulkan/is_finite/bin"
+      "spv_dir": "src/ops/vulkan/filtering/is_finite/bin"
     },
     "fill": {
-      "shader_dir": "src/ops/vulkan/fill/shaders",
+      "shader_dir": "src/ops/vulkan/mutation/fill/shaders",
       "shader_files": ["normal.slang", "packed.slang"],
-      "spv_dir": "src/ops/vulkan/fill/bin"
+      "spv_dir": "src/ops/vulkan/mutation/fill/bin"
     }
   }
 }
