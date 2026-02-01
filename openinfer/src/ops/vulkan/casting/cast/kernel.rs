@@ -51,6 +51,8 @@ fn dispatch_cast(
     let output = output.ok_or_else(|| anyhow!("cast requires an output tensor"))?;
     let input_dtype = inputs[0].dtype();
     let output_dtype = get_to_dtype(attrs)?;
+    let rounding_mode = get_rounding_mode(attrs)?;
+    let saturate = get_saturate(attrs)?;
     if output.dtype() != output_dtype {
         return Err(anyhow!(
             "cast output dtype {:?} does not match attr {:?}",
@@ -109,11 +111,12 @@ fn dispatch_cast(
     descs.push(build_tensor_desc(&inputs[0], out_rank, io_buffers.input_offset)?);
     descs.push(build_output_desc(output, out_rank, 0)?);
 
+    let flags = (rounding_mode & 0x3) | ((saturate as u32) << 2);
     let push = CastPush {
         len: output.len() as u32,
         tensor_count: descs.len() as u32,
         params_offset: 0,
-        flags: 0,
+        flags,
     };
 
     let in_name = dtype_suffix(input_dtype)?;
@@ -168,6 +171,36 @@ fn get_to_dtype(attrs: &OpAttrs) -> Result<DType> {
             AttrValue::DType(dtype) => Ok(*dtype),
             _ => Err(anyhow!("to attribute must be a dtype")),
         })
+}
+
+fn get_rounding_mode(attrs: &OpAttrs) -> Result<u32> {
+    let value = match attrs.items.iter().find(|attr| attr.name == "rounding_mode") {
+        Some(attr) => attr.value.clone(),
+        None => return Ok(0),
+    };
+    match value {
+        AttrValue::Str(mode) => match mode.as_str() {
+            "trunc" => Ok(0),
+            "floor" => Ok(1),
+            "ceil" => Ok(2),
+            "nearest" => Ok(3),
+            _ => Err(anyhow!("unsupported rounding_mode {}", mode)),
+        },
+        _ => Err(anyhow!("rounding_mode attribute must be a string")),
+    }
+}
+
+fn get_saturate(attrs: &OpAttrs) -> Result<bool> {
+    let value = match attrs.items.iter().find(|attr| attr.name == "saturate") {
+        Some(attr) => attr.value.clone(),
+        None => return Ok(true),
+    };
+    match value {
+        AttrValue::Bool(val) => Ok(val),
+        AttrValue::Int(val) => Ok(val != 0),
+        AttrValue::UInt(val) => Ok(val != 0),
+        _ => Err(anyhow!("saturate attribute must be bool/int/uint")),
+    }
 }
 
 fn is_allowed_cast(in_dtype: DType, out_dtype: DType) -> bool {

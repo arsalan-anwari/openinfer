@@ -281,6 +281,110 @@ impl ModelLoader {
         let data = &self.mmap[range.0..range.1];
         tensor_value_from_bytes(info, data)
     }
+
+    pub fn load_metadata_tensor(&self, name: &str) -> Result<Option<TensorValue>> {
+        let info = match self.metadata.get(name) {
+            Some(info) => info,
+            None => return Ok(None),
+        };
+        let data = &self.mmap[..];
+        let start = info.value_offset as usize;
+        let end = start + info.value_nbytes as usize;
+        if end > data.len() {
+            return Err(anyhow!("metadata value out of bounds for {}", name));
+        }
+
+        if info.value_type == ValueType::STRING {
+            return Err(anyhow!("metadata {} is a string, not a tensor", name));
+        }
+
+        if info.value_type == ValueType::BITSET {
+            if info.value_nbytes < 8 {
+                return Err(anyhow!("bitset metadata too small for {}", name));
+            }
+            let bits = read_u32_at(data, start)? as usize;
+            let packed_len = read_u32_at(data, start + 4)? as usize;
+            if start + 8 + packed_len > end {
+                return Err(anyhow!("bitset metadata payload out of bounds for {}", name));
+            }
+            let packed = &data[start + 8..start + 8 + packed_len];
+            let first = packed.first().copied().unwrap_or(0);
+            if bits > 8 {
+                return Err(anyhow!("bitset metadata too large for {}", name));
+            }
+            return Ok(Some(TensorValue::from(Bitset { bits: first })));
+        }
+
+        if info.value_type == ValueType::NDARRAY {
+            let mut cursor = start;
+            let element_type = read_u32(data, &mut cursor)?;
+            let ndim = read_u32(data, &mut cursor)? as usize;
+            let mut dims = Vec::with_capacity(ndim);
+            for _ in 0..ndim {
+                dims.push(read_u64(data, &mut cursor)?);
+            }
+            let dtype = ValueType::to_dtype(element_type)?;
+            let var_info = VarInfo {
+                name: name.to_string(),
+                dtype,
+                dims: dims.iter().map(|d| d.to_string()).collect(),
+                value_range: None,
+                has_data: true,
+            };
+            let payload = &data[cursor..end];
+            return tensor_value_from_bytes(&var_info, payload).map(Some);
+        }
+
+        let dtype = ValueType::to_dtype(info.value_type)?;
+        let var_info = VarInfo {
+            name: name.to_string(),
+            dtype,
+            dims: Vec::new(),
+            value_range: None,
+            has_data: true,
+        };
+        let payload = &data[start..end];
+        tensor_value_from_bytes(&var_info, payload).map(Some)
+    }
+
+    pub fn has_metadata_string(&self, name: &str) -> bool {
+        self.metadata
+            .get(name)
+            .map(|info| info.value_type == ValueType::STRING)
+            .unwrap_or(false)
+    }
+
+    pub fn load_metadata_string(&self, name: &str) -> Result<Option<String>> {
+        let info = match self.metadata.get(name) {
+            Some(info) => info,
+            None => return Ok(None),
+        };
+        if info.value_type != ValueType::STRING {
+            return Ok(None);
+        }
+        let data = &self.mmap[..];
+        let start = info.value_offset as usize;
+        let end = start + info.value_nbytes as usize;
+        if end > data.len() {
+            return Err(anyhow!("metadata value out of bounds for {}", name));
+        }
+        if info.value_nbytes < 4 {
+            return Err(anyhow!("metadata string too small for {}", name));
+        }
+
+        let len = read_u32_at(data, start)? as usize;
+        let payload_end = start + 4 + len;
+        if payload_end > end {
+            return Err(anyhow!("metadata string payload out of bounds for {}", name));
+        }
+        let raw = &data[start + 4..payload_end];
+        let text = std::str::from_utf8(raw).context("invalid UTF-8 string")?;
+        let padded = align_up(4 + len, 8);
+        if start + padded > end {
+            return Err(anyhow!("metadata string padding out of bounds for {}", name));
+        }
+        Ok(Some(text.to_string()))
+    }
 }
 
 fn build_tensor_store(

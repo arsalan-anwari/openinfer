@@ -114,6 +114,20 @@ impl RuntimeState {
             }
         }
 
+        if let Some(value) = self.shared.model.load_metadata_tensor(name)? {
+            if decl.kind == MemoryKind::Persistent {
+                self.shared
+                    .cache
+                    .lock()
+                    .expect("cache lock poisoned")
+                    .set_persistent(name, value.clone());
+            } else {
+                self.locals
+                    .insert(name.to_string(), Arc::new(Mutex::new(value.clone())));
+            }
+            return Ok(value);
+        }
+
         if decl.kind == MemoryKind::Persistent {
             return self
                 .shared

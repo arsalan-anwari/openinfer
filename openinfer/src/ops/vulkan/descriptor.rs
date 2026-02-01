@@ -65,8 +65,13 @@ pub fn build_tensor_desc(
     desc.dtype = dtype_code(dtype);
     desc.elem_bits = dtype.bit_width() as u32;
     desc.byte_offset = byte_offset;
+    let offset = out_rank.saturating_sub(shape.len());
     for i in 0..out_rank {
-        desc.shape[i] = shape.get(i).copied().unwrap_or(1) as u32;
+        if i < offset {
+            desc.shape[i] = 1;
+        } else {
+            desc.shape[i] = shape[i - offset] as u32;
+        }
         desc.strides[i] = strides[i] as u32;
     }
     Ok(desc)

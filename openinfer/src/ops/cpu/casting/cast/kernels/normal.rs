@@ -72,6 +72,22 @@ pub fn f64_to_bf16(value: f64) -> BF16 {
     BF16::from_f32(value as f32)
 }
 
+pub fn round_trunc(value: f64) -> f64 {
+    value.trunc()
+}
+
+pub fn round_floor(value: f64) -> f64 {
+    value.floor()
+}
+
+pub fn round_ceil(value: f64) -> f64 {
+    value.ceil()
+}
+
+pub fn round_nearest(value: f64) -> f64 {
+    value.round()
+}
+
 pub fn cast_to_f8<TIn: Copy>(
     input: &Tensor<TIn>,
     out: &mut Tensor<F8>,
@@ -116,69 +132,88 @@ pub fn cast_to_i8<TIn: Copy>(
     input: &Tensor<TIn>,
     out: &mut Tensor<i8>,
     to_f64: fn(TIn) -> f64,
+    round: fn(f64) -> f64,
+    saturate: bool,
 ) -> Result<()> {
-    cast_map(input, out, |v| clamp_f64_to_i8(to_f64(v)))
+    cast_map(input, out, |v| cast_f64_to_i8(round(to_f64(v)), saturate))
 }
 
 pub fn cast_to_i16<TIn: Copy>(
     input: &Tensor<TIn>,
     out: &mut Tensor<i16>,
     to_f64: fn(TIn) -> f64,
+    round: fn(f64) -> f64,
+    saturate: bool,
 ) -> Result<()> {
-    cast_map(input, out, |v| clamp_f64_to_i16(to_f64(v)))
+    cast_map(input, out, |v| cast_f64_to_i16(round(to_f64(v)), saturate))
 }
 
 pub fn cast_to_i32<TIn: Copy>(
     input: &Tensor<TIn>,
     out: &mut Tensor<i32>,
     to_f64: fn(TIn) -> f64,
+    round: fn(f64) -> f64,
+    saturate: bool,
 ) -> Result<()> {
-    cast_map(input, out, |v| clamp_f64_to_i32(to_f64(v)))
+    cast_map(input, out, |v| cast_f64_to_i32(round(to_f64(v)), saturate))
 }
 
 pub fn cast_to_i64<TIn: Copy>(
     input: &Tensor<TIn>,
     out: &mut Tensor<i64>,
     to_f64: fn(TIn) -> f64,
+    round: fn(f64) -> f64,
+    saturate: bool,
 ) -> Result<()> {
-    cast_map(input, out, |v| clamp_f64_to_i64(to_f64(v)))
+    cast_map(input, out, |v| cast_f64_to_i64(round(to_f64(v)), saturate))
 }
 
 pub fn cast_to_u8<TIn: Copy>(
     input: &Tensor<TIn>,
     out: &mut Tensor<u8>,
     to_f64: fn(TIn) -> f64,
+    round: fn(f64) -> f64,
+    saturate: bool,
 ) -> Result<()> {
-    cast_map(input, out, |v| clamp_f64_to_u8(to_f64(v)))
+    cast_map(input, out, |v| cast_f64_to_u8(round(to_f64(v)), saturate))
 }
 
 pub fn cast_to_u16<TIn: Copy>(
     input: &Tensor<TIn>,
     out: &mut Tensor<u16>,
     to_f64: fn(TIn) -> f64,
+    round: fn(f64) -> f64,
+    saturate: bool,
 ) -> Result<()> {
-    cast_map(input, out, |v| clamp_f64_to_u16(to_f64(v)))
+    cast_map(input, out, |v| cast_f64_to_u16(round(to_f64(v)), saturate))
 }
 
 pub fn cast_to_u32<TIn: Copy>(
     input: &Tensor<TIn>,
     out: &mut Tensor<u32>,
     to_f64: fn(TIn) -> f64,
+    round: fn(f64) -> f64,
+    saturate: bool,
 ) -> Result<()> {
-    cast_map(input, out, |v| clamp_f64_to_u32(to_f64(v)))
+    cast_map(input, out, |v| cast_f64_to_u32(round(to_f64(v)), saturate))
 }
 
 pub fn cast_to_u64<TIn: Copy>(
     input: &Tensor<TIn>,
     out: &mut Tensor<u64>,
     to_f64: fn(TIn) -> f64,
+    round: fn(f64) -> f64,
+    saturate: bool,
 ) -> Result<()> {
-    cast_map(input, out, |v| clamp_f64_to_u64(to_f64(v)))
+    cast_map(input, out, |v| cast_f64_to_u64(round(to_f64(v)), saturate))
 }
 
-fn clamp_f64_to_i8(value: f64) -> i8 {
+fn cast_f64_to_i8(value: f64, saturate: bool) -> i8 {
     if value.is_nan() {
         return 0;
+    }
+    if !saturate {
+        return value as i8;
     }
     if value < i8::MIN as f64 {
         return i8::MIN;
@@ -189,9 +224,12 @@ fn clamp_f64_to_i8(value: f64) -> i8 {
     value as i8
 }
 
-fn clamp_f64_to_i16(value: f64) -> i16 {
+fn cast_f64_to_i16(value: f64, saturate: bool) -> i16 {
     if value.is_nan() {
         return 0;
+    }
+    if !saturate {
+        return value as i16;
     }
     if value < i16::MIN as f64 {
         return i16::MIN;
@@ -202,9 +240,12 @@ fn clamp_f64_to_i16(value: f64) -> i16 {
     value as i16
 }
 
-fn clamp_f64_to_i32(value: f64) -> i32 {
+fn cast_f64_to_i32(value: f64, saturate: bool) -> i32 {
     if value.is_nan() {
         return 0;
+    }
+    if !saturate {
+        return value as i32;
     }
     if value < i32::MIN as f64 {
         return i32::MIN;
@@ -215,9 +256,12 @@ fn clamp_f64_to_i32(value: f64) -> i32 {
     value as i32
 }
 
-fn clamp_f64_to_i64(value: f64) -> i64 {
+fn cast_f64_to_i64(value: f64, saturate: bool) -> i64 {
     if value.is_nan() {
         return 0;
+    }
+    if !saturate {
+        return value as i64;
     }
     if value < i64::MIN as f64 {
         return i64::MIN;
@@ -228,8 +272,14 @@ fn clamp_f64_to_i64(value: f64) -> i64 {
     value as i64
 }
 
-fn clamp_f64_to_u8(value: f64) -> u8 {
-    if value.is_nan() || value <= 0.0 {
+fn cast_f64_to_u8(value: f64, saturate: bool) -> u8 {
+    if value.is_nan() {
+        return 0;
+    }
+    if !saturate {
+        return value as u8;
+    }
+    if value <= 0.0 {
         return 0;
     }
     if value > u8::MAX as f64 {
@@ -238,8 +288,14 @@ fn clamp_f64_to_u8(value: f64) -> u8 {
     value as u8
 }
 
-fn clamp_f64_to_u16(value: f64) -> u16 {
-    if value.is_nan() || value <= 0.0 {
+fn cast_f64_to_u16(value: f64, saturate: bool) -> u16 {
+    if value.is_nan() {
+        return 0;
+    }
+    if !saturate {
+        return value as u16;
+    }
+    if value <= 0.0 {
         return 0;
     }
     if value > u16::MAX as f64 {
@@ -248,8 +304,14 @@ fn clamp_f64_to_u16(value: f64) -> u16 {
     value as u16
 }
 
-fn clamp_f64_to_u32(value: f64) -> u32 {
-    if value.is_nan() || value <= 0.0 {
+fn cast_f64_to_u32(value: f64, saturate: bool) -> u32 {
+    if value.is_nan() {
+        return 0;
+    }
+    if !saturate {
+        return value as u32;
+    }
+    if value <= 0.0 {
         return 0;
     }
     if value > u32::MAX as f64 {
@@ -258,8 +320,14 @@ fn clamp_f64_to_u32(value: f64) -> u32 {
     value as u32
 }
 
-fn clamp_f64_to_u64(value: f64) -> u64 {
-    if value.is_nan() || value <= 0.0 {
+fn cast_f64_to_u64(value: f64, saturate: bool) -> u64 {
+    if value.is_nan() {
+        return 0;
+    }
+    if !saturate {
+        return value as u64;
+    }
+    if value <= 0.0 {
         return 0;
     }
     if value > u64::MAX as f64 {

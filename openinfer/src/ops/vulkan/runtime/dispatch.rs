@@ -1,6 +1,7 @@
 use std::ffi::CString;
 use std::fs;
 use std::path::PathBuf;
+use std::sync::{Mutex, OnceLock};
 
 use anyhow::{anyhow, Result};
 use ash::vk;
@@ -12,6 +13,12 @@ use crate::vk_trace;
 use super::buffers::BufferAlloc;
 use super::VulkanRuntime;
 
+static DISPATCH_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+
+fn dispatch_lock() -> &'static Mutex<()> {
+    DISPATCH_LOCK.get_or_init(|| Mutex::new(()))
+}
+
 impl VulkanRuntime {
     pub fn dispatch_compute(
     &self,
@@ -20,6 +27,10 @@ impl VulkanRuntime {
     push_constants: &[u8],
     dispatch_len: u32,
 ) -> Result<()> {
+    let _dispatch_guard = dispatch_lock()
+        .lock()
+        .map_err(|_| anyhow!("dispatch lock poisoned"))?;
+
     if push_constants.len() > spec.push_constant_size as usize {
         return Err(anyhow!(
             "push constants too large ({} > {})",

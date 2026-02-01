@@ -1,29 +1,9 @@
-   Compiling openinfer-generator v0.1.0 (/home/arsalan/Workspace/open-infer/openinfer-generator)
    Compiling openinfer v0.1.0 (/home/arsalan/Workspace/open-infer/openinfer)
-warning: fields `dtype_supports` and `output_dtype_sets` are never read
-   --> openinfer/src/op_defs.rs:199:5
-    |
-197 | struct OpRegistry {
-    |        ---------- fields in this struct
-198 |     schemas: Vec<OpSchema>,
-199 |     dtype_supports: HashMap<String, &'static OpDTypeSupport>,
-    |     ^^^^^^^^^^^^^^
-200 |     output_dtype_sets: HashMap<String, &'static [DType]>,
-    |     ^^^^^^^^^^^^^^^^^
-    |
-    = note: `OpRegistry` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
-    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
-
-warning: field `devices` is never read
-   --> openinfer/src/op_defs.rs:236:5
-    |
-222 | struct OpSchemaJson {
-    |        ------------ field in this struct
-...
-236 |     devices: Option<serde_json::Value>,
-    |     ^^^^^^^
-    |
-    = note: `OpSchemaJson` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
-
-warning: `openinfer` (lib) generated 2 warnings
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.36s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.28s
+     Running `target/debug/examples/yield --target=vulkan`
+0 660a0d0c-db78-4584-ac19-48fda8836567 [entry] -- op matmul(x,w) >> h -- (1ms 607us 656ns)
+1 318c3ddb-f7f3-437c-8951-87165cce0d2c [entry] -- yield x -- (0ms 0us 0ns)
+2 0f68ddb5-5d44-4268-9535-e246ba9bc67f [entry] -- op relu(h) >> h -- (0ms 33us 20ns)
+3 51c40574-3bcb-4968-a76c-8e2ff2b230f4 [entry] -- await x -- (0ms 0us 0ns)
+4 fb2d31d0-d8e4-4a24-8c74-9238889b2993 [entry] -- return -- (0ms 0us 0ns)
+x[0..8] = [0.600452, 0.45976013, 0.108111076, 0.5444539, 0.6162177, -0.9507775, 0.34048885, 0.16585201]

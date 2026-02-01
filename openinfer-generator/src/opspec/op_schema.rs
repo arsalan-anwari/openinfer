@@ -340,6 +340,8 @@ fn write_cast_kernel_rs(
     ));
     out.push_str("    let out = expect_output(output)?;\n");
     out.push_str("    let to_dtype = get_to_dtype(attrs)?;\n");
+    out.push_str("    let rounding = get_rounding_mode(attrs)?;\n");
+    out.push_str("    let saturate = get_saturate(attrs)?;\n");
     out.push_str("    let in_dtype = inputs[0].dtype();\n");
     out.push_str("    if !is_allowed_cast(in_dtype, to_dtype) {\n");
     out.push_str("        return Err(anyhow!(\"unsupported cast from {:?} to {:?}\", in_dtype, to_dtype));\n");
@@ -379,9 +381,17 @@ fn write_cast_kernel_rs(
                     "        (TensorValue::{in_dtype}(a0), TensorValue::{out_dtype}(out)) => packed::cast_packed_unsigned(a0, out, {width}, |v| {conversion}),\n"
                 ));
             } else {
-                out.push_str(&format!(
-                    "        (TensorValue::{in_dtype}(a0), TensorValue::{out_dtype}(out)) => normal::cast_to_{out_suffix}(a0, out, normal::{in_suffix}_to_f64),\n"
-                ));
+                let needs_rounding =
+                    is_signed_int_str(out_dtype) || is_unsigned_int_str(out_dtype);
+                if needs_rounding {
+                    out.push_str(&format!(
+                        "        (TensorValue::{in_dtype}(a0), TensorValue::{out_dtype}(out)) => normal::cast_to_{out_suffix}(a0, out, normal::{in_suffix}_to_f64, rounding, saturate),\n"
+                    ));
+                } else {
+                    out.push_str(&format!(
+                        "        (TensorValue::{in_dtype}(a0), TensorValue::{out_dtype}(out)) => normal::cast_to_{out_suffix}(a0, out, normal::{in_suffix}_to_f64),\n"
+                    ));
+                }
             }
         }
     }
@@ -399,6 +409,36 @@ fn write_cast_kernel_rs(
     out.push_str("            AttrValue::DType(dtype) => Ok(*dtype),\n");
     out.push_str("            _ => Err(anyhow!(\"to attribute must be a dtype\")),\n");
     out.push_str("        })\n");
+    out.push_str("}\n\n");
+
+    out.push_str("fn get_rounding_mode(attrs: &OpAttrs) -> Result<fn(f64) -> f64> {\n");
+    out.push_str("    let value = match attrs.items.iter().find(|attr| attr.name == \"rounding_mode\") {\n");
+    out.push_str("        Some(attr) => attr.value.clone(),\n");
+    out.push_str("        None => return Ok(normal::round_trunc),\n");
+    out.push_str("    };\n");
+    out.push_str("    match value {\n");
+    out.push_str("        AttrValue::Str(mode) => match mode.as_str() {\n");
+    out.push_str("            \"trunc\" => Ok(normal::round_trunc),\n");
+    out.push_str("            \"floor\" => Ok(normal::round_floor),\n");
+    out.push_str("            \"ceil\" => Ok(normal::round_ceil),\n");
+    out.push_str("            \"nearest\" => Ok(normal::round_nearest),\n");
+    out.push_str("            _ => Err(anyhow!(\"unsupported rounding_mode {}\", mode)),\n");
+    out.push_str("        },\n");
+    out.push_str("        _ => Err(anyhow!(\"rounding_mode attribute must be a string\")),\n");
+    out.push_str("    }\n");
+    out.push_str("}\n\n");
+
+    out.push_str("fn get_saturate(attrs: &OpAttrs) -> Result<bool> {\n");
+    out.push_str("    let value = match attrs.items.iter().find(|attr| attr.name == \"saturate\") {\n");
+    out.push_str("        Some(attr) => attr.value.clone(),\n");
+    out.push_str("        None => return Ok(true),\n");
+    out.push_str("    };\n");
+    out.push_str("    match value {\n");
+    out.push_str("        AttrValue::Bool(val) => Ok(val),\n");
+    out.push_str("        AttrValue::Int(val) => Ok(val != 0),\n");
+    out.push_str("        AttrValue::UInt(val) => Ok(val != 0),\n");
+    out.push_str("        _ => Err(anyhow!(\"saturate attribute must be bool/int/uint\")),\n");
+    out.push_str("    }\n");
     out.push_str("}\n\n");
 
     out.push_str("pub fn is_allowed_cast(in_dtype: DType, out_dtype: DType) -> bool {\n");

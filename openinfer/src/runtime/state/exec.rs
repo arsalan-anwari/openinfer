@@ -100,7 +100,13 @@ impl RuntimeState {
         let mut items = Vec::with_capacity(attrs.items.len());
         for attr in &attrs.items {
             let value = match &attr.value {
-                AttrValue::Var(name) => self.resolve_scalar_attr(name)?,
+                AttrValue::Var(name) => {
+                    if let Some(value) = self.shared.model.load_metadata_string(name)? {
+                        AttrValue::Str(value)
+                    } else {
+                        self.resolve_scalar_attr(name)?
+                    }
+                }
                 other => other.clone(),
             };
             items.push(crate::graph::OpAttr {

@@ -43,6 +43,11 @@ pub fn validate_attrs(
                     return Err(anyhow!("unknown attribute tensor: {}", name));
                 }
             }
+            (OpAttrType::String, AttrValue::Var(name)) => {
+                if !ctx.model.has_metadata_string(name) {
+                    return Err(anyhow!("unknown attribute string: {}", name));
+                }
+            }
             _ => {}
         }
     }
@@ -62,7 +67,7 @@ fn attr_type_matches(kind: OpAttrType, value: &AttrValue) -> bool {
         ),
         OpAttrType::DType => matches!(value, AttrValue::DType(_)),
         OpAttrType::Tensor => matches!(value, AttrValue::Var(_)),
-        OpAttrType::String => matches!(value, AttrValue::Str(_)),
+        OpAttrType::String => matches!(value, AttrValue::Str(_) | AttrValue::Var(_)),
         OpAttrType::IntList => matches!(value, AttrValue::IntList(_)),
     }
 }
