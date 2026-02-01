@@ -96,6 +96,7 @@ fn main() -> Result<()> {
             .arg(&item.entry)
             .arg("-target")
             .arg("spirv")
+            .arg("-Wno-30081")
             .arg("-o")
             .arg(&item.spv_path)
             .arg("-I")
@@ -284,14 +285,32 @@ fn should_skip_entry(entry: &str, has_f16: u32, has_f64: u32, has_i64: u32, has_
 fn parse_entrypoints(path: &Path) -> Result<Vec<String>> {
     let contents = fs::read_to_string(path)
         .with_context(|| format!("read shader {}", path.display()))?;
+    let lines: Vec<&str> = contents.lines().collect();
+    let entry_macros = parse_entrypoint_macros(&lines);
+
     let mut entrypoints = Vec::new();
     let mut expect_entry = false;
-    for line in contents.lines() {
+    let mut in_macro = false;
+
+    for line in &lines {
         let trimmed = line.trim();
+        if trimmed.starts_with("#define ") {
+            in_macro = trimmed.ends_with('\\');
+            expect_entry = false;
+            continue;
+        }
+        if in_macro {
+            if !trimmed.ends_with('\\') {
+                in_macro = false;
+            }
+            continue;
+        }
+
         if trimmed.contains("[shader(\"compute\")]") {
             expect_entry = true;
             continue;
         }
+
         if expect_entry {
             if trimmed.starts_with('#') {
                 continue;
@@ -299,12 +318,107 @@ fn parse_entrypoints(path: &Path) -> Result<Vec<String>> {
             if let Some(name) = parse_void_name(trimmed) {
                 entrypoints.push(name);
                 expect_entry = false;
-            } else if !trimmed.is_empty() && !trimmed.starts_with('[') {
+                continue;
+            }
+            if !trimmed.is_empty() && !trimmed.starts_with('[') {
                 expect_entry = false;
             }
         }
+
+        if trimmed.starts_with('#') || trimmed.starts_with("//") || trimmed.is_empty() {
+            continue;
+        }
+        if let Some(name) = parse_macro_invocation(trimmed, &entry_macros) {
+            entrypoints.push(name);
+        }
     }
+
     Ok(entrypoints)
+}
+
+fn parse_entrypoint_macros(lines: &[&str]) -> std::collections::HashMap<String, usize> {
+    let mut macros = std::collections::HashMap::new();
+    let mut idx = 0usize;
+    while idx < lines.len() {
+        let line = lines[idx].trim();
+        if !line.starts_with("#define ") {
+            idx += 1;
+            continue;
+        }
+        let after_define = line.trim_start_matches("#define").trim();
+        let open = after_define.find('(');
+        let close = after_define.find(')');
+        let (Some(open), Some(close)) = (open, close) else {
+            idx += 1;
+            continue;
+        };
+        let name = after_define[..open].trim();
+        if name.is_empty() {
+            idx += 1;
+            continue;
+        }
+        let params_raw = &after_define[open + 1..close];
+        let params: Vec<String> = params_raw
+            .split(',')
+            .map(|p| p.trim().to_string())
+            .filter(|p| !p.is_empty())
+            .collect();
+        if params.is_empty() {
+            idx += 1;
+            continue;
+        }
+
+        let mut has_shader = false;
+        let mut entry_param: Option<usize> = None;
+        let mut macro_idx = idx;
+        loop {
+            let body_line = lines[macro_idx].trim();
+            if body_line.contains("[shader(\"compute\")]") {
+                has_shader = true;
+            }
+            for (param_idx, param) in params.iter().enumerate() {
+                let needle = format!("void {}", param);
+                if body_line.contains(&needle) {
+                    entry_param = Some(param_idx);
+                }
+            }
+            if !body_line.ends_with('\\') {
+                break;
+            }
+            macro_idx += 1;
+            if macro_idx >= lines.len() {
+                break;
+            }
+        }
+        if has_shader {
+            if let Some(param_idx) = entry_param {
+                macros.insert(name.to_string(), param_idx);
+            }
+        }
+        idx = macro_idx.saturating_add(1);
+    }
+    macros
+}
+
+fn parse_macro_invocation(
+    line: &str,
+    entry_macros: &std::collections::HashMap<String, usize>,
+) -> Option<String> {
+    let open = line.find('(')?;
+    let close = line.rfind(')')?;
+    if close <= open {
+        return None;
+    }
+    let macro_name = line[..open].trim();
+    let param_idx = *entry_macros.get(macro_name)?;
+    let args_raw = &line[open + 1..close];
+    let args: Vec<&str> = args_raw.split(',').map(|s| s.trim()).collect();
+    let entry = args.get(param_idx)?.trim();
+    if entry.is_empty() {
+        None
+    } else {
+        Some(entry.to_string())
+    }
 }
 
 fn parse_void_name(line: &str) -> Option<String> {
@@ -356,3 +470,4 @@ fn shorten_path(path: String, max_len: usize) -> String {
         .collect::<String>();
     format!("...{}", tail)
 }
+

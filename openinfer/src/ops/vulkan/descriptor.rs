@@ -71,3 +71,30 @@ pub fn build_tensor_desc(
     }
     Ok(desc)
 }
+
+pub fn build_tensor_desc_broadcast(
+    value: &TensorValue,
+    out_shape: &[usize],
+    byte_offset: u32,
+) -> Result<TensorDesc> {
+    let dtype = value.dtype();
+    let out_rank = out_shape.len();
+    if out_rank > MAX_DIMS {
+        return Err(anyhow!(
+            "vulkan tensors only support up to {} dims (got {})",
+            MAX_DIMS,
+            out_rank
+        ));
+    }
+    let strides = broadcast_strides(value.shape(), value.strides(), out_rank);
+    let mut desc = TensorDesc::default();
+    desc.rank = out_rank as u32;
+    desc.dtype = dtype_code(dtype);
+    desc.elem_bits = dtype.bit_width() as u32;
+    desc.byte_offset = byte_offset;
+    for i in 0..out_rank {
+        desc.shape[i] = out_shape[i] as u32;
+        desc.strides[i] = strides[i] as u32;
+    }
+    Ok(desc)
+}

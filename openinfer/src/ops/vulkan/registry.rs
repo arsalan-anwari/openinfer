@@ -5,7 +5,7 @@ use once_cell::sync::Lazy;
 
 use crate::ops::registry::{KernelFn, OpKey};
 
-use super::{abs, add, fill, is_finite, matmul, mul, relu};
+use super::{abs, add, and, argmax_axis, argmin_axis, cast, ceil, clamp, div, eq, fill, filter, floor, floor_div, fma, ge, gt, is_finite, is_inf, is_nan, is_neg, le, lt, matmul, max, max_axis, mean_axis, min, min_axis, mul, ne, neg, not, or, popcount, prod_axis, recip, relu, rem, round, shl, shr, sign, sub, sum_axis, trunc, xor};
 
 pub fn lookup_kernel(key: OpKey) -> Result<KernelFn> {
     VULKAN_KERNELS
@@ -21,6 +21,126 @@ pub fn warm_kernels() {
 static VULKAN_KERNELS: Lazy<HashMap<OpKey, KernelFn>> = Lazy::new(|| {
     let mut map = HashMap::new();
     for (key, kernel) in add::registry::ENTRIES.iter() {
+        map.insert(key.clone(), *kernel);
+    }
+    for (key, kernel) in sub::registry::ENTRIES.iter() {
+        map.insert(key.clone(), *kernel);
+    }
+    for (key, kernel) in div::registry::ENTRIES.iter() {
+        map.insert(key.clone(), *kernel);
+    }
+    for (key, kernel) in floor_div::registry::ENTRIES.iter() {
+        map.insert(key.clone(), *kernel);
+    }
+    for (key, kernel) in rem::registry::ENTRIES.iter() {
+        map.insert(key.clone(), *kernel);
+    }
+    for (key, kernel) in neg::registry::ENTRIES.iter() {
+        map.insert(key.clone(), *kernel);
+    }
+    for (key, kernel) in recip::registry::ENTRIES.iter() {
+        map.insert(key.clone(), *kernel);
+    }
+    for (key, kernel) in sign::registry::ENTRIES.iter() {
+        map.insert(key.clone(), *kernel);
+    }
+    for (key, kernel) in min::registry::ENTRIES.iter() {
+        map.insert(key.clone(), *kernel);
+    }
+    for (key, kernel) in max::registry::ENTRIES.iter() {
+        map.insert(key.clone(), *kernel);
+    }
+    for (key, kernel) in clamp::registry::ENTRIES.iter() {
+        map.insert(key.clone(), *kernel);
+    }
+    for (key, kernel) in floor::registry::ENTRIES.iter() {
+        map.insert(key.clone(), *kernel);
+    }
+    for (key, kernel) in ceil::registry::ENTRIES.iter() {
+        map.insert(key.clone(), *kernel);
+    }
+    for (key, kernel) in round::registry::ENTRIES.iter() {
+        map.insert(key.clone(), *kernel);
+    }
+    for (key, kernel) in trunc::registry::ENTRIES.iter() {
+        map.insert(key.clone(), *kernel);
+    }
+    for (key, kernel) in and::registry::ENTRIES.iter() {
+        map.insert(key.clone(), *kernel);
+    }
+    for (key, kernel) in or::registry::ENTRIES.iter() {
+        map.insert(key.clone(), *kernel);
+    }
+    for (key, kernel) in xor::registry::ENTRIES.iter() {
+        map.insert(key.clone(), *kernel);
+    }
+    for (key, kernel) in not::registry::ENTRIES.iter() {
+        map.insert(key.clone(), *kernel);
+    }
+    for (key, kernel) in shl::registry::ENTRIES.iter() {
+        map.insert(key.clone(), *kernel);
+    }
+    for (key, kernel) in shr::registry::ENTRIES.iter() {
+        map.insert(key.clone(), *kernel);
+    }
+    for (key, kernel) in popcount::registry::ENTRIES.iter() {
+        map.insert(key.clone(), *kernel);
+    }
+    for (key, kernel) in eq::registry::ENTRIES.iter() {
+        map.insert(key.clone(), *kernel);
+    }
+    for (key, kernel) in ne::registry::ENTRIES.iter() {
+        map.insert(key.clone(), *kernel);
+    }
+    for (key, kernel) in lt::registry::ENTRIES.iter() {
+        map.insert(key.clone(), *kernel);
+    }
+    for (key, kernel) in le::registry::ENTRIES.iter() {
+        map.insert(key.clone(), *kernel);
+    }
+    for (key, kernel) in gt::registry::ENTRIES.iter() {
+        map.insert(key.clone(), *kernel);
+    }
+    for (key, kernel) in ge::registry::ENTRIES.iter() {
+        map.insert(key.clone(), *kernel);
+    }
+    for (key, kernel) in is_nan::registry::ENTRIES.iter() {
+        map.insert(key.clone(), *kernel);
+    }
+    for (key, kernel) in is_inf::registry::ENTRIES.iter() {
+        map.insert(key.clone(), *kernel);
+    }
+    for (key, kernel) in is_neg::registry::ENTRIES.iter() {
+        map.insert(key.clone(), *kernel);
+    }
+    for (key, kernel) in filter::registry::ENTRIES.iter() {
+        map.insert(key.clone(), *kernel);
+    }
+    for (key, kernel) in fma::registry::ENTRIES.iter() {
+        map.insert(key.clone(), *kernel);
+    }
+    for (key, kernel) in sum_axis::registry::ENTRIES.iter() {
+        map.insert(key.clone(), *kernel);
+    }
+    for (key, kernel) in mean_axis::registry::ENTRIES.iter() {
+        map.insert(key.clone(), *kernel);
+    }
+    for (key, kernel) in prod_axis::registry::ENTRIES.iter() {
+        map.insert(key.clone(), *kernel);
+    }
+    for (key, kernel) in max_axis::registry::ENTRIES.iter() {
+        map.insert(key.clone(), *kernel);
+    }
+    for (key, kernel) in min_axis::registry::ENTRIES.iter() {
+        map.insert(key.clone(), *kernel);
+    }
+    for (key, kernel) in argmax_axis::registry::ENTRIES.iter() {
+        map.insert(key.clone(), *kernel);
+    }
+    for (key, kernel) in argmin_axis::registry::ENTRIES.iter() {
+        map.insert(key.clone(), *kernel);
+    }
+    for (key, kernel) in cast::registry::ENTRIES.iter() {
         map.insert(key.clone(), *kernel);
     }
     for (key, kernel) in mul::registry::ENTRIES.iter() {

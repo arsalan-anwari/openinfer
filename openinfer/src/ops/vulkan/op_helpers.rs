@@ -28,7 +28,18 @@ pub struct VulkanUnaryBuffers {
     pub output_alias_input: bool,
 }
 
+pub struct VulkanTernaryBuffers {
+    pub input_bytes: Vec<u8>,
+    pub output_bytes: Vec<u8>,
+    pub input0_offset: u32,
+    pub input1_offset: u32,
+    pub input2_offset: u32,
+    pub output_offset: u64,
+    pub output_alias_input: bool,
+}
+
 const PACKED_BUFFER_ALIGNMENT: usize = 8;
+const BYTE_ADDRESS_ALIGNMENT: usize = 4;
 
 fn pad_bytes_to_alignment(bytes: &mut Vec<u8>, alignment: usize) {
     if alignment == 0 {
@@ -135,20 +146,24 @@ pub fn prepare_staging_io(
     tensor_append_bytes(input0_source, &mut input_bytes)?;
     let input0_offset = 0u32;
     let packed_inputs = inputs.iter().any(|value| value.dtype().is_packed());
-    if packed_inputs {
-        pad_bytes_to_alignment(&mut input_bytes, PACKED_BUFFER_ALIGNMENT);
-    }
+    let input_alignment = if packed_inputs {
+        PACKED_BUFFER_ALIGNMENT
+    } else {
+        BYTE_ADDRESS_ALIGNMENT
+    };
+    pad_bytes_to_alignment(&mut input_bytes, input_alignment);
     let input1_offset = input_bytes.len() as u32;
     tensor_append_bytes(&inputs[1], &mut input_bytes)?;
-    if packed_inputs {
-        pad_bytes_to_alignment(&mut input_bytes, PACKED_BUFFER_ALIGNMENT);
-    }
+    pad_bytes_to_alignment(&mut input_bytes, input_alignment);
 
     output_bytes.clear();
     output_bytes.resize(output_len, 0);
-    if output_dtype.is_packed() {
-        pad_bytes_to_alignment(&mut output_bytes, PACKED_BUFFER_ALIGNMENT);
-    }
+    let output_alignment = if output_dtype.is_packed() {
+        PACKED_BUFFER_ALIGNMENT
+    } else {
+        BYTE_ADDRESS_ALIGNMENT
+    };
+    pad_bytes_to_alignment(&mut output_bytes, output_alignment);
     let output_alias_input = mode == OpMode::Inplace;
     let output_offset = input0_offset as u64;
 
@@ -180,15 +195,21 @@ pub fn prepare_unary_staging_io(
     input_bytes.clear();
     tensor_append_bytes(input_source, &mut input_bytes)?;
     let input_offset = 0u32;
-    if input_source.dtype().is_packed() {
-        pad_bytes_to_alignment(&mut input_bytes, PACKED_BUFFER_ALIGNMENT);
-    }
+    let input_alignment = if input_source.dtype().is_packed() {
+        PACKED_BUFFER_ALIGNMENT
+    } else {
+        BYTE_ADDRESS_ALIGNMENT
+    };
+    pad_bytes_to_alignment(&mut input_bytes, input_alignment);
 
     output_bytes.clear();
     output_bytes.resize(output_len, 0);
-    if output_dtype.is_packed() {
-        pad_bytes_to_alignment(&mut output_bytes, PACKED_BUFFER_ALIGNMENT);
-    }
+    let output_alignment = if output_dtype.is_packed() {
+        PACKED_BUFFER_ALIGNMENT
+    } else {
+        BYTE_ADDRESS_ALIGNMENT
+    };
+    pad_bytes_to_alignment(&mut output_bytes, output_alignment);
     let output_alias_input = mode == OpMode::Inplace;
     let output_offset = input_offset as u64;
 
@@ -196,6 +217,66 @@ pub fn prepare_unary_staging_io(
         input_bytes,
         output_bytes,
         input_offset,
+        output_offset,
+        output_alias_input,
+    })
+}
+
+pub fn prepare_ternary_staging_io(
+    mode: OpMode,
+    inputs: &[TensorValue],
+    output: &TensorValue,
+    output_dtype: DType,
+) -> Result<VulkanTernaryBuffers> {
+    if inputs.len() != 3 {
+        return Err(anyhow!(
+            "ternary staging expects 3 inputs, got {}",
+            inputs.len()
+        ));
+    }
+    let input0_source = if mode == OpMode::Inplace { output } else { &inputs[0] };
+    let output_len = tensor_byte_len(output_dtype, output.len());
+    let StagingBuffers {
+        input: input_staging,
+        output: output_staging,
+    } = take_staging()?;
+    let mut input_bytes = input_staging;
+    let mut output_bytes = output_staging;
+
+    input_bytes.clear();
+    tensor_append_bytes(input0_source, &mut input_bytes)?;
+    let input0_offset = 0u32;
+    let packed_inputs = inputs.iter().any(|value| value.dtype().is_packed());
+    let input_alignment = if packed_inputs {
+        PACKED_BUFFER_ALIGNMENT
+    } else {
+        BYTE_ADDRESS_ALIGNMENT
+    };
+    pad_bytes_to_alignment(&mut input_bytes, input_alignment);
+    let input1_offset = input_bytes.len() as u32;
+    tensor_append_bytes(&inputs[1], &mut input_bytes)?;
+    pad_bytes_to_alignment(&mut input_bytes, input_alignment);
+    let input2_offset = input_bytes.len() as u32;
+    tensor_append_bytes(&inputs[2], &mut input_bytes)?;
+    pad_bytes_to_alignment(&mut input_bytes, input_alignment);
+
+    output_bytes.clear();
+    output_bytes.resize(output_len, 0);
+    let output_alignment = if output_dtype.is_packed() {
+        PACKED_BUFFER_ALIGNMENT
+    } else {
+        BYTE_ADDRESS_ALIGNMENT
+    };
+    pad_bytes_to_alignment(&mut output_bytes, output_alignment);
+    let output_alias_input = mode == OpMode::Inplace;
+    let output_offset = input0_offset as u64;
+
+    Ok(VulkanTernaryBuffers {
+        input_bytes,
+        output_bytes,
+        input0_offset,
+        input1_offset,
+        input2_offset,
         output_offset,
         output_alias_input,
     })

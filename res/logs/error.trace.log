@@ -1,0 +1,41 @@
+01:36:54 [[32mVK_TRACE[0m] -- dispatch_floor_div mode=Normal input_dtype=Some(I8) output_dtype=Some(I8)
+01:36:54 [[32mVK_TRACE[0m] -- dispatching vulkan floor_div target=floor_div_i8_normal
+01:36:54 [[32mVK_TRACE[0m] -- dispatch_compute entry=floor_div_i8_normal bindings=3 push_bytes=52
+01:36:54 [[32mVK_TRACE[0m] -- spv header target=floor_div_i8_normal magic=0x07230203 version=0x00010500 bound=590 schema=0
+01:36:54 [[32mVK_TRACE[0m] -- spv entrypoints: ["main"]
+01:36:54 [[32mVK_TRACE[0m] -- created compute pipeline
+01:36:54 [[32mVK_TRACE[0m] -- allocated descriptor set
+01:36:54 [[32mVK_TRACE[0m] -- create_buffer size=240
+01:36:54 [[32mVK_TRACE[0m] -- create_buffer size=16
+01:36:54 [[32mVK_TRACE[0m] -- create_buffer size=8
+01:36:54 [[32mVK_TRACE[0m] -- created buffers for bindings
+01:36:54 [[32mVK_TRACE[0m] -- dispatch len=8 groups=1
+01:36:54 [[32mVK_TRACE[0m] -- dispatch complete and output readback finished
+01:36:54 [[32mVK_TRACE[0m] -- vulkan dispatch successful
+01:36:54 [[32mVK_TRACE[0m] -- dispatch_floor_div mode=Normal input_dtype=Some(I8) output_dtype=Some(I8)
+01:36:54 [[32mVK_TRACE[0m] -- dispatching vulkan floor_div target=floor_div_i8_normal
+01:36:54 [[32mVK_TRACE[0m] -- dispatch_compute entry=floor_div_i8_normal bindings=3 push_bytes=52
+01:36:54 [[32mVK_TRACE[0m] -- spv header target=floor_div_i8_normal magic=0x07230203 version=0x00010500 bound=590 schema=0
+01:36:54 [[32mVK_TRACE[0m] -- spv entrypoints: ["main"]
+01:36:54 [[32mVK_TRACE[0m] -- created compute pipeline
+01:36:54 [[32mVK_TRACE[0m] -- allocated descriptor set
+01:36:54 [[32mVK_TRACE[0m] -- create_buffer size=240
+01:36:54 [[32mVK_TRACE[0m] -- create_buffer size=12
+01:36:54 [[32mVK_TRACE[0m] -- create_buffer size=8
+01:36:54 [[32mVK_TRACE[0m] -- created buffers for bindings
+01:36:54 [[32mVK_TRACE[0m] -- dispatch len=8 groups=1
+01:36:54 [[32mVK_TRACE[0m] -- dispatch complete and output readback finished
+01:36:54 [[32mVK_TRACE[0m] -- vulkan dispatch successful
+01:36:54 [[32mVK_TRACE[0m] -- dispatch_floor_div mode=Inplace input_dtype=Some(I8) output_dtype=Some(I8)
+01:36:54 [[32mVK_TRACE[0m] -- dispatching vulkan floor_div target=floor_div_i8_inplace
+01:36:54 [[32mVK_TRACE[0m] -- dispatch_compute entry=floor_div_i8_inplace bindings=3 push_bytes=52
+01:36:54 [[32mVK_TRACE[0m] -- spv header target=floor_div_i8_inplace magic=0x07230203 version=0x00010500 bound=590 schema=0
+01:36:54 [[32mVK_TRACE[0m] -- spv entrypoints: ["main"]
+01:36:54 [[32mVK_TRACE[0m] -- created compute pipeline
+01:36:54 [[32mVK_TRACE[0m] -- allocated descriptor set
+01:36:54 [[32mVK_TRACE[0m] -- create_buffer size=160
+01:36:54 [[32mVK_TRACE[0m] -- create_buffer size=16
+01:36:54 [[32mVK_TRACE[0m] -- created buffers for bindings
+01:36:54 [[32mVK_TRACE[0m] -- dispatch len=8 groups=1
+01:36:54 [[32mVK_TRACE[0m] -- dispatch complete and output readback finished
+01:36:54 [[32mVK_TRACE[0m] -- vulkan dispatch successful

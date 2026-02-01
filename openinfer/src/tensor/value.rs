@@ -403,6 +403,18 @@ impl DType {
         )
     }
 
+    pub fn is_float(self) -> bool {
+        matches!(self, DType::F8 | DType::F16 | DType::BF16 | DType::F32 | DType::F64)
+    }
+
+    pub fn is_signed_int(self) -> bool {
+        matches!(self, DType::I8 | DType::I16 | DType::I32 | DType::I64)
+    }
+
+    pub fn is_packed_signed(self) -> bool {
+        matches!(self, DType::I1 | DType::I2 | DType::I4)
+    }
+
     pub fn bit_width(self) -> u8 {
         match self {
             DType::I1 => 1,
