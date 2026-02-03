@@ -200,6 +200,13 @@ Common options:
 - GPU drivers: Vulkan-capable drivers (feature-gated)
 - Vulkan dtype support: see [Capabilities](../../wiki/Capabilities); f16 is always simulated via f32 casts, and f64/i64/u64 depend on device features (fallback to CPU when unsupported)
 
+## Synthesizer (Planned)
+
+OpenInfer does not yet ship a synthesizer, but the long‑term goal is to lower
+DSL graphs into optimized, backend‑specific code. This would enable native
+output for targets like CPU, GPU, TPU, and FPGA, with room for vendor‑specific
+optimization passes as the ecosystem matures.
+
 ## Status
 
 OpenInfer is in early development. See [Capabilities](../../wiki/Capabilities)
