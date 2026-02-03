@@ -29,113 +29,41 @@ name = "openinfer"
 path = "../tests/openinfer/openinfer.rs"
 
 [[example]]
-name = "minimal"
-path = "../examples/openinfer/minimal.rs"
+name = "mlp_regression"
+path = "../examples/openinfer/mlp_regression.rs"
 
 [[example]]
-name = "graph_nodes_traverse"
-path = "../examples/openinfer/graph_nodes_traverse.rs"
+name = "residual_mlp_stack"
+path = "../examples/openinfer/residual_mlp_stack.rs"
 
 [[example]]
-name = "trace_example"
-path = "../examples/openinfer/trace_example.rs"
+name = "linear_attention"
+path = "../examples/openinfer/linear_attention.rs"
 
 [[example]]
-name = "serialize"
-path = "../examples/openinfer/serialize.rs"
+name = "moe_routing"
+path = "../examples/openinfer/moe_routing.rs"
 
 [[example]]
-name = "deserialize"
-path = "../examples/openinfer/deserialize.rs"
+name = "streaming_pipeline"
+path = "../examples/openinfer/streaming_pipeline.rs"
 
 [[example]]
-name = "relu"
-path = "../examples/openinfer/relu.rs"
+name = "kv_cache_decode"
+path = "../examples/openinfer/kv_cache_decode.rs"
 
 [[example]]
-name = "multidim_broadcast"
-path = "../examples/openinfer/multidim_broadcast.rs"
+name = "online_weight_update"
+path = "../examples/openinfer/online_weight_update.rs"
 
 [[example]]
-name = "reference"
-path = "../examples/openinfer/reference.rs"
+name = "quantized_linear"
+path = "../examples/openinfer/quantized_linear.rs"
 
 [[example]]
-name = "prefix_table"
-path = "../examples/openinfer/prefix_table.rs"
+name = "stability_guard"
+path = "../examples/openinfer/stability_guard.rs"
 
 [[example]]
-name = "loop"
-path = "../examples/openinfer/loop.rs"
-
-[[example]]
-name = "worst_case"
-path = "../examples/openinfer/worst_case.rs"
-
-[[example]]
-name = "cache_scalar"
-path = "../examples/openinfer/cache_scalar.rs"
-
-[[example]]
-name = "cache_table"
-path = "../examples/openinfer/cache_table.rs"
-
-[[example]]
-name = "cache_auto_dim"
-path = "../examples/openinfer/cache_auto_dim.rs"
-
-[[example]]
-name = "cache_weight_update"
-path = "../examples/openinfer/cache_weight_update.rs"
-
-[[example]]
-name = "cache_fixed_limit"
-path = "../examples/openinfer/cache_fixed_limit.rs"
-
-[[example]]
-name = "branching_good"
-path = "../examples/openinfer/branching_good.rs"
-
-[[example]]
-name = "branching_bad"
-path = "../examples/openinfer/branching_bad.rs"
-
-[[example]]
-name = "ops_matrix"
-path = "../examples/openinfer/ops_matrix.rs"
-
-[[example]]
-name = "yield"
-path = "../examples/openinfer/yield.rs"
-
-[[example]]
-name = "dtypes"
-path = "../examples/openinfer/dtypes.rs"
-
-[[example]]
-name = "accumulate_packed"
-path = "../examples/openinfer/accumulate_packed.rs"
-
-[[example]]
-name = "ops_accumulate_inplace"
-path = "../examples/openinfer/ops_accumulate_inplace.rs"
-
-[[example]]
-name = "ops_broadcast_variants"
-path = "../examples/openinfer/ops_broadcast_variants.rs"
-
-[[example]]
-name = "ops_variants"
-path = "../examples/openinfer/ops_variants.rs"
-
-[[example]]
-name = "ops_v2"
-path = "../examples/openinfer/ops_v2.rs"
-
-[[example]]
-name = "cast"
-path = "../examples/openinfer/cast.rs"
-
-[[example]]
-name = "attrs_from_model"
-path = "../examples/openinfer/attrs_from_model.rs"
+name = "cache_window_slice"
+path = "../examples/openinfer/cache_window_slice.rs"
