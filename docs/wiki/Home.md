@@ -1,6 +1,6 @@
 # OpenInfer Wiki
 
-![](../../res/images/OpenInferHeader.png)
+![](https://github.com/arsalan-anwari/open-infer/blob/main/res/images/OpenInferHeader.png)
 
 OpenInfer is an inference graph and execution framework for machine-learning
 workloads. It lets you describe inference logic and control flow explicitly in
