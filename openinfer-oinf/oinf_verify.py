@@ -293,7 +293,29 @@ def parse_file(path: str) -> None:
                 arr = f8_to_f32(np.frombuffer(raw, dtype=np.uint8))
             elif tensor["dtype"] in (ValueType.I4, ValueType.I2, ValueType.I1):
                 bits_per = PACKED_BITS_PER[tensor["dtype"]]
-                arr = unpack_signed_bits(raw, bits_per, int(np.prod(tensor["dims"])) if tensor["dims"] else 1)
+                arr = unpack_signed_bits(
+                    raw,
+                    bits_per,
+                    int(np.prod(tensor["dims"])) if tensor["dims"] else 1,
+                )
+            elif tensor["dtype"] in (ValueType.U4, ValueType.U2, ValueType.U1):
+                bits_per = PACKED_BITS_PER[tensor["dtype"]]
+                arr = unpack_unsigned_bits(
+                    raw,
+                    bits_per,
+                    int(np.prod(tensor["dims"])) if tensor["dims"] else 1,
+                )
+            elif tensor["dtype"] == ValueType.T1:
+                arr = unpack_t1_bits(
+                    raw, int(np.prod(tensor["dims"])) if tensor["dims"] else 1
+                )
+            elif tensor["dtype"] == ValueType.T2:
+                bits_per = PACKED_BITS_PER[tensor["dtype"]]
+                arr = unpack_signed_bits(
+                    raw,
+                    bits_per,
+                    int(np.prod(tensor["dims"])) if tensor["dims"] else 1,
+                )
             else:
                 arr = np.frombuffer(raw, dtype=np.dtype(VT_TO_DTYPE[tensor["dtype"]]).newbyteorder("<"))
             arr = arr.reshape(tensor["dims"]) if tensor["dims"] else arr.reshape(())

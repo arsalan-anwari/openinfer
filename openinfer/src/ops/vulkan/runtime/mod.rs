@@ -1,7 +1,7 @@
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use ash::vk;
 
 mod buffers;
@@ -42,9 +42,11 @@ impl VulkanRuntime {
 static VULKAN_RUNTIME: OnceLock<VulkanRuntime> = OnceLock::new();
 
 pub fn set_vulkan_runtime(runtime: VulkanRuntime) -> Result<()> {
-    VULKAN_RUNTIME
-        .set(runtime)
-        .map_err(|_| anyhow!("vulkan runtime already initialized"))
+    if VULKAN_RUNTIME.set(runtime).is_err() {
+        // Another thread already initialized the runtime.
+        return Ok(());
+    }
+    Ok(())
 }
 
 pub fn get_vulkan_runtime() -> Option<&'static VulkanRuntime> {

@@ -1,0 +1,69 @@
+{
+  "file": "ops_compare.oinf",
+  "tensors": [
+    {
+      "dtype": "float32",
+      "name": "cmp_a",
+      "shape": [
+        2,
+        3
+      ]
+    },
+    {
+      "dtype": "float32",
+      "name": "cmp_b",
+      "shape": [
+        2,
+        3
+      ]
+    },
+    {
+      "dtype": "bool",
+      "name": "eq_out",
+      "shape": [
+        2,
+        3
+      ]
+    },
+    {
+      "dtype": "bool",
+      "name": "ne_out",
+      "shape": [
+        2,
+        3
+      ]
+    },
+    {
+      "dtype": "bool",
+      "name": "lt_out",
+      "shape": [
+        2,
+        3
+      ]
+    },
+    {
+      "dtype": "bool",
+      "name": "le_out",
+      "shape": [
+        2,
+        3
+      ]
+    },
+    {
+      "dtype": "bool",
+      "name": "gt_out",
+      "shape": [
+        2,
+        3
+      ]
+    },
+    {
+      "dtype": "bool",
+      "name": "ge_out",
+      "shape": [
+        2,
+        3
+      ]
+    }
+  ]
+}

@@ -1,0 +1,2397 @@
+{
+  "ops": [
+    {
+      "accumulate": [
+        {
+          "acc": "i8",
+          "input": "i1"
+        },
+        {
+          "acc": "i16",
+          "input": "i1"
+        },
+        {
+          "acc": "i32",
+          "input": "i1"
+        },
+        {
+          "acc": "i64",
+          "input": "i1"
+        },
+        {
+          "acc": "i8",
+          "input": "i2"
+        },
+        {
+          "acc": "i16",
+          "input": "i2"
+        },
+        {
+          "acc": "i32",
+          "input": "i2"
+        },
+        {
+          "acc": "i64",
+          "input": "i2"
+        },
+        {
+          "acc": "i8",
+          "input": "i4"
+        },
+        {
+          "acc": "i16",
+          "input": "i4"
+        },
+        {
+          "acc": "i32",
+          "input": "i4"
+        },
+        {
+          "acc": "i64",
+          "input": "i4"
+        },
+        {
+          "acc": "i16",
+          "input": "i8"
+        },
+        {
+          "acc": "i32",
+          "input": "i8"
+        },
+        {
+          "acc": "i64",
+          "input": "i8"
+        },
+        {
+          "acc": "i32",
+          "input": "i16"
+        },
+        {
+          "acc": "i64",
+          "input": "i16"
+        },
+        {
+          "acc": "i64",
+          "input": "i32"
+        },
+        {
+          "acc": "u8",
+          "input": "u1"
+        },
+        {
+          "acc": "u16",
+          "input": "u1"
+        },
+        {
+          "acc": "u32",
+          "input": "u1"
+        },
+        {
+          "acc": "u64",
+          "input": "u1"
+        },
+        {
+          "acc": "u8",
+          "input": "u2"
+        },
+        {
+          "acc": "u16",
+          "input": "u2"
+        },
+        {
+          "acc": "u32",
+          "input": "u2"
+        },
+        {
+          "acc": "u64",
+          "input": "u2"
+        },
+        {
+          "acc": "u8",
+          "input": "u4"
+        },
+        {
+          "acc": "u16",
+          "input": "u4"
+        },
+        {
+          "acc": "u32",
+          "input": "u4"
+        },
+        {
+          "acc": "u64",
+          "input": "u4"
+        },
+        {
+          "acc": "u16",
+          "input": "u8"
+        },
+        {
+          "acc": "u32",
+          "input": "u8"
+        },
+        {
+          "acc": "u64",
+          "input": "u8"
+        },
+        {
+          "acc": "u32",
+          "input": "u16"
+        },
+        {
+          "acc": "u64",
+          "input": "u16"
+        },
+        {
+          "acc": "u64",
+          "input": "u32"
+        }
+      ],
+      "inplace": "allow",
+      "normal": [
+        "f8",
+        "bf16",
+        "f16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "bool",
+        "bitset",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4"
+      ],
+      "op": "add",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [
+        "bitset"
+      ],
+      "type_rule": {
+        "index": 0,
+        "kind": "same_as_input"
+      }
+    },
+    {
+      "accumulate": [
+        {
+          "acc": "i8",
+          "input": "i1"
+        },
+        {
+          "acc": "i16",
+          "input": "i1"
+        },
+        {
+          "acc": "i32",
+          "input": "i1"
+        },
+        {
+          "acc": "i64",
+          "input": "i1"
+        },
+        {
+          "acc": "i8",
+          "input": "i2"
+        },
+        {
+          "acc": "i16",
+          "input": "i2"
+        },
+        {
+          "acc": "i32",
+          "input": "i2"
+        },
+        {
+          "acc": "i64",
+          "input": "i2"
+        },
+        {
+          "acc": "i8",
+          "input": "i4"
+        },
+        {
+          "acc": "i16",
+          "input": "i4"
+        },
+        {
+          "acc": "i32",
+          "input": "i4"
+        },
+        {
+          "acc": "i64",
+          "input": "i4"
+        },
+        {
+          "acc": "i16",
+          "input": "i8"
+        },
+        {
+          "acc": "i32",
+          "input": "i8"
+        },
+        {
+          "acc": "i64",
+          "input": "i8"
+        },
+        {
+          "acc": "i32",
+          "input": "i16"
+        },
+        {
+          "acc": "i64",
+          "input": "i16"
+        },
+        {
+          "acc": "i64",
+          "input": "i32"
+        },
+        {
+          "acc": "u8",
+          "input": "u1"
+        },
+        {
+          "acc": "u16",
+          "input": "u1"
+        },
+        {
+          "acc": "u32",
+          "input": "u1"
+        },
+        {
+          "acc": "u64",
+          "input": "u1"
+        },
+        {
+          "acc": "u8",
+          "input": "u2"
+        },
+        {
+          "acc": "u16",
+          "input": "u2"
+        },
+        {
+          "acc": "u32",
+          "input": "u2"
+        },
+        {
+          "acc": "u64",
+          "input": "u2"
+        },
+        {
+          "acc": "u8",
+          "input": "u4"
+        },
+        {
+          "acc": "u16",
+          "input": "u4"
+        },
+        {
+          "acc": "u32",
+          "input": "u4"
+        },
+        {
+          "acc": "u64",
+          "input": "u4"
+        },
+        {
+          "acc": "u16",
+          "input": "u8"
+        },
+        {
+          "acc": "u32",
+          "input": "u8"
+        },
+        {
+          "acc": "u64",
+          "input": "u8"
+        },
+        {
+          "acc": "u32",
+          "input": "u16"
+        },
+        {
+          "acc": "u64",
+          "input": "u16"
+        },
+        {
+          "acc": "u64",
+          "input": "u32"
+        }
+      ],
+      "inplace": "allow",
+      "normal": [
+        "f8",
+        "bf16",
+        "f16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "bool",
+        "bitset",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4"
+      ],
+      "op": "mul",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [
+        "bitset"
+      ],
+      "type_rule": {
+        "index": 0,
+        "kind": "same_as_input"
+      }
+    },
+    {
+      "accumulate": [
+        {
+          "acc": "i8",
+          "input": "i1"
+        },
+        {
+          "acc": "i16",
+          "input": "i1"
+        },
+        {
+          "acc": "i32",
+          "input": "i1"
+        },
+        {
+          "acc": "i64",
+          "input": "i1"
+        },
+        {
+          "acc": "i8",
+          "input": "i2"
+        },
+        {
+          "acc": "i16",
+          "input": "i2"
+        },
+        {
+          "acc": "i32",
+          "input": "i2"
+        },
+        {
+          "acc": "i64",
+          "input": "i2"
+        },
+        {
+          "acc": "i8",
+          "input": "i4"
+        },
+        {
+          "acc": "i16",
+          "input": "i4"
+        },
+        {
+          "acc": "i32",
+          "input": "i4"
+        },
+        {
+          "acc": "i64",
+          "input": "i4"
+        },
+        {
+          "acc": "i16",
+          "input": "i8"
+        },
+        {
+          "acc": "i32",
+          "input": "i8"
+        },
+        {
+          "acc": "i64",
+          "input": "i8"
+        },
+        {
+          "acc": "i32",
+          "input": "i16"
+        },
+        {
+          "acc": "i64",
+          "input": "i16"
+        },
+        {
+          "acc": "i64",
+          "input": "i32"
+        }
+      ],
+      "inplace": "allow",
+      "normal": [
+        "f8",
+        "bf16",
+        "f16",
+        "f32",
+        "f64",
+        "i1",
+        "i2",
+        "i4",
+        "i8",
+        "i16",
+        "i32",
+        "i64"
+      ],
+      "op": "abs",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [],
+      "type_rule": {
+        "index": 0,
+        "kind": "same_as_input"
+      }
+    },
+    {
+      "accumulate": [],
+      "inplace": "allow",
+      "normal": [
+        "f8",
+        "bf16",
+        "f16",
+        "f32",
+        "f64",
+        "i4",
+        "i8",
+        "i16",
+        "i32",
+        "i64"
+      ],
+      "op": "relu",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [],
+      "type_rule": {
+        "index": 0,
+        "kind": "same_as_input"
+      }
+    },
+    {
+      "accumulate": [
+        {
+          "acc": "i8",
+          "input": "i1"
+        },
+        {
+          "acc": "i16",
+          "input": "i1"
+        },
+        {
+          "acc": "i32",
+          "input": "i1"
+        },
+        {
+          "acc": "i64",
+          "input": "i1"
+        },
+        {
+          "acc": "i8",
+          "input": "i2"
+        },
+        {
+          "acc": "i16",
+          "input": "i2"
+        },
+        {
+          "acc": "i32",
+          "input": "i2"
+        },
+        {
+          "acc": "i64",
+          "input": "i2"
+        },
+        {
+          "acc": "i8",
+          "input": "i4"
+        },
+        {
+          "acc": "i16",
+          "input": "i4"
+        },
+        {
+          "acc": "i32",
+          "input": "i4"
+        },
+        {
+          "acc": "i64",
+          "input": "i4"
+        },
+        {
+          "acc": "i16",
+          "input": "i8"
+        },
+        {
+          "acc": "i32",
+          "input": "i8"
+        },
+        {
+          "acc": "i64",
+          "input": "i8"
+        },
+        {
+          "acc": "i32",
+          "input": "i16"
+        },
+        {
+          "acc": "i64",
+          "input": "i16"
+        },
+        {
+          "acc": "i64",
+          "input": "i32"
+        },
+        {
+          "acc": "u8",
+          "input": "u1"
+        },
+        {
+          "acc": "u16",
+          "input": "u1"
+        },
+        {
+          "acc": "u32",
+          "input": "u1"
+        },
+        {
+          "acc": "u64",
+          "input": "u1"
+        },
+        {
+          "acc": "u8",
+          "input": "u2"
+        },
+        {
+          "acc": "u16",
+          "input": "u2"
+        },
+        {
+          "acc": "u32",
+          "input": "u2"
+        },
+        {
+          "acc": "u64",
+          "input": "u2"
+        },
+        {
+          "acc": "u8",
+          "input": "u4"
+        },
+        {
+          "acc": "u16",
+          "input": "u4"
+        },
+        {
+          "acc": "u32",
+          "input": "u4"
+        },
+        {
+          "acc": "u64",
+          "input": "u4"
+        },
+        {
+          "acc": "u16",
+          "input": "u8"
+        },
+        {
+          "acc": "u32",
+          "input": "u8"
+        },
+        {
+          "acc": "u64",
+          "input": "u8"
+        },
+        {
+          "acc": "u32",
+          "input": "u16"
+        },
+        {
+          "acc": "u64",
+          "input": "u16"
+        },
+        {
+          "acc": "u64",
+          "input": "u32"
+        }
+      ],
+      "inplace": "allow",
+      "normal": [
+        "f8",
+        "bf16",
+        "f16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "bool",
+        "bitset",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4"
+      ],
+      "op": "matmul",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [
+        "bitset"
+      ],
+      "type_rule": {
+        "index": 0,
+        "kind": "same_as_input"
+      }
+    },
+    {
+      "accumulate": [],
+      "inplace": "deny",
+      "normal": [
+        "f8",
+        "bf16",
+        "f16",
+        "f32",
+        "f64"
+      ],
+      "op": "is_finite",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [],
+      "type_rule": {
+        "dtype": "bool",
+        "kind": "fixed"
+      }
+    },
+    {
+      "accumulate": [],
+      "inplace": "allow",
+      "normal": [
+        "f8",
+        "bf16",
+        "f16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "bool",
+        "bitset",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4"
+      ],
+      "op": "fill",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [
+        "bitset"
+      ],
+      "type_rule": {
+        "index": 0,
+        "kind": "same_as_input"
+      }
+    },
+    {
+      "accumulate": [
+        {
+          "acc": "i8",
+          "input": "i1"
+        },
+        {
+          "acc": "i16",
+          "input": "i1"
+        },
+        {
+          "acc": "i32",
+          "input": "i1"
+        },
+        {
+          "acc": "i64",
+          "input": "i1"
+        },
+        {
+          "acc": "i8",
+          "input": "i2"
+        },
+        {
+          "acc": "i16",
+          "input": "i2"
+        },
+        {
+          "acc": "i32",
+          "input": "i2"
+        },
+        {
+          "acc": "i64",
+          "input": "i2"
+        },
+        {
+          "acc": "i8",
+          "input": "i4"
+        },
+        {
+          "acc": "i16",
+          "input": "i4"
+        },
+        {
+          "acc": "i32",
+          "input": "i4"
+        },
+        {
+          "acc": "i64",
+          "input": "i4"
+        },
+        {
+          "acc": "i16",
+          "input": "i8"
+        },
+        {
+          "acc": "i32",
+          "input": "i8"
+        },
+        {
+          "acc": "i64",
+          "input": "i8"
+        },
+        {
+          "acc": "i32",
+          "input": "i16"
+        },
+        {
+          "acc": "i64",
+          "input": "i16"
+        },
+        {
+          "acc": "i64",
+          "input": "i32"
+        },
+        {
+          "acc": "u8",
+          "input": "u1"
+        },
+        {
+          "acc": "u16",
+          "input": "u1"
+        },
+        {
+          "acc": "u32",
+          "input": "u1"
+        },
+        {
+          "acc": "u64",
+          "input": "u1"
+        },
+        {
+          "acc": "u8",
+          "input": "u2"
+        },
+        {
+          "acc": "u16",
+          "input": "u2"
+        },
+        {
+          "acc": "u32",
+          "input": "u2"
+        },
+        {
+          "acc": "u64",
+          "input": "u2"
+        },
+        {
+          "acc": "u8",
+          "input": "u4"
+        },
+        {
+          "acc": "u16",
+          "input": "u4"
+        },
+        {
+          "acc": "u32",
+          "input": "u4"
+        },
+        {
+          "acc": "u64",
+          "input": "u4"
+        },
+        {
+          "acc": "u16",
+          "input": "u8"
+        },
+        {
+          "acc": "u32",
+          "input": "u8"
+        },
+        {
+          "acc": "u64",
+          "input": "u8"
+        },
+        {
+          "acc": "u32",
+          "input": "u16"
+        },
+        {
+          "acc": "u64",
+          "input": "u16"
+        },
+        {
+          "acc": "u64",
+          "input": "u32"
+        }
+      ],
+      "inplace": "allow",
+      "normal": [
+        "f8",
+        "bf16",
+        "f16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4"
+      ],
+      "op": "sub",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [],
+      "type_rule": {
+        "index": 0,
+        "kind": "same_as_input"
+      }
+    },
+    {
+      "accumulate": [],
+      "inplace": "allow",
+      "normal": [
+        "f8",
+        "bf16",
+        "f16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i4",
+        "u4"
+      ],
+      "op": "div",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [],
+      "type_rule": {
+        "index": 0,
+        "kind": "same_as_input"
+      }
+    },
+    {
+      "accumulate": [],
+      "inplace": "allow",
+      "normal": [
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i4",
+        "u4"
+      ],
+      "op": "floor_div",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [],
+      "type_rule": {
+        "index": 0,
+        "kind": "same_as_input"
+      }
+    },
+    {
+      "accumulate": [],
+      "inplace": "allow",
+      "normal": [
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i4",
+        "u4"
+      ],
+      "op": "rem",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [],
+      "type_rule": {
+        "index": 0,
+        "kind": "same_as_input"
+      }
+    },
+    {
+      "accumulate": [],
+      "inplace": "allow",
+      "normal": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64"
+      ],
+      "op": "fma",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [],
+      "type_rule": {
+        "index": 0,
+        "kind": "same_as_input"
+      }
+    },
+    {
+      "accumulate": [],
+      "inplace": "allow",
+      "normal": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "i1",
+        "i2",
+        "i4"
+      ],
+      "op": "neg",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [],
+      "type_rule": {
+        "index": 0,
+        "kind": "same_as_input"
+      }
+    },
+    {
+      "accumulate": [],
+      "inplace": "allow",
+      "normal": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "i1",
+        "i2",
+        "i4"
+      ],
+      "op": "sign",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [],
+      "type_rule": {
+        "dtype": "i8",
+        "kind": "fixed"
+      }
+    },
+    {
+      "accumulate": [],
+      "inplace": "allow",
+      "normal": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64"
+      ],
+      "op": "recip",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [],
+      "type_rule": {
+        "index": 0,
+        "kind": "same_as_input"
+      }
+    },
+    {
+      "accumulate": [],
+      "inplace": "allow",
+      "normal": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4"
+      ],
+      "op": "min",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [],
+      "type_rule": {
+        "index": 0,
+        "kind": "same_as_input"
+      }
+    },
+    {
+      "accumulate": [],
+      "inplace": "allow",
+      "normal": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4"
+      ],
+      "op": "max",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [],
+      "type_rule": {
+        "index": 0,
+        "kind": "same_as_input"
+      }
+    },
+    {
+      "accumulate": [],
+      "inplace": "allow",
+      "normal": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4"
+      ],
+      "op": "clamp",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [],
+      "type_rule": {
+        "index": 0,
+        "kind": "same_as_input"
+      }
+    },
+    {
+      "accumulate": [],
+      "inplace": "allow",
+      "normal": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64"
+      ],
+      "op": "floor",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [],
+      "type_rule": {
+        "index": 0,
+        "kind": "same_as_input"
+      }
+    },
+    {
+      "accumulate": [],
+      "inplace": "allow",
+      "normal": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64"
+      ],
+      "op": "ceil",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [],
+      "type_rule": {
+        "index": 0,
+        "kind": "same_as_input"
+      }
+    },
+    {
+      "accumulate": [],
+      "inplace": "allow",
+      "normal": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64"
+      ],
+      "op": "round",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [],
+      "type_rule": {
+        "index": 0,
+        "kind": "same_as_input"
+      }
+    },
+    {
+      "accumulate": [],
+      "inplace": "allow",
+      "normal": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64"
+      ],
+      "op": "trunc",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [],
+      "type_rule": {
+        "index": 0,
+        "kind": "same_as_input"
+      }
+    },
+    {
+      "accumulate": [],
+      "inplace": "allow",
+      "normal": [
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4",
+        "bool"
+      ],
+      "op": "and",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [],
+      "type_rule": {
+        "index": 0,
+        "kind": "same_as_input"
+      }
+    },
+    {
+      "accumulate": [],
+      "inplace": "allow",
+      "normal": [
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4",
+        "bool"
+      ],
+      "op": "or",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [],
+      "type_rule": {
+        "index": 0,
+        "kind": "same_as_input"
+      }
+    },
+    {
+      "accumulate": [],
+      "inplace": "allow",
+      "normal": [
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4",
+        "bool"
+      ],
+      "op": "xor",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [],
+      "type_rule": {
+        "index": 0,
+        "kind": "same_as_input"
+      }
+    },
+    {
+      "accumulate": [],
+      "inplace": "allow",
+      "normal": [
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4",
+        "bool"
+      ],
+      "op": "not",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [],
+      "type_rule": {
+        "index": 0,
+        "kind": "same_as_input"
+      }
+    },
+    {
+      "accumulate": [],
+      "inplace": "allow",
+      "normal": [
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i2",
+        "i4",
+        "u2",
+        "u4"
+      ],
+      "op": "shl",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [],
+      "type_rule": {
+        "index": 0,
+        "kind": "same_as_input"
+      }
+    },
+    {
+      "accumulate": [],
+      "inplace": "allow",
+      "normal": [
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i2",
+        "i4",
+        "u2",
+        "u4"
+      ],
+      "op": "shr",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [],
+      "type_rule": {
+        "index": 0,
+        "kind": "same_as_input"
+      }
+    },
+    {
+      "accumulate": [],
+      "inplace": "deny",
+      "normal": [
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i2",
+        "i4",
+        "u2",
+        "u4"
+      ],
+      "op": "popcount",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [],
+      "type_rule": {
+        "dtype": "u8",
+        "kind": "fixed"
+      }
+    },
+    {
+      "accumulate": [],
+      "inplace": "deny",
+      "normal": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4",
+        "bool"
+      ],
+      "op": "eq",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [],
+      "type_rule": {
+        "dtype": "bool",
+        "kind": "fixed"
+      }
+    },
+    {
+      "accumulate": [],
+      "inplace": "deny",
+      "normal": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4",
+        "bool"
+      ],
+      "op": "ne",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [],
+      "type_rule": {
+        "dtype": "bool",
+        "kind": "fixed"
+      }
+    },
+    {
+      "accumulate": [],
+      "inplace": "deny",
+      "normal": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4"
+      ],
+      "op": "lt",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [],
+      "type_rule": {
+        "dtype": "bool",
+        "kind": "fixed"
+      }
+    },
+    {
+      "accumulate": [],
+      "inplace": "deny",
+      "normal": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4"
+      ],
+      "op": "le",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [],
+      "type_rule": {
+        "dtype": "bool",
+        "kind": "fixed"
+      }
+    },
+    {
+      "accumulate": [],
+      "inplace": "deny",
+      "normal": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4"
+      ],
+      "op": "gt",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [],
+      "type_rule": {
+        "dtype": "bool",
+        "kind": "fixed"
+      }
+    },
+    {
+      "accumulate": [],
+      "inplace": "deny",
+      "normal": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4"
+      ],
+      "op": "ge",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [],
+      "type_rule": {
+        "dtype": "bool",
+        "kind": "fixed"
+      }
+    },
+    {
+      "accumulate": [],
+      "inplace": "deny",
+      "normal": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4",
+        "bool"
+      ],
+      "op": "filter",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [],
+      "type_rule": {
+        "index": 0,
+        "kind": "same_as_input"
+      }
+    },
+    {
+      "accumulate": [],
+      "inplace": "deny",
+      "normal": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64"
+      ],
+      "op": "is_nan",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [],
+      "type_rule": {
+        "dtype": "bool",
+        "kind": "fixed"
+      }
+    },
+    {
+      "accumulate": [],
+      "inplace": "deny",
+      "normal": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64"
+      ],
+      "op": "is_inf",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [],
+      "type_rule": {
+        "dtype": "bool",
+        "kind": "fixed"
+      }
+    },
+    {
+      "accumulate": [],
+      "inplace": "deny",
+      "normal": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4"
+      ],
+      "op": "is_neg",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [],
+      "type_rule": {
+        "dtype": "bool",
+        "kind": "fixed"
+      }
+    },
+    {
+      "accumulate": [
+        {
+          "acc": "i8",
+          "input": "i1"
+        },
+        {
+          "acc": "i16",
+          "input": "i1"
+        },
+        {
+          "acc": "i32",
+          "input": "i1"
+        },
+        {
+          "acc": "i64",
+          "input": "i1"
+        },
+        {
+          "acc": "i8",
+          "input": "i2"
+        },
+        {
+          "acc": "i16",
+          "input": "i2"
+        },
+        {
+          "acc": "i32",
+          "input": "i2"
+        },
+        {
+          "acc": "i64",
+          "input": "i2"
+        },
+        {
+          "acc": "i8",
+          "input": "i4"
+        },
+        {
+          "acc": "i16",
+          "input": "i4"
+        },
+        {
+          "acc": "i32",
+          "input": "i4"
+        },
+        {
+          "acc": "i64",
+          "input": "i4"
+        },
+        {
+          "acc": "i16",
+          "input": "i8"
+        },
+        {
+          "acc": "i32",
+          "input": "i8"
+        },
+        {
+          "acc": "i64",
+          "input": "i8"
+        },
+        {
+          "acc": "i32",
+          "input": "i16"
+        },
+        {
+          "acc": "i64",
+          "input": "i16"
+        },
+        {
+          "acc": "i64",
+          "input": "i32"
+        },
+        {
+          "acc": "u8",
+          "input": "u1"
+        },
+        {
+          "acc": "u16",
+          "input": "u1"
+        },
+        {
+          "acc": "u32",
+          "input": "u1"
+        },
+        {
+          "acc": "u64",
+          "input": "u1"
+        },
+        {
+          "acc": "u8",
+          "input": "u2"
+        },
+        {
+          "acc": "u16",
+          "input": "u2"
+        },
+        {
+          "acc": "u32",
+          "input": "u2"
+        },
+        {
+          "acc": "u64",
+          "input": "u2"
+        },
+        {
+          "acc": "u8",
+          "input": "u4"
+        },
+        {
+          "acc": "u16",
+          "input": "u4"
+        },
+        {
+          "acc": "u32",
+          "input": "u4"
+        },
+        {
+          "acc": "u64",
+          "input": "u4"
+        },
+        {
+          "acc": "u16",
+          "input": "u8"
+        },
+        {
+          "acc": "u32",
+          "input": "u8"
+        },
+        {
+          "acc": "u64",
+          "input": "u8"
+        },
+        {
+          "acc": "u32",
+          "input": "u16"
+        },
+        {
+          "acc": "u64",
+          "input": "u16"
+        },
+        {
+          "acc": "u64",
+          "input": "u32"
+        }
+      ],
+      "inplace": "deny",
+      "normal": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4"
+      ],
+      "op": "sum_axis",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [],
+      "type_rule": {
+        "index": 0,
+        "kind": "same_as_input"
+      }
+    },
+    {
+      "accumulate": [
+        {
+          "acc": "i8",
+          "input": "i1"
+        },
+        {
+          "acc": "i16",
+          "input": "i1"
+        },
+        {
+          "acc": "i32",
+          "input": "i1"
+        },
+        {
+          "acc": "i64",
+          "input": "i1"
+        },
+        {
+          "acc": "i8",
+          "input": "i2"
+        },
+        {
+          "acc": "i16",
+          "input": "i2"
+        },
+        {
+          "acc": "i32",
+          "input": "i2"
+        },
+        {
+          "acc": "i64",
+          "input": "i2"
+        },
+        {
+          "acc": "i8",
+          "input": "i4"
+        },
+        {
+          "acc": "i16",
+          "input": "i4"
+        },
+        {
+          "acc": "i32",
+          "input": "i4"
+        },
+        {
+          "acc": "i64",
+          "input": "i4"
+        },
+        {
+          "acc": "i16",
+          "input": "i8"
+        },
+        {
+          "acc": "i32",
+          "input": "i8"
+        },
+        {
+          "acc": "i64",
+          "input": "i8"
+        },
+        {
+          "acc": "i32",
+          "input": "i16"
+        },
+        {
+          "acc": "i64",
+          "input": "i16"
+        },
+        {
+          "acc": "i64",
+          "input": "i32"
+        },
+        {
+          "acc": "u8",
+          "input": "u1"
+        },
+        {
+          "acc": "u16",
+          "input": "u1"
+        },
+        {
+          "acc": "u32",
+          "input": "u1"
+        },
+        {
+          "acc": "u64",
+          "input": "u1"
+        },
+        {
+          "acc": "u8",
+          "input": "u2"
+        },
+        {
+          "acc": "u16",
+          "input": "u2"
+        },
+        {
+          "acc": "u32",
+          "input": "u2"
+        },
+        {
+          "acc": "u64",
+          "input": "u2"
+        },
+        {
+          "acc": "u8",
+          "input": "u4"
+        },
+        {
+          "acc": "u16",
+          "input": "u4"
+        },
+        {
+          "acc": "u32",
+          "input": "u4"
+        },
+        {
+          "acc": "u64",
+          "input": "u4"
+        },
+        {
+          "acc": "u16",
+          "input": "u8"
+        },
+        {
+          "acc": "u32",
+          "input": "u8"
+        },
+        {
+          "acc": "u64",
+          "input": "u8"
+        },
+        {
+          "acc": "u32",
+          "input": "u16"
+        },
+        {
+          "acc": "u64",
+          "input": "u16"
+        },
+        {
+          "acc": "u64",
+          "input": "u32"
+        }
+      ],
+      "inplace": "deny",
+      "normal": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4"
+      ],
+      "op": "mean_axis",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [],
+      "type_rule": {
+        "index": 0,
+        "kind": "same_as_input"
+      }
+    },
+    {
+      "accumulate": [
+        {
+          "acc": "i8",
+          "input": "i1"
+        },
+        {
+          "acc": "i16",
+          "input": "i1"
+        },
+        {
+          "acc": "i32",
+          "input": "i1"
+        },
+        {
+          "acc": "i64",
+          "input": "i1"
+        },
+        {
+          "acc": "i8",
+          "input": "i2"
+        },
+        {
+          "acc": "i16",
+          "input": "i2"
+        },
+        {
+          "acc": "i32",
+          "input": "i2"
+        },
+        {
+          "acc": "i64",
+          "input": "i2"
+        },
+        {
+          "acc": "i8",
+          "input": "i4"
+        },
+        {
+          "acc": "i16",
+          "input": "i4"
+        },
+        {
+          "acc": "i32",
+          "input": "i4"
+        },
+        {
+          "acc": "i64",
+          "input": "i4"
+        },
+        {
+          "acc": "i16",
+          "input": "i8"
+        },
+        {
+          "acc": "i32",
+          "input": "i8"
+        },
+        {
+          "acc": "i64",
+          "input": "i8"
+        },
+        {
+          "acc": "i32",
+          "input": "i16"
+        },
+        {
+          "acc": "i64",
+          "input": "i16"
+        },
+        {
+          "acc": "i64",
+          "input": "i32"
+        },
+        {
+          "acc": "u8",
+          "input": "u1"
+        },
+        {
+          "acc": "u16",
+          "input": "u1"
+        },
+        {
+          "acc": "u32",
+          "input": "u1"
+        },
+        {
+          "acc": "u64",
+          "input": "u1"
+        },
+        {
+          "acc": "u8",
+          "input": "u2"
+        },
+        {
+          "acc": "u16",
+          "input": "u2"
+        },
+        {
+          "acc": "u32",
+          "input": "u2"
+        },
+        {
+          "acc": "u64",
+          "input": "u2"
+        },
+        {
+          "acc": "u8",
+          "input": "u4"
+        },
+        {
+          "acc": "u16",
+          "input": "u4"
+        },
+        {
+          "acc": "u32",
+          "input": "u4"
+        },
+        {
+          "acc": "u64",
+          "input": "u4"
+        },
+        {
+          "acc": "u16",
+          "input": "u8"
+        },
+        {
+          "acc": "u32",
+          "input": "u8"
+        },
+        {
+          "acc": "u64",
+          "input": "u8"
+        },
+        {
+          "acc": "u32",
+          "input": "u16"
+        },
+        {
+          "acc": "u64",
+          "input": "u16"
+        },
+        {
+          "acc": "u64",
+          "input": "u32"
+        }
+      ],
+      "inplace": "deny",
+      "normal": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4"
+      ],
+      "op": "prod_axis",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [],
+      "type_rule": {
+        "index": 0,
+        "kind": "same_as_input"
+      }
+    },
+    {
+      "accumulate": [],
+      "inplace": "deny",
+      "normal": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4"
+      ],
+      "op": "max_axis",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [],
+      "type_rule": {
+        "index": 0,
+        "kind": "same_as_input"
+      }
+    },
+    {
+      "accumulate": [],
+      "inplace": "deny",
+      "normal": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4"
+      ],
+      "op": "min_axis",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [],
+      "type_rule": {
+        "index": 0,
+        "kind": "same_as_input"
+      }
+    },
+    {
+      "accumulate": [],
+      "inplace": "deny",
+      "normal": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4"
+      ],
+      "op": "argmax_axis",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [],
+      "type_rule": {
+        "dtype": "i64",
+        "kind": "fixed"
+      }
+    },
+    {
+      "accumulate": [],
+      "inplace": "deny",
+      "normal": [
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64",
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4"
+      ],
+      "op": "argmin_axis",
+      "output_dtypes_ref": null,
+      "skipped_dtypes": [],
+      "type_rule": {
+        "dtype": "i64",
+        "kind": "fixed"
+      }
+    },
+    {
+      "accumulate": [],
+      "inplace": "deny",
+      "normal": [
+        "i8",
+        "i16",
+        "i32",
+        "i64",
+        "u8",
+        "u16",
+        "u32",
+        "u64",
+        "f8",
+        "f16",
+        "bf16",
+        "f32",
+        "f64",
+        "i1",
+        "i2",
+        "i4",
+        "u1",
+        "u2",
+        "u4"
+      ],
+      "op": "cast",
+      "output_dtypes_ref": "CAST_OUTPUT_DTYPES",
+      "skipped_dtypes": [],
+      "type_rule": {
+        "attr": "to",
+        "kind": "acc_from_attr"
+      }
+    }
+  ]
+}

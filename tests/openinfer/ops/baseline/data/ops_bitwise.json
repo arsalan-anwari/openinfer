@@ -1,0 +1,77 @@
+{
+  "file": "ops_bitwise.oinf",
+  "tensors": [
+    {
+      "dtype": "uint8",
+      "name": "bit_a",
+      "shape": [
+        2,
+        3
+      ]
+    },
+    {
+      "dtype": "uint8",
+      "name": "bit_b",
+      "shape": [
+        2,
+        3
+      ]
+    },
+    {
+      "dtype": "uint8",
+      "name": "and_out",
+      "shape": [
+        2,
+        3
+      ]
+    },
+    {
+      "dtype": "uint8",
+      "name": "or_out",
+      "shape": [
+        2,
+        3
+      ]
+    },
+    {
+      "dtype": "uint8",
+      "name": "xor_out",
+      "shape": [
+        2,
+        3
+      ]
+    },
+    {
+      "dtype": "uint8",
+      "name": "not_out",
+      "shape": [
+        2,
+        3
+      ]
+    },
+    {
+      "dtype": "uint8",
+      "name": "shl_out",
+      "shape": [
+        2,
+        3
+      ]
+    },
+    {
+      "dtype": "uint8",
+      "name": "shr_out",
+      "shape": [
+        2,
+        3
+      ]
+    },
+    {
+      "dtype": "uint8",
+      "name": "popcount_out",
+      "shape": [
+        2,
+        3
+      ]
+    }
+  ]
+}

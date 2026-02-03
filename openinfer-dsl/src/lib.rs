@@ -43,3 +43,9 @@ pub fn graph(input: TokenStream) -> TokenStream {
         Err(err) => err.to_compile_error().into(),
     }
 }
+
+#[cfg(test)]
+include!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../tests/openinfer-dsl/parse_tests.rs"
+));

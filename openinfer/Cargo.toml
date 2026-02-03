@@ -24,6 +24,10 @@ openinfer-generator = { path = "../openinfer-generator" }
 [features]
 vulkan = []
 
+[[test]]
+name = "openinfer"
+path = "../tests/openinfer/openinfer.rs"
+
 [[example]]
 name = "minimal"
 path = "../examples/openinfer/minimal.rs"

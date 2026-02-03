@@ -11,7 +11,7 @@ fn abs_packed_signed<T: PackedBits>(a: &Tensor<T>, out: &mut Tensor<T>, width: u
             a.shape()
         ));
     }
-    for idx in 0..out.len() {
+    for idx in 0..out.numel() {
         let value = sign_extend(get_bits(&a.data, idx, width), width);
         let abs = value.wrapping_abs() as u8;
         set_bits(&mut out.data, idx, width, abs);
@@ -20,7 +20,7 @@ fn abs_packed_signed<T: PackedBits>(a: &Tensor<T>, out: &mut Tensor<T>, width: u
 }
 
 fn abs_packed_signed_inplace<T: PackedBits>(a: &mut Tensor<T>, width: u8) -> Result<()> {
-    for idx in 0..a.len() {
+    for idx in 0..a.numel() {
         let value = sign_extend(get_bits(&a.data, idx, width), width);
         let abs = value.wrapping_abs() as u8;
         set_bits(&mut a.data, idx, width, abs);

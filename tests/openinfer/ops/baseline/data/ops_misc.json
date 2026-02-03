@@ -1,0 +1,146 @@
+{
+  "file": "ops_misc.oinf",
+  "tensors": [
+    {
+      "dtype": "float32",
+      "name": "fma_a",
+      "shape": [
+        2,
+        3
+      ]
+    },
+    {
+      "dtype": "float32",
+      "name": "fma_b",
+      "shape": [
+        2,
+        3
+      ]
+    },
+    {
+      "dtype": "float32",
+      "name": "fma_c",
+      "shape": [
+        2,
+        3
+      ]
+    },
+    {
+      "dtype": "float32",
+      "name": "fma_out",
+      "shape": [
+        2,
+        3
+      ]
+    },
+    {
+      "dtype": "int32",
+      "name": "floor_div_a",
+      "shape": [
+        2,
+        3
+      ]
+    },
+    {
+      "dtype": "int32",
+      "name": "floor_div_b",
+      "shape": [
+        2,
+        3
+      ]
+    },
+    {
+      "dtype": "int32",
+      "name": "floor_div_out",
+      "shape": [
+        2,
+        3
+      ]
+    },
+    {
+      "dtype": "int32",
+      "name": "rem_a",
+      "shape": [
+        2,
+        3
+      ]
+    },
+    {
+      "dtype": "int32",
+      "name": "rem_b",
+      "shape": [
+        2,
+        3
+      ]
+    },
+    {
+      "dtype": "int32",
+      "name": "rem_out",
+      "shape": [
+        2,
+        3
+      ]
+    },
+    {
+      "dtype": "float32",
+      "name": "is_nan_x",
+      "shape": [
+        2,
+        3
+      ]
+    },
+    {
+      "dtype": "bool",
+      "name": "is_nan_out",
+      "shape": [
+        2,
+        3
+      ]
+    },
+    {
+      "dtype": "float32",
+      "name": "is_inf_x",
+      "shape": [
+        2,
+        3
+      ]
+    },
+    {
+      "dtype": "bool",
+      "name": "is_inf_out",
+      "shape": [
+        2,
+        3
+      ]
+    },
+    {
+      "dtype": "float32",
+      "name": "is_neg_x",
+      "shape": [
+        2,
+        3
+      ]
+    },
+    {
+      "dtype": "bool",
+      "name": "is_neg_out",
+      "shape": [
+        2,
+        3
+      ]
+    },
+    {
+      "dtype": "float32",
+      "name": "is_finite_x",
+      "shape": [
+        2,
+        3
+      ]
+    },
+    {
+      "dtype": "bool",
+      "name": "is_finite_out",
+      "shape": []
+    }
+  ]
+}

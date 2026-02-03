@@ -1,0 +1,36 @@
+{
+  "file": "ops_broadcast.oinf",
+  "tensors": [
+    {
+      "dtype": "float32",
+      "name": "bcast_a",
+      "shape": [
+        2,
+        3
+      ]
+    },
+    {
+      "dtype": "float32",
+      "name": "bcast_b",
+      "shape": [
+        3
+      ]
+    },
+    {
+      "dtype": "float32",
+      "name": "bcast_add_out",
+      "shape": [
+        2,
+        3
+      ]
+    },
+    {
+      "dtype": "float32",
+      "name": "bcast_mul_out",
+      "shape": [
+        2,
+        3
+      ]
+    }
+  ]
+}
