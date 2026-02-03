@@ -1,49 +1,35 @@
-```
-  ░██████                                       
- ░██   ░██                                      
-░██     ░██ ░████████   ░███████  ░████████     
-░██     ░██ ░██    ░██ ░██    ░██ ░██    ░██    
-░██     ░██ ░██    ░██ ░█████████ ░██    ░██    
- ░██   ░██  ░███   ░██ ░██        ░██    ░██    
-  ░██████   ░██░█████   ░███████  ░██    ░██    
-            ░██                                 
-            ░██                                 
-                                                
-░██████               ░████                     
-  ░██                ░██                        
-  ░██  ░████████  ░████████  ░███████  ░██░████ 
-  ░██  ░██    ░██    ░██    ░██    ░██ ░███     
-  ░██  ░██    ░██    ░██    ░█████████ ░██      
-  ░██  ░██    ░██    ░██    ░██        ░██      
-░██████░██    ░██    ░██     ░███████  ░██      
-                                                
-                                                
-                                                
-```
+# Open Infer
 
-# OpenInfer
+![](res/images/OpenInferLogo.png)
 
-OpenInfer is an open-source **inference graph and execution framework** for machine-learning workloads.
+_Inference graphs, explicit control flow, portable execution._
 
-Its primary goal is to let **developers describe inference logic and control flow explicitly**, using a clear, verbose, Rust-embedded DSL, while OpenInfer handles simulation, tracing, and execution on CPU or Vulkan. Analysis/optimization and synthesis are planned.
+`inference` · `dsl` · `graph` · `cpu` · `vulkan` · `ml`
 
-OpenInfer is **model-agnostic**. The same DSL can describe inference for:
+OpenInfer is an open-source **inference graph and execution framework** for
+machine-learning workloads. It lets you describe inference logic and control
+flow explicitly in a Rust‑embedded DSL, then simulate and execute on CPU or
+Vulkan.
 
-* Transformers and LLMs
-* CNNs and vision models
-* Audio and signal-processing pipelines
-* Streaming or recurrent architectures
-* Experimental or custom ML systems
-
-The focus is on **clarity, explicit control, and inspectability**, rather than hiding complexity behind opaque runtimes.
+The focus is **clarity, explicit control, and inspectability**, rather than
+hiding complexity behind opaque runtimes.
 
 ---
 
+## Highlights
+
+- ✨ **Explicit graphs** with visible control flow and side effects
+- 🧩 **Model‑agnostic**: transformers, vision, audio, streaming pipelines
+- 🔍 **Inspectable**: tracing, timing, and JSON serialization
+- ⚡ **Portable**: CPU backend + optional Vulkan backend
+
 ## Overview
 
-OpenInfer defines a symbolic, inspectable inference graph that can be simulated, traced, and executed on CPU or Vulkan. The core workflow and mental model are captured in [docs/overview.md](docs/overview.md).
+OpenInfer defines a symbolic, inspectable inference graph that can be simulated,
+traced, and executed on CPU or Vulkan. The user‑facing documentation lives in
+the [GitHub Wiki](../../wiki).
 
-### Condensed Rust Example (MLP Regression)
+### Condensed Rust Example (DSL Overview)
 
 ```rust
 use openinfer::{
@@ -60,23 +46,47 @@ fn main() -> anyhow::Result<()> {
         }
 
         constant {
-            w1: f32[D, H];
-            b1: f32[H];
-            w2: f32[H, O];
-            b2: f32[O];
+            alpha: f32;
+            num_layers: u32;
         }
 
         volatile {
-            h: f32[B, H];
-            y: f32[B, O];
+            W(l): f32[D, D] @pattern("W.{l}");
+            y: f32[B, D];
+        }
+
+        persistent {
+            step: i32 @init(0);
+            K(l, t): f32[B, D] @table;
         }
 
         block entry {
-            op matmul(x, w1) >> h;
-            op add(h, b1) >> h;
-            op relu(h, alpha=0.0) >> h;
-            op matmul(h, w2) >> y;
-            op add(y, b2) >> y;
+            assign h: f32[B, D];
+            assign cond: bool;
+
+            op matmul(x, W[0]) >> h;
+            barrier;
+
+            loop layers (l in 0..num_layers) {
+                cache.read K[l, step] >> h;
+                op relu(h, alpha=0.01, clamp_max=6.0) >> h;
+                dep after(relu) before(cache.write);
+                cache.write h >> K[l, step];
+            }
+
+            cache.increment step;
+            op is_finite(h) >> cond;
+            branch cond ok bad;
+            return;
+        }
+
+        block ok {
+            op add(h, alpha) >> y;
+            return;
+        }
+
+        block bad {
+            op fill(y, value=0.0) >> y;
             return;
         }
     };
@@ -104,21 +114,19 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 ```
-> See [docs/ops.md](docs/ops.md) and [docs/progress.md](docs/progress.md) for current op support. 
+> This snippet is illustrative. Your `.oinf` model should define matching
+> sizevars and tensors for the variables referenced in the graph.
+> See the Wiki for current [op support](../../wiki/Ops) and [capabilities](../../wiki/Capabilities).
 
-## Philosophy
+## Documentation (Wiki)
 
-OpenInfer favors explicit, structured graphs with visible control flow and side effects. See [docs/philosophy.md](docs/philosophy.md) for the full rationale.
-
-## Components
-
-- Model package and OINF format: [docs/oinf-brief.md](docs/oinf-brief.md), [docs/oinf.md](docs/oinf.md)
-- DSL and graph construction: [docs/quickstart.md](docs/quickstart.md), [docs/memory.md](docs/memory.md), [docs/control-flow.md](docs/control-flow.md), [docs/cache.md](docs/cache.md)
-- Simulation and tracing: [docs/simulation.md](docs/simulation.md)
-- Graph serialization: [docs/serialization.md](docs/serialization.md)
-- Backends and ops: [docs/ops.md](docs/ops.md), [docs/vulkan-interop.md](docs/vulkan-interop.md)
-- Synthesis (planned): [docs/synthesis.md](docs/synthesis.md)
-- Implementation notes: [docs/implementation.md](docs/implementation.md)
+- Home and quick links: [Wiki Home](../../wiki)
+- Getting started: [Getting Started](../../wiki/Getting-Started)
+- Core concepts and DSL: [Core Concepts](../../wiki/Core-Concepts)
+- Components and usage: [Components](../../wiki/Components), [Using OpenInfer](../../wiki/Using-OpenInfer)
+- Ops + dtype support: [Ops](../../wiki/Ops)
+- Capabilities + roadmap: [Capabilities](../../wiki/Capabilities), [Synthesis](../../wiki/Synthesis)
+- Testing + tools: [Testing and Tools](../../wiki/Testing-and-Tools)
 
 ## Prerequisites
 
@@ -169,18 +177,33 @@ Targeted modes:
 ./scripts/run_rust_examples.sh --target all --features vulkan
 ```
 
+## Tests
+
+Run the full test suite:
+```bash
+./scripts/run_tests.sh
+```
+
+Common options:
+```bash
+./scripts/run_tests.sh --list
+./scripts/run_tests.sh --target=cpu
+./scripts/run_tests.sh --target=vulkan --features=vulkan
+./scripts/run_tests.sh --target=all --features=vulkan
+./scripts/run_tests.sh --test-filter openinfer::ops_misc
+```
+
 ## Supported Targets
 
 - Architectures: CPU (scalar kernels) and Vulkan GPU backend
 - SIMD extensions: AVX/AVX2 are enabled via `.cargo/config.toml` on x86_64 Linux
-- GPU drivers: Vulkan-capable drivers (feature-gated; see [docs/vulkan-interop.md](docs/vulkan-interop.md))
-- Vulkan dtype support: see [docs/types.md](docs/types.md); f16 is always simulated via f32 casts, and f64/i64/u64 depend on device features (fallback to CPU when unsupported)
+- GPU drivers: Vulkan-capable drivers (feature-gated)
+- Vulkan dtype support: see [Capabilities](../../wiki/Capabilities); f16 is always simulated via f32 casts, and f64/i64/u64 depend on device features (fallback to CPU when unsupported)
 
 ## Status
 
-OpenInfer is in early development.
-
-Progress checklist: [docs/progress.md](docs/progress.md)
+OpenInfer is in early development. See [Capabilities](../../wiki/Capabilities)
+for current coverage and roadmap notes.
 
 ---
 
