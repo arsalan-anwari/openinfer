@@ -8,7 +8,8 @@ Checklist of features described in the README and current implementation status.
 - [x] Graph (de)serialization helpers and examples
 - [x] Simulator execution with tracing and timing
 - [x] Model loader for `.oinf` packages
-- [x] Core ops on CPU and Vulkan (add, mul, abs, relu, matmul, is_finite, fill)
+- [x] Op catalog in `ops.json` with CPU + Vulkan coverage (arithmetic, bitwise,
+  comparison, reduction, casting, and filtering)
 - [x] Broadcast support for add/mul/matmul on CPU and Vulkan
 - [x] Vulkan shader manifest and embedded SPIR-V workflow
 - [x] Prefix tables in `volatile` and `constant`
@@ -22,7 +23,7 @@ Checklist of features described in the README and current implementation status.
 
 ## In Progress / Planned
 
-- [ ] Expanded op coverage beyond core arithmetic ops
+- [ ] Expanded op coverage beyond current `ops.json` set
 - [ ] Synthesizer implementation (scheduling, fusion, memory planning)
 - [ ] Analyzer and optimization passes
 - [ ] Device architecture JSON input for reproducible synthesis

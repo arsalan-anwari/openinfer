@@ -17,7 +17,7 @@ mode: str = "clamp_up"
 Create a binary file:
 
 ```bash
-python examples/openinfer-oinf/minimal_oinf.py
+python examples/openinfer-oinf/mlp_regression_oinf.py
 ```
 
 > See [docs/oinf.md](oinf.md) how you can create your own binary file from a Python Dataclass.
@@ -25,7 +25,7 @@ python examples/openinfer-oinf/minimal_oinf.py
 Inspect it:
 
 ```bash
-python openinfer-oinf/verify_oinf.py res/models/minimal_model.oinf
+python openinfer-oinf/verify_oinf.py res/models/mlp_regression.oinf
 ```
 
 For the full technical spec and layout, see [docs/oinf.md](oinf.md).

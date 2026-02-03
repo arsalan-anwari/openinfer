@@ -57,7 +57,8 @@ u64 file_size
 21 U4    22 U2     23 U1   24 T2   25 T1
 ```
 
-Tensors use only numeric/bool types (1-12, 16-25). BITSET is for metadata only.
+Tensors use numeric/bool/bitset types (1-13, 16-25). BITSET can be used for
+either metadata or tensor values.
 
 ## SizeVarsTable
 
@@ -140,9 +141,9 @@ u64 data_offset
 If HAS_DATA is 0, `data_offset` and `data_nbytes` are 0.
 
 Tensor data blobs are raw little-endian values in row-major order. BOOL tensors
-store one byte per element. Packed integer types (I1/I2/I4/U1/U2/U4/T1/T2) pack
-values into bytes, LSB-first within each byte (e.g., I2 packs 4 elements per
-byte).
+store one byte per element. BITSET tensors store one byte per element (u8
+bitset value). Packed integer types (I1/I2/I4/U1/U2/U4/T1/T2) pack values into
+bytes, LSB-first within each byte (e.g., I2 packs 4 elements per byte).
 Scalars are encoded with `ndim = 0` and an empty dims list; they have a single
 element in the data blob.
 
@@ -174,10 +175,10 @@ Two helper scripts live at the repository root:
 Typical usage:
 
 ```bash
-python examples/openinfer-oinf/simple_oinf.py
-python examples/openinfer-oinf/minimal_oinf.py
-python openinfer-oinf/verify_oinf.py res/models/simple_model.oinf
-python openinfer-oinf/verify_oinf.py res/models/minimal_model.oinf
+python examples/openinfer-oinf/mlp_regression_oinf.py
+python examples/openinfer-oinf/quantized_linear_oinf.py
+python openinfer-oinf/verify_oinf.py res/models/mlp_regression.oinf
+python openinfer-oinf/verify_oinf.py res/models/quantized_linear.oinf
 ```
 
 ### Create a Binary from a Dataclass
@@ -188,133 +189,71 @@ for its fields.
 If you need a scalar tensor (not metadata), wrap the value with `TensorSpec`
 so it is emitted into the tensor table with `ndim = 0`.
 
-Minimal example (matches `examples/openinfer-oinf/minimal_oinf.py`):
+Example (matches `examples/openinfer-oinf/mlp_regression_oinf.py`):
 
 ```python
 from dataclasses import dataclass
-import numpy as np
 
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "openinfer-oinf"))
 
-from dataclass_to_oinf import TensorSpec, write_oinf
+import numpy as np
+
+from dataclass_to_oinf import SizeVar, TensorSpec, write_oinf
 
 @dataclass
-class MinimalModel:
-    B: int
-    a: TensorSpec
+class MlpRegressionModel:
+    B: SizeVar
+    D: SizeVar
+    H: SizeVar
+    O: SizeVar
+    w1: TensorSpec
+    b1: TensorSpec
+    w2: TensorSpec
+    b2: TensorSpec
 
-def build_minimal() -> MinimalModel:
+def build_model() -> MlpRegressionModel:
     rng = np.random.default_rng(1)
-    B = 1024
-    a = rng.uniform(-1.0, 1.0, size=B).astype(np.float32)
-    return MinimalModel(B=B, a=TensorSpec(a))
-
-write_oinf(build_minimal(), "minimal_model.oinf")
-```
-
-Simple example (matches `examples/openinfer-oinf/simple_oinf.py`):
-
-```python
-from dataclasses import dataclass
-import numpy as np
-
-import sys
-from pathlib import Path
-
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "openinfer-oinf"))
-
-from dataclass_to_oinf import TensorSpec, UninitializedTensor, write_oinf
-
-@dataclass
-class ExampleModel:
-    D: int
-    B: int
-    a: TensorSpec
-    x: TensorSpec
-    W_0: TensorSpec
-    mode: str
-    y: UninitializedTensor
-    kernel: TensorSpec
-
-def build_example() -> ExampleModel:
-    rng = np.random.default_rng(0)
-    D = 128
-    B = 1024
-    a = rng.normal(size=B).astype(np.float16)
-    x = np.array(10.35, dtype=np.float32)
-    w0 = rng.normal(size=D).astype(np.float32)
-    kernel = rng.integers(0, 256, size=(D, D), dtype=np.uint8)
-    return ExampleModel(
-        D=D,
-        B=B,
-        a=TensorSpec(a),
-        x=TensorSpec(x),
-        W_0=TensorSpec(w0, name="W.0"),
-        mode="clamp_up",
-        y=UninitializedTensor(dtype="i16", shape=()),
-        kernel=TensorSpec(kernel),
+    B, D, H, O = 4, 16, 32, 8
+    w1 = rng.normal(scale=0.2, size=(D, H)).astype(np.float32)
+    b1 = rng.normal(scale=0.05, size=(H,)).astype(np.float32)
+    w2 = rng.normal(scale=0.2, size=(H, O)).astype(np.float32)
+    b2 = rng.normal(scale=0.05, size=(O,)).astype(np.float32)
+    return MlpRegressionModel(
+        B=SizeVar(B),
+        D=SizeVar(D),
+        H=SizeVar(H),
+        O=SizeVar(O),
+        w1=TensorSpec(w1),
+        b1=TensorSpec(b1),
+        w2=TensorSpec(w2),
+        b2=TensorSpec(b2),
     )
 
-write_oinf(build_example(), "simple_model.oinf")
+write_oinf(build_model(), "mlp_regression.oinf")
 ```
 
 CLI example (module path + JSON payload):
 
 ```bash
-python openinfer-oinf/dataclass_to_oinf.py --input examples.python.simple_oinf:ExampleModel --output model.oinf
 python openinfer-oinf/dataclass_to_oinf.py --input my_pkg.my_model:MyModel --json data.json --output model.oinf
 ```
 
-## Verifier Output Examples
+## Verifier Output Example
 
-`res/models/minimal_model.oinf` (values truncated):
-
-```
-B := 1024
-
-a: f32[1024] = { 0.0123, -0.451, 0.998, 0.104, -0.731, ..., 0.882, -0.143, 0.221, -0.905, 0.314 }
-- [nbytes: 4096, min: -0.999, max: 0.999, mean: 0.0021, median: 0.0043, std: 0.579]
-- hist:
-    [-0.999,-0.799):98
-    [-0.799,-0.599):96
-    ...
-```
-
-`res/models/simple_model.oinf` (values truncated):
+Example output format (values truncated):
 
 ```
-D := 128
-B := 1024
+B := 4
+D := 16
 
-mode: str = "clamp_up"
+w1: f32[16, 32] = { 0.122, -0.044, ..., 0.203 }
+- [nbytes: 2048, min: -0.812, max: 0.734, mean: 0.012, median: 0.009, std: 0.214]
 
-W.0: f32[128] = { 0.48424, 1.61435, -0.782165, -0.0947963, 1.15624, ..., -0.646709, 0.947614, 0.625521, -0.300354, 0.897275 }
-- [nbytes: 512, min: -3.19735, max: 2.8745, mean: 0.093444, median: 0.16931, std: 1.02064]
-- hist:
-    [-3.19735,-2.59016):1
-    [-2.59016,-1.98298):2
-    ...
-
-a: f16[1024] = { 0.125732, -0.13208, 0.640625, 0.104919, -0.535645, ..., 1.37988, -1.17969, 0.509766, -1.0752, -0.334229 }
-- [nbytes: 2048, min: -3.90039, max: 3.06641, mean: -0.0491846, median: -0.0691223, std: 0.971848]
-- hist: {([-3.90039, -3.20371], 2), ...}
-
-kernel: u8[128, 128] = {
-{ 163, 255, 148, 186, 142, ..., 208, 23, 236, 196, 15 } ,
-{ 200, 64, 246, 249, 250, ..., 171, 56, 243, 37, 201 } ,
-...
-}
-- [nbytes: 16384, min: 0, max: 255, mean: 127.408, median: 128, std: 74.2236]
-- hist: {([0, 25.5], 1710), ...}
-
-x: f32 = 10.35
-
-y: i16[] -- uninitialized
+b1: f32[32] = { 0.041, -0.012, ..., 0.007 }
 ```
 
 ## Verification and Printing

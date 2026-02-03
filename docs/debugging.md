@@ -22,11 +22,11 @@ Graph and Execution Traces
   `OPENINFER_TRACE=1 cargo run --example <name>`
 - Use `OPENINFER_TRACE=full` for verbose tracing, and
   `OPENINFER_VULKAN_TRACE=1` for Vulkan runtime logs.
-- Use the Rust examples to validate branching and per-op behavior:
-  - `examples/openinfer/branching_good.rs`
-  - `examples/openinfer/branching_bad.rs`
-  - `examples/openinfer/ops_matrix.rs`
-  - `examples/openinfer/yield.rs`
+- Use the Rust examples to validate control flow and kernel behavior:
+  - `examples/openinfer/streaming_pipeline.rs` (yield/await)
+  - `examples/openinfer/kv_cache_decode.rs` (cache access)
+  - `examples/openinfer/online_weight_update.rs` (persistent updates)
+  - `examples/openinfer/quantized_linear.rs` (packed + accumulate)
 - The trace output includes block names so you can confirm control-flow paths.
 
 Model and DSL Validation
@@ -43,15 +43,15 @@ CPU Backend Debugging
 ---------------------
 - The CPU backend is the reference implementation for correctness.
 - To isolate CPU output, run without GPU features:
-  `cargo run --example ops_matrix`
+  `cargo run -p openinfer --example mlp_regression`
 - Example device selection:
-  - `cargo run --example ops_matrix -- --target=cpu`
-  - `cargo run --example ops_matrix --features vulkan -- --target=vulkan`
+  - `cargo run -p openinfer --example mlp_regression -- --target=cpu`
+  - `cargo run -p openinfer --example mlp_regression --features vulkan -- --target=vulkan`
 
 Vulkan Backend Debugging
 ------------------------
 - Enable Vulkan tracing for device setup and dispatch logging:
-  `OPENINFER_VULKAN_TRACE=1 cargo run --example ops_matrix --features vulkan -- --target=vulkan`
+  `OPENINFER_VULKAN_TRACE=1 cargo run -p openinfer --example mlp_regression --features vulkan -- --target=vulkan`
 - The trace prints:
   - Vulkan init steps (instance/device/pools/layouts).
   - Per-op dispatch details (op, dtype, entry, push constants, descriptor set).

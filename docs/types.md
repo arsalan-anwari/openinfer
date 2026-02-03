@@ -11,6 +11,7 @@ Universal types (allowed everywhere, including scalars):
 - i8 / i16 / i32 / i64
 - u8 / u16 / u32 / u64
 - bool
+- bitset
 
 Special tensor-only types:
 
@@ -20,7 +21,8 @@ Special tensor-only types:
 - t1 / t2 (reserved; not currently implemented in backends)
 
 Packed integer types (i1/i2/i4/u1/u2/u4/t1/t2) store multiple elements per byte
-in OINF blobs. Packing is LSB-first within each byte.
+in OINF blobs. Packing is LSB-first within each byte. `bitset` stores one byte
+per element (8-bit bitset value).
 
 Packed dtype ranges:
 

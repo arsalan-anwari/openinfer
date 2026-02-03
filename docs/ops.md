@@ -1,15 +1,27 @@
 # Supported Ops
 
----
+OpenInfer’s op definitions are sourced from `ops.json` and loaded by
+`openinfer/src/op_defs.rs`. The JSON captures:
 
-| Op name   | Dtypes | Input | Output | Attributes | Inplace | Accumulation | Broadcast | Description |
-|-----------|--------|-------|--------|------------|----------|--------------|-----------|-------------|
-| add       | [f8, bf16, f16, f32, f64]<br>[i1, i2, i4, i8, i16, i32, i64]<br>[u1, u2, u4, u8, u16, u32, u64]<br>[bool, bitset] | a: Tensor[T], b: Tensor[T] | y: Tensor[T] | acc: dtype | Yes | Yes | Yes | Elementwise add |
-| mul       | [f8, bf16, f16, f32, f64]<br>[i1, i2, i4, i8, i16, i32, i64]<br>[u1, u2, u4, u8, u16, u32, u64]<br>[bool, bitset] | a: Tensor[T], b: Tensor[T] | y: Tensor[T] | acc: dtype | Yes | Yes | Yes | Elementwise multiply |
-| matmul    | [f8, bf16, f16, f32, f64]<br>[i1, i2, i4, i8, i16, i32, i64]<br>[u1, u2, u4, u8, u16, u32, u64]<br>[bool, bitset] | a: Tensor[T], b: Tensor[T] | y: Tensor[T] | acc: dtype | Yes | Yes | Yes | N-D matmul (dot product) |
-| abs       | [f8, bf16, f16, f32, f64]<br>[i1, i2, i4, i8, i16, i32, i64] | a: Tensor[T] | y: Tensor[T] | acc: dtype | Yes | Yes | No | Elementwise absolute value |
-| relu      | [f8, bf16, f16, f32, f64]<br>[i4, i8, i16, i32, i64] | a: Tensor[T] | y: Tensor[T] | alpha: T, clamp_max: T | Yes | No | No | Leaky ReLU with clamp |
-| is_finite | [f8, bf16, f16, f32, f64] | a: Tensor[T] | y: bool | None | No | No | No | True if all elements are finite |
-| fill      | [f8, bf16, f16, f32, f64]<br>[i1, i2, i4, i8, i16, i32, i64]<br>[u1, u2, u4, u8, u16, u32, u64]<br>[bool, bitset] | a: Tensor[T] | y: Tensor[T] | value: T | Yes | No | No | Fill output with a scalar literal |
+- Op names, arity, and attributes
+- Broadcast/in-place/accumulation support
+- Per-op dtype coverage (CPU + Vulkan)
+- Output type rules
 
+For a generated, tool-friendly view, see `res/ops_v2.json`.
 
+## Current op set
+
+This list is extracted from `ops.json`:
+
+- `add`, `mul`, `sub`, `div`, `floor_div`, `rem`, `fma`, `neg`, `recip`
+- `abs`, `relu`, `sign`, `clamp`, `floor`, `ceil`, `round`, `trunc`
+- `matmul`
+- `and`, `or`, `xor`, `not`, `shl`, `shr`, `popcount`
+- `eq`, `ne`, `lt`, `le`, `gt`, `ge`
+- `is_finite`, `is_nan`, `is_inf`, `is_neg`, `filter`
+- `sum_axis`, `mean_axis`, `prod_axis`, `max_axis`, `min_axis`, `argmax_axis`,
+  `argmin_axis`
+- `cast`
+
+Use `ops.json` for the authoritative dtype matrix and per-op flags.

@@ -19,14 +19,14 @@ matching CPU is not always possible across all GPUs and drivers.
 
 ## Drift tolerance used in validation
 
-The reference validation in `examples/openinfer/ops_accumulate_inplace.rs` uses the
-following tolerances. Values within tolerance are marked with `⚠️`:
+The reference validation in `tests/openinfer/common/mod.rs` uses the following
+tolerances. Values within tolerance are marked with `⚠️`:
 
 - f16: abs 0.6, rel 0.08
 - bf16: abs 0.1, rel 0.02
 - f8: abs 0.6, rel 0.25
 - f32: abs 1e-4, rel 1e-4
-- f64: abs 1e-8, rel 1e-8
+- f64: abs 1e-7, rel 1e-7
 
 These thresholds reflect typical drift observed across devices while still
 flagging real numerical errors.

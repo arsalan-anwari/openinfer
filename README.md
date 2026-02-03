@@ -43,75 +43,68 @@ The focus is on **clarity, explicit control, and inspectability**, rather than h
 
 OpenInfer defines a symbolic, inspectable inference graph that can be simulated, traced, and executed on CPU or Vulkan. The core workflow and mental model are captured in [docs/overview.md](docs/overview.md).
 
-### Condensed Rust Example (All Components)
+### Condensed Rust Example (MLP Regression)
 
 ```rust
 use openinfer::{
-    cache, fetch_executor, graph, insert_executor, GraphDeserialize, GraphSerialize,
-    Device, ModelLoader, Simulator, Tensor, Random
+    fetch_executor, graph, insert_executor, Device, ModelLoader, Random, Simulator, Tensor,
+    TensorOptions,
 };
 
 fn main() -> anyhow::Result<()> {
-    let model = ModelLoader::open("res/models/minimal_model.oinf")?;
+    let model = ModelLoader::open("res/models/mlp_regression.oinf")?;
 
     let g = graph! {
-        dynamic { x: f32[B]; }
-        volatile { W(l): f32[D, D] @pattern("W.{l}"); }
-        constant { alpha: f32 @ref("alpha"); num_layers: u32; }
-        persistent {
-            step: i32 @init(0);
-            K(l, t): f16[H, Dh] @table;
+        dynamic {
+            x: f32[B, D];
+        }
+
+        constant {
+            w1: f32[D, H];
+            b1: f32[H];
+            w2: f32[H, O];
+            b2: f32[O];
+        }
+
+        volatile {
+            h: f32[B, H];
+            y: f32[B, O];
         }
 
         block entry {
-            assign h: f32[B, D];
-            assign cond: bool;
-
-            op matmul(x, W[0]) >> h;
-            op relu(h, alpha=0.01, clamp_max=6.0) >> h;
-            barrier;
-
-            loop layers (l in 0..num_layers) {
-                cache.read K[l, step] >> h;
-                op matmul(h, W[l]) >> h;
-                cache.write h >> K[l, step];
-            }
-
-            op is_finite(h) >> cond;
-            branch cond ok bad;
-            cache.increment step;
-            return;
-        }
-
-        block ok {
-            op add(h, alpha) >> h;
-            yield h;
-        }
-
-        block bad {
-            op fill(h, value=0.0) >> h;
+            op matmul(x, w1) >> h;
+            op add(h, b1) >> h;
+            op relu(h, alpha=0.0) >> h;
+            op matmul(h, w2) >> y;
+            op add(y, b2) >> y;
             return;
         }
     };
 
-    let sim = Simulator::new(&model, &g, Device::Cpu)?
-      .with_trace()
-      .with_timer();
-
+    let sim = Simulator::new(&model, &g, Device::Cpu)?;
     let mut exec = sim.make_executor()?;
 
-    let len = model.size_of("B")?;
-    let input = Random::<f32>::generate_with_seed(62846, (-10.0, 10.0), len)?;
+    let b = model.size_of("B")?;
+    let d = model.size_of("D")?;
+    let input = Random::<f32>::generate_with_seed_opts(
+        0,
+        (-1.0, 1.0),
+        b * d,
+        TensorOptions {
+            shape: Some(vec![b, d]),
+            ..TensorOptions::default()
+        },
+    )?;
 
     insert_executor!(exec, { x: input });
     exec.step()?;
 
-    fetch_executor!(exec, { h: Tensor<f32> });
+    fetch_executor!(exec, { y: Tensor<f32> });
 
     Ok(())
 }
 ```
-> Some ops in the examples may not yet be implemented; see [docs/progress.md](docs/progress.md) and [docs/ops.md](docs/ops.md) for current support. 
+> See [docs/ops.md](docs/ops.md) and [docs/progress.md](docs/progress.md) for current op support. 
 
 ## Philosophy
 
@@ -156,7 +149,7 @@ cargo clean-spv -p openinfer
 ### Python
 ```bash
 python examples/openinfer-oinf/{example}_oinf.py
-python openinfer-oinf/verify_oinf.py res/models/{example}_model.oinf
+python openinfer-oinf/verify_oinf.py "res/models/{example}.oinf"
 ```
 
 ### Rust

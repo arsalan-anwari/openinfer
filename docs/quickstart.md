@@ -8,35 +8,45 @@ A minimal graph that:
 * Applies two operations
 * Returns a result
 
-> Example of `model.oinf` file in non binary format.
+> Conceptual text view of a `.oinf` model (as printed by `verify_oinf.py`).
 ```ini
 B := 1024
 a: f32[B] = {3.4324, 53.24324, 2334.2345 ...}
 ```
 
-> minimal.rs
+> mlp_regression.rs
 ```rust
 use openinfer::{
-    graph, fetch_executor, insert_executor, Device, ModelLoader, Random, Simulator, Tensor,
+    fetch_executor, graph, insert_executor, Device, ModelLoader, Random, Simulator, Tensor,
+    TensorOptions,
 };
 
 fn main() -> anyhow::Result<()> {
-    let model = ModelLoader::open("res/models/minimal_model.oinf")?;
+    let model = ModelLoader::open("res/models/mlp_regression.oinf")?;
 
     let g = graph! {
         dynamic {
-            x: f32[B];
+            x: f32[B, D];
+        }
+
+        constant {
+            w1: f32[D, H];
+            b1: f32[H];
+            w2: f32[H, O];
+            b2: f32[O];
         }
 
         volatile {
-            a: f32[B];
-            y: f32[B] @init(5.0);
+            h: f32[B, H];
+            y: f32[B, O];
         }
 
         block entry {
-            assign t0: f32[B];
-            op add(x, a) >> t0;
-            op mul(y, t0) >> y;
+            op matmul(x, w1) >> h;
+            op add(h, b1) >> h;
+            op relu(h, alpha=0.0) >> h;
+            op matmul(h, w2) >> y;
+            op add(y, b2) >> y;
             return;
         }
     };
@@ -44,14 +54,23 @@ fn main() -> anyhow::Result<()> {
     let sim = Simulator::new(&model, &g, Device::Cpu)?;
     let mut exec = sim.make_executor()?;
 
-    let len = model.size_of("B")?;
-    let input = Random::<f32>::generate_with_seed(0, (-10.0, 10.0), len)?;
+    let b = model.size_of("B")?;
+    let d = model.size_of("D")?;
+    let input = Random::<f32>::generate_with_seed_opts(
+        0,
+        (-1.0, 1.0),
+        b * d,
+        TensorOptions {
+            shape: Some(vec![b, d]),
+            ..TensorOptions::default()
+        },
+    )?;
 
     insert_executor!(exec, { x: input });
     exec.step()?;
 
     fetch_executor!(exec, { y: Tensor<f32> });
-    println!("y[0..100] = {:?}", &y.data[..100.min(y.len())]);
+    println!("y[0..8] = {:?}", &y.data[..8.min(y.len())]);
 
     Ok(())
 }
@@ -59,7 +78,7 @@ fn main() -> anyhow::Result<()> {
 
 Variables like `[B]` are named sizes, which are defined in the `.oinf` model; these can be dynamic. The `Simulator` validates that dimensions and dtypes are consistent with the model.
 
-The variables defined in the model binary and the DSL do not need to be exactly the same. The DSL can have new variables not found in the binary, but the DSL cannot have the same variable name with a different data type or dimension. By default the variables are linked between the binary and DSL. So `a: f32[B]` in the DSL is directly linked to `a: f32[B]` in the binary by default.
+The variables defined in the model binary and the DSL do not need to be exactly the same. The DSL can have new variables not found in the binary, but the DSL cannot have the same variable name with a different data type or dimension. By default the variables are linked between the binary and DSL. So `w1: f32[D, H]` in the DSL is directly linked to `w1: f32[D, H]` in the binary by default.
 
 ## Executor Macros
 

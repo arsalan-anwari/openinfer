@@ -19,7 +19,8 @@ supports it (e.g. `op add(x, y) >> x`), which is useful for measuring allocation
 overhead vs. the standard out-of-place behavior.
 
 Yield/await blocks can execute concurrently on CPU and Vulkan; trace output
-will interleave block names to make concurrency visible (see `examples/openinfer/yield.rs`).
+will interleave block names to make concurrency visible (see
+`examples/openinfer/streaming_pipeline.rs`).
 
 Note: GPU and CPU floating-point results can differ slightly. See
 `docs/gpu_drift.md` for expected drift and tolerance guidance.

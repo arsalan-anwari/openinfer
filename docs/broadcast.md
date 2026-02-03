@@ -6,9 +6,8 @@ slices and do not need shape-aware logic.
 
 ## Policy and Where to Configure It
 
-Broadcasting support is configured per op in
-`openinfer/src/registry/op_defs.rs` via `BroadcastSupport::Allow` or
-`BroadcastSupport::Deny` in each `OpSchema`.
+Broadcasting support is configured per op in `openinfer/src/op_defs.rs` via
+`BroadcastSupport::Allow` or `BroadcastSupport::Deny` in each `OpSchema`.
 
 ## CPU Behavior
 
