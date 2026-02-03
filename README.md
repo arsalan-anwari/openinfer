@@ -9,7 +9,9 @@ _Inference graphs, explicit control flow, portable execution._
 OpenInfer is an open-source **inference graph and execution framework** for
 machine-learning workloads. It lets you describe inference logic and control
 flow explicitly in a Rust‑embedded DSL, then simulate and execute on CPU or
-Vulkan.
+Vulkan. A key future pillar is the **synthesizer** (planned), which will lower
+DSL graphs into optimized, backend‑specific code for targets like CPU, GPU, TPU,
+and FPGA.
 
 The focus is **clarity, explicit control, and inspectability**, rather than
 hiding complexity behind opaque runtimes.
@@ -22,12 +24,14 @@ hiding complexity behind opaque runtimes.
 - 🧩 **Model‑agnostic**: transformers, vision, audio, streaming pipelines
 - 🔍 **Inspectable**: tracing, timing, and JSON serialization
 - ⚡ **Portable**: CPU backend + optional Vulkan backend
+- 🧠 **Synthesizer (planned)**: lower DSL graphs to optimized backend code
 
 ## Overview
 
 OpenInfer defines a symbolic, inspectable inference graph that can be simulated,
-traced, and executed on CPU or Vulkan. The user‑facing documentation lives in
-the [GitHub Wiki](../../wiki).
+traced, and executed on CPU or Vulkan. The long‑term plan is a synthesizer that
+generates optimized, backend‑specific code from the same graph. The user‑facing
+documentation lives in the [GitHub Wiki](../../wiki).
 
 ### Condensed Rust Example (DSL Overview)
 
