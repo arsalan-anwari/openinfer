@@ -114,11 +114,7 @@ fn dispatch_abs(
         descs.push(build_output_desc(output, out_rank, 0)?);
     }
 
-    let dispatch_len = if input_dtype.is_packed() {
-        input_dtype.storage_len(output.len()) as u32
-    } else {
-        output.len() as u32
-    };
+    let dispatch_len = output.len() as u32;
     let push = AbsPush {
         len: dispatch_len,
         tensor_count: descs.len() as u32,
