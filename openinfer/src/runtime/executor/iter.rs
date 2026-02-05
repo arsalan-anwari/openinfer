@@ -12,6 +12,7 @@ use crate::runtime::trace::TraceEvent;
 
 use super::Executor;
 
+/// Iterator that drives executor evaluation step by step.
 pub struct ExecutorIter<'a> {
     exec: *mut Executor,
     frames: Vec<Frame>,
@@ -198,6 +199,7 @@ struct LoopFrameState {
     nodes: VecDeque<Node>,
 }
 
+/// A single execution step with access to the executor.
 pub struct TraceStep<'a> {
     pub event: TraceEvent,
     exec: *mut Executor,

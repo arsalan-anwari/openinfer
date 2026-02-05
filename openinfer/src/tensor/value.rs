@@ -5,8 +5,11 @@ use super::{
     numel, Bitset, BF16, F16, F8, I1, I2, I4, T1, T2, U1, U2, U4, Tensor, TensorOptions,
 };
 
+/// Element type that can be converted to/from `TensorValue`.
 pub trait TensorElement: Sized + Clone {
+    /// Attempt to extract a typed tensor from a generic value.
     fn from_value(value: &TensorValue) -> Option<Tensor<Self>>;
+    /// Wrap a typed tensor into a generic value.
     fn into_value(tensor: Tensor<Self>) -> TensorValue;
 }
 
@@ -315,6 +318,7 @@ impl TensorElement for Bitset {
     }
 }
 
+/// Supported element dtypes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum DType {
     I8,
@@ -343,6 +347,7 @@ pub enum DType {
 }
 
 impl DType {
+    /// Parse a dtype from its identifier string.
     pub fn from_ident(ident: &str) -> Result<Self> {
         match ident {
             "i8" => Ok(DType::I8),
@@ -372,6 +377,7 @@ impl DType {
         }
     }
 
+    /// True if the dtype is supported across all backends.
     pub fn is_universal(self) -> bool {
         matches!(
             self,
@@ -389,6 +395,7 @@ impl DType {
         )
     }
 
+    /// True if the dtype is packed (bit-level).
     pub fn is_packed(self) -> bool {
         matches!(
             self,
@@ -403,18 +410,22 @@ impl DType {
         )
     }
 
+    /// True if the dtype is a floating-point type.
     pub fn is_float(self) -> bool {
         matches!(self, DType::F8 | DType::F16 | DType::BF16 | DType::F32 | DType::F64)
     }
 
+    /// True if the dtype is a signed integer type.
     pub fn is_signed_int(self) -> bool {
         matches!(self, DType::I8 | DType::I16 | DType::I32 | DType::I64)
     }
 
+    /// True if the dtype is a packed signed integer type.
     pub fn is_packed_signed(self) -> bool {
         matches!(self, DType::I1 | DType::I2 | DType::I4)
     }
 
+    /// Bit width of a single logical element.
     pub fn bit_width(self) -> u8 {
         match self {
             DType::I1 => 1,
@@ -434,6 +445,7 @@ impl DType {
         }
     }
 
+    /// Storage length in elements for a logical length.
     pub fn storage_len(self, logical_len: usize) -> usize {
         if self.is_packed() {
             let bits = logical_len.saturating_mul(self.bit_width() as usize);
@@ -444,6 +456,7 @@ impl DType {
     }
 }
 
+/// Runtime tensor value with an enum over concrete dtypes.
 #[derive(Debug, Clone)]
 pub enum TensorValue {
     I8(Tensor<i8>),
@@ -475,6 +488,7 @@ pub enum TensorValue {
 unsafe impl Send for TensorValue {}
 
 impl TensorValue {
+    /// Return the dtype of this value.
     pub fn dtype(&self) -> DType {
         match self {
             TensorValue::I8(_) => DType::I8,
@@ -503,10 +517,12 @@ impl TensorValue {
         }
     }
 
+    /// Return the logical element count.
     pub fn len(&self) -> usize {
         numel(self.shape())
     }
 
+    /// Return the tensor shape.
     pub fn shape(&self) -> &[usize] {
         match self {
             TensorValue::I8(tensor) => tensor.shape(),
@@ -535,6 +551,7 @@ impl TensorValue {
         }
     }
 
+    /// Return the tensor strides.
     pub fn strides(&self) -> &[usize] {
         match self {
             TensorValue::I8(tensor) => tensor.strides(),
@@ -563,6 +580,7 @@ impl TensorValue {
         }
     }
 
+    /// Construct a zero-filled tensor for a dtype and shape.
     pub fn zeros(dtype: DType, shape: &[usize]) -> Self {
         let len = numel(shape);
         let packed_len = dtype.storage_len(len);
@@ -739,6 +757,7 @@ impl TensorValue {
         }
     }
 
+    /// Borrow as an i8 tensor.
     pub fn as_i8(&self) -> Result<&Tensor<i8>> {
         match self {
             TensorValue::I8(tensor) => Ok(tensor),
@@ -746,6 +765,7 @@ impl TensorValue {
         }
     }
 
+    /// Borrow as an i16 tensor.
     pub fn as_i16(&self) -> Result<&Tensor<i16>> {
         match self {
             TensorValue::I16(tensor) => Ok(tensor),
@@ -753,6 +773,7 @@ impl TensorValue {
         }
     }
 
+    /// Borrow as an f32 tensor.
     pub fn as_f32(&self) -> Result<&Tensor<f32>> {
         match self {
             TensorValue::F32(tensor) => Ok(tensor),
@@ -760,6 +781,7 @@ impl TensorValue {
         }
     }
 
+    /// Borrow as an f64 tensor.
     pub fn as_f64(&self) -> Result<&Tensor<f64>> {
         match self {
             TensorValue::F64(tensor) => Ok(tensor),
@@ -767,6 +789,7 @@ impl TensorValue {
         }
     }
 
+    /// Borrow as a u8 tensor.
     pub fn as_u8(&self) -> Result<&Tensor<u8>> {
         match self {
             TensorValue::U8(tensor) => Ok(tensor),
@@ -774,6 +797,7 @@ impl TensorValue {
         }
     }
 
+    /// Borrow as a u16 tensor.
     pub fn as_u16(&self) -> Result<&Tensor<u16>> {
         match self {
             TensorValue::U16(tensor) => Ok(tensor),
@@ -781,6 +805,7 @@ impl TensorValue {
         }
     }
 
+    /// Borrow as an i32 tensor.
     pub fn as_i32(&self) -> Result<&Tensor<i32>> {
         match self {
             TensorValue::I32(tensor) => Ok(tensor),
@@ -788,6 +813,7 @@ impl TensorValue {
         }
     }
 
+    /// Borrow as an i64 tensor.
     pub fn as_i64(&self) -> Result<&Tensor<i64>> {
         match self {
             TensorValue::I64(tensor) => Ok(tensor),
@@ -795,6 +821,7 @@ impl TensorValue {
         }
     }
 
+    /// Borrow as a u32 tensor.
     pub fn as_u32(&self) -> Result<&Tensor<u32>> {
         match self {
             TensorValue::U32(tensor) => Ok(tensor),
@@ -802,6 +829,7 @@ impl TensorValue {
         }
     }
 
+    /// Borrow as a u64 tensor.
     pub fn as_u64(&self) -> Result<&Tensor<u64>> {
         match self {
             TensorValue::U64(tensor) => Ok(tensor),
@@ -809,6 +837,7 @@ impl TensorValue {
         }
     }
 
+    /// Borrow as a bool tensor.
     pub fn as_bool(&self) -> Result<&Tensor<bool>> {
         match self {
             TensorValue::Bool(tensor) => Ok(tensor),
@@ -816,6 +845,7 @@ impl TensorValue {
         }
     }
 
+    /// Borrow as a Bitset tensor.
     pub fn as_bitset(&self) -> Result<&Tensor<Bitset>> {
         match self {
             TensorValue::Bitset(tensor) => Ok(tensor),
@@ -823,6 +853,7 @@ impl TensorValue {
         }
     }
 
+    /// Borrow as an F16 tensor.
     pub fn as_f16(&self) -> Result<&Tensor<F16>> {
         match self {
             TensorValue::F16(tensor) => Ok(tensor),
@@ -830,6 +861,7 @@ impl TensorValue {
         }
     }
 
+    /// Borrow as a BF16 tensor.
     pub fn as_bf16(&self) -> Result<&Tensor<BF16>> {
         match self {
             TensorValue::BF16(tensor) => Ok(tensor),
@@ -837,6 +869,7 @@ impl TensorValue {
         }
     }
 
+    /// Borrow as an F8 tensor.
     pub fn as_f8(&self) -> Result<&Tensor<F8>> {
         match self {
             TensorValue::F8(tensor) => Ok(tensor),
@@ -844,6 +877,7 @@ impl TensorValue {
         }
     }
 
+    /// Borrow as an I4 tensor.
     pub fn as_i4(&self) -> Result<&Tensor<I4>> {
         match self {
             TensorValue::I4(tensor) => Ok(tensor),
@@ -851,6 +885,7 @@ impl TensorValue {
         }
     }
 
+    /// Borrow as an I2 tensor.
     pub fn as_i2(&self) -> Result<&Tensor<I2>> {
         match self {
             TensorValue::I2(tensor) => Ok(tensor),
@@ -858,6 +893,7 @@ impl TensorValue {
         }
     }
 
+    /// Borrow as an I1 tensor.
     pub fn as_i1(&self) -> Result<&Tensor<I1>> {
         match self {
             TensorValue::I1(tensor) => Ok(tensor),
@@ -865,6 +901,7 @@ impl TensorValue {
         }
     }
 
+    /// Borrow as a U4 tensor.
     pub fn as_u4(&self) -> Result<&Tensor<U4>> {
         match self {
             TensorValue::U4(tensor) => Ok(tensor),
@@ -872,6 +909,7 @@ impl TensorValue {
         }
     }
 
+    /// Borrow as a U2 tensor.
     pub fn as_u2(&self) -> Result<&Tensor<U2>> {
         match self {
             TensorValue::U2(tensor) => Ok(tensor),
@@ -879,6 +917,7 @@ impl TensorValue {
         }
     }
 
+    /// Borrow as a U1 tensor.
     pub fn as_u1(&self) -> Result<&Tensor<U1>> {
         match self {
             TensorValue::U1(tensor) => Ok(tensor),
@@ -886,6 +925,7 @@ impl TensorValue {
         }
     }
 
+    /// Borrow as a T2 tensor.
     pub fn as_t2(&self) -> Result<&Tensor<T2>> {
         match self {
             TensorValue::T2(tensor) => Ok(tensor),
@@ -893,6 +933,7 @@ impl TensorValue {
         }
     }
 
+    /// Borrow as a T1 tensor.
     pub fn as_t1(&self) -> Result<&Tensor<T1>> {
         match self {
             TensorValue::T1(tensor) => Ok(tensor),

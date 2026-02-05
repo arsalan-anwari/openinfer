@@ -1,7 +1,9 @@
+//! Generate build-time settings from `settings.json`.
 use std::error::Error;
 use std::fs;
 use std::path::Path;
 
+/// Apply settings and emit build artifacts used by Vulkan shaders.
 pub fn apply_settings(manifest_dir: &Path) -> Result<(), Box<dyn Error>> {
     let settings_path = manifest_dir.join("../settings.json");
     println!("cargo:rerun-if-changed={}", settings_path.display());

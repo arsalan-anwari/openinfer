@@ -3,6 +3,7 @@ use std::fmt;
 use serde::ser::{SerializeStruct, Serializer};
 use uuid::Uuid;
 
+/// Kind of trace event emitted during execution.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub enum TraceEventKind {
     Assign,
@@ -44,6 +45,7 @@ impl fmt::Display for TraceEventKind {
     }
 }
 
+/// Execution trace record for a single node.
 #[derive(Debug, Clone)]
 pub struct TraceEvent {
     pub kind: TraceEventKind,

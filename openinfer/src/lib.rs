@@ -1,3 +1,35 @@
+//! # OpenInfer
+//!
+//! OpenInfer is an inference graph and execution framework for machine-learning
+//! workloads. It provides a graph model, a runtime, and tensor utilities that
+//! can execute on CPU (and optionally Vulkan) backends.
+//!
+//! ## Quick start
+//! ```no_run
+//! use openinfer::{graph, Device, ModelLoader, Simulator};
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! let model = ModelLoader::default();
+//! let g = graph! {
+//!     block main {
+//!         // ... graph nodes ...
+//!     }
+//! };
+//! let sim = Simulator::new(&model, &g, Device::Cpu)?;
+//! let _executor = sim.with_trace().make_executor()?;
+//! # Ok(()) }
+//! ```
+//!
+//! ## Key concepts
+//! - `Graph` and `Node` describe the computation structure.
+//! - `Tensor` and `TensorValue` hold data with explicit shapes and dtypes.
+//! - `Simulator` and `Executor` manage validation and execution.
+//! - `ModelLoader` provides external state and parameters.
+//!
+//! ## Module map
+//! - `graph`: graph nodes, blocks, and serialization.
+//! - `runtime`: executor, validation, and tracing.
+//! - `tensor`: tensor containers and dtype utilities.
+//! - `ops`: op registry and kernel dispatch.
 pub use openinfer_dsl::graph;
 
 mod simulator;

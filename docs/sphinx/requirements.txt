@@ -1,0 +1,4 @@
+sphinx
+sphinxcontrib-rust
+sphinxcontrib-mermaid
+git+https://github.com/revitron/revitron-sphinx-theme.git@master

@@ -35,3 +35,11 @@ __pycache__/
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
+
+# Sphinx docs output
+docs/sphinx/out/
+docs/sphinx/api/rustdoc/
+docs/sphinx/_static/css/rustdoc.css
+docs/sphinx/_static/rustdoc_header.html
+docs/sphinx/_static/images/OpenInferIcon.png
+docs/sphinx/_static/images/OpenInferFavIcon.png

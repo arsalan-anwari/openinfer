@@ -11,6 +11,7 @@ use anyhow::Result;
 use crate::graph::Graph;
 use crate::runtime::ModelLoader;
 
+/// Validate graph structure and variable declarations against a model.
 pub fn validate_graph(model: &ModelLoader, graph: &Graph) -> Result<()> {
     let mut ctx = context::ValidationContext::new(model, graph);
     vars::validate_vars(&mut ctx)?;

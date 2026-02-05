@@ -1,7 +1,9 @@
+//! Generate embedded SPIR-V shader maps from `ops.json`.
 use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+/// Generate a Rust map that embeds available SPIR-V binaries.
 pub fn generate_spv_map(manifest_dir: &Path) -> Result<(), Box<dyn Error>> {
     let ops_json = manifest_dir.join("../ops.json");
     println!("cargo:rerun-if-changed={}", ops_json.display());
@@ -78,6 +80,7 @@ pub fn generate_spv_map(manifest_dir: &Path) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+/// Write an empty embedded SPIR-V map (for non-Vulkan builds).
 pub fn write_empty_map() -> Result<(), Box<dyn Error>> {
     let out_dir = PathBuf::from(std::env::var("OUT_DIR")?);
     let out_file = out_dir.join("spv_embedded.rs");

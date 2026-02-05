@@ -1,9 +1,11 @@
 use anyhow::{anyhow, Result};
 
+/// Compute the number of elements for a shape.
 pub fn numel(shape: &[usize]) -> usize {
     shape.iter().copied().product::<usize>()
 }
 
+/// Compute contiguous row-major strides for a shape.
 pub fn compute_strides(shape: &[usize]) -> Vec<usize> {
     let mut strides = vec![0; shape.len()];
     let mut stride = 1usize;

@@ -6,6 +6,7 @@ use super::{
     TensorValue,
 };
 
+/// Scalar value that can be expanded into tensors.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ScalarValue {
     I8(i8),
@@ -34,6 +35,7 @@ pub enum ScalarValue {
 }
 
 impl ScalarValue {
+    /// Return the dtype for this scalar value.
     pub fn dtype(&self) -> DType {
         match self {
             ScalarValue::I8(_) => DType::I8,
@@ -62,6 +64,7 @@ impl ScalarValue {
         }
     }
 
+    /// Expand the scalar into a tensor with the requested dtype and shape.
     pub fn to_tensor_value(&self, dtype: DType, shape: &[usize]) -> Result<TensorValue> {
         let len = numel(shape);
         let packed_opts = TensorOptions {

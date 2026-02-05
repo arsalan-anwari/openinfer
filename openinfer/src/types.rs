@@ -2,6 +2,7 @@ use anyhow::{anyhow, Result};
 
 use crate::tensor::DType;
 
+/// Convert a dtype to its suffix string representation.
 #[allow(unused)]
 pub fn dtype_suffix(dtype: DType) -> Result<&'static str> {
     match dtype {
@@ -30,6 +31,7 @@ pub fn dtype_suffix(dtype: DType) -> Result<&'static str> {
     }
 }
 
+/// Metadata about a variable stored in a model file.
 #[derive(Debug, Clone)]
 pub struct VarInfo {
     pub name: String,

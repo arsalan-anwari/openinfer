@@ -1,5 +1,6 @@
 use super::{CacheAccess, CacheIndexExpr, CacheIndexValue, NodeKind};
 
+/// Render a human-readable description for a node.
 pub fn describe_node(kind: &NodeKind) -> String {
     match kind {
         NodeKind::Assign { name, .. } => format!("assign {}", name),

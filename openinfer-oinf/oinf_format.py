@@ -1,9 +1,11 @@
+"""Pretty-print helpers for .oinf verification output."""
 from __future__ import annotations
 
 import numpy as np
 
 
 def format_scalar(value: object) -> str:
+    """Format a scalar value for display."""
     if isinstance(value, bool):
         return "true" if value else "false"
     if isinstance(value, str):
@@ -14,6 +16,7 @@ def format_scalar(value: object) -> str:
 
 
 def format_values_1d(values: np.ndarray) -> str:
+    """Format a 1D array with truncation."""
     flat = values.flatten()
     total = flat.size
     if total <= 10:
@@ -26,6 +29,7 @@ def format_values_1d(values: np.ndarray) -> str:
 
 
 def format_values(values: np.ndarray) -> str:
+    """Format an array with truncation and row limits."""
     if values.ndim <= 1:
         return format_values_1d(values)
     lines = ["{ "]
@@ -40,6 +44,7 @@ def format_values(values: np.ndarray) -> str:
 
 
 def histogram_string(values: np.ndarray) -> str:
+    """Build a compact histogram string for numeric arrays."""
     if values.size == 0:
         return "{(empty)}"
     if values.dtype == np.bool_:

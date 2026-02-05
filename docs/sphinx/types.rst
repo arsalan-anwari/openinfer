@@ -1,0 +1,1 @@
+.. include:: guides/types.rst

@@ -1,16 +1,19 @@
 use serde::{Deserialize, Serialize};
 
+/// Packed bitset storage type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Bitset {
     pub bits: u8,
 }
 
+/// Brain-float16 (BF16) scalar storage.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct BF16 {
     pub bits: u16,
 }
 
 impl BF16 {
+    /// Convert from f32 to BF16.
     pub fn from_f32(value: f32) -> Self {
         let bits = value.to_bits();
         let rounding = 0x7fff + ((bits >> 16) & 1);
@@ -20,17 +23,20 @@ impl BF16 {
         }
     }
 
+    /// Convert BF16 to f32.
     pub fn to_f32(self) -> f32 {
         f32::from_bits((self.bits as u32) << 16)
     }
 }
 
+/// IEEE 754 half-precision (F16) scalar storage.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct F16 {
     pub bits: u16,
 }
 
 impl F16 {
+    /// Convert from f32 to F16.
     pub fn from_f32(value: f32) -> Self {
         let bits = value.to_bits();
         let sign = ((bits >> 16) & 0x8000) as u16;
@@ -73,6 +79,7 @@ impl F16 {
         Self { bits: f16_bits }
     }
 
+    /// Convert F16 to f32.
     pub fn to_f32(self) -> f32 {
         let sign = ((self.bits & 0x8000) as u32) << 16;
         let exp = (self.bits >> 10) & 0x1f;
@@ -101,12 +108,14 @@ impl F16 {
     }
 }
 
+/// 8-bit float storage (custom format).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct F8 {
     pub bits: u8,
 }
 
 impl F8 {
+    /// Convert from f32 to F8.
     pub fn from_f32(value: f32) -> Self {
         if value.is_nan() {
             return Self { bits: 0x7d };
@@ -167,6 +176,7 @@ impl F8 {
         }
     }
 
+    /// Convert F8 to f32.
     pub fn to_f32(self) -> f32 {
         let sign = ((self.bits >> 7) & 1) as u32;
         let exp = ((self.bits >> 2) & 0x1f) as i32;
@@ -191,41 +201,49 @@ impl F8 {
     }
 }
 
+/// 4-bit signed integer storage.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct I4 {
     pub bits: u8,
 }
 
+/// 2-bit signed integer storage.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct I2 {
     pub bits: u8,
 }
 
+/// 1-bit signed integer storage.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct I1 {
     pub bits: u8,
 }
 
+/// 4-bit unsigned integer storage.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct U4 {
     pub bits: u8,
 }
 
+/// 2-bit unsigned integer storage.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct U2 {
     pub bits: u8,
 }
 
+/// 1-bit unsigned integer storage.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct U1 {
     pub bits: u8,
 }
 
+/// 2-bit ternary storage.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct T2 {
     pub bits: u8,
 }
 
+/// 1-bit ternary storage.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct T1 {
     pub bits: u8,
@@ -237,87 +255,103 @@ fn sign_extend(bits: u8, width: u8) -> i8 {
 }
 
 impl I4 {
+    /// Create an I4 value from i8.
     pub fn from_i8(value: i8) -> Self {
         Self {
             bits: (value as u8) & 0x0f,
         }
     }
 
+    /// Convert I4 to i8.
     pub fn to_i8(self) -> i8 {
         sign_extend(self.bits & 0x0f, 4)
     }
 }
 
 impl I2 {
+    /// Create an I2 value from i8.
     pub fn from_i8(value: i8) -> Self {
         Self {
             bits: (value as u8) & 0x03,
         }
     }
 
+    /// Convert I2 to i8.
     pub fn to_i8(self) -> i8 {
         sign_extend(self.bits & 0x03, 2)
     }
 }
 
 impl I1 {
+    /// Create an I1 value from i8.
     pub fn from_i8(value: i8) -> Self {
         Self { bits: (value as u8) & 0x01 }
     }
 
+    /// Convert I1 to i8.
     pub fn to_i8(self) -> i8 {
         sign_extend(self.bits & 0x01, 1)
     }
 }
 
 impl U4 {
+    /// Create a U4 value from u8.
     pub fn from_u8(value: u8) -> Self {
         Self { bits: value & 0x0f }
     }
 
+    /// Convert U4 to u8.
     pub fn to_u8(self) -> u8 {
         self.bits & 0x0f
     }
 }
 
 impl U2 {
+    /// Create a U2 value from u8.
     pub fn from_u8(value: u8) -> Self {
         Self { bits: value & 0x03 }
     }
 
+    /// Convert U2 to u8.
     pub fn to_u8(self) -> u8 {
         self.bits & 0x03
     }
 }
 
 impl U1 {
+    /// Create a U1 value from u8.
     pub fn from_u8(value: u8) -> Self {
         Self { bits: value & 0x01 }
     }
 
+    /// Convert U1 to u8.
     pub fn to_u8(self) -> u8 {
         self.bits & 0x01
     }
 }
 
 impl T2 {
+    /// Create a T2 value from i8.
     pub fn from_i8(value: i8) -> Self {
         Self {
             bits: (value as u8) & 0x03,
         }
     }
 
+    /// Convert T2 to i8.
     pub fn to_i8(self) -> i8 {
         sign_extend(self.bits & 0x03, 2)
     }
 }
 
 impl T1 {
+    /// Create a T1 value from i8.
     pub fn from_i8(value: i8) -> Self {
         let bits = if value < 0 { 0 } else { 1 };
         Self { bits }
     }
 
+    /// Convert T1 to i8.
     pub fn to_i8(self) -> i8 {
         if (self.bits & 0x01) == 0 {
             -1

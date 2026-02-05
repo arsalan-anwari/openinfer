@@ -1,3 +1,4 @@
+"""Verify and pretty-print .oinf files."""
 from __future__ import annotations
 
 import argparse
@@ -15,6 +16,7 @@ from oinf_types import PACKED_BITS_PER, ValueType, VT_NAME, VT_SIZE, VT_TO_DTYPE
 
 
 def _tensor_stats(values: np.ndarray) -> Dict[str, Any]:
+    """Compute summary stats for a tensor."""
     if values.size == 0:
         return {
             "numel": 0,
@@ -39,6 +41,7 @@ def _tensor_stats(values: np.ndarray) -> Dict[str, Any]:
 
 
 def _parse_metadata_value(blob: bytes, entry: Dict[str, Any]) -> Any:
+    """Parse a metadata entry payload into a Python value."""
     vtype = entry["value_type"]
     offset = entry["value_offset"]
     nbytes = entry["value_nbytes"]
@@ -135,6 +138,7 @@ def _parse_metadata_value(blob: bytes, entry: Dict[str, Any]) -> Any:
 
 
 def parse_file(path: str) -> None:
+    """Parse and print validation output for a .oinf file."""
     with open(path, "rb") as handle:
         blob = handle.read()
 
@@ -341,6 +345,7 @@ def parse_file(path: str) -> None:
 
 
 def main() -> None:
+    """CLI entry point for .oinf verification."""
     parser = argparse.ArgumentParser(description="Verify and pretty-print .oinf")
     parser.add_argument("path", help="Path to .oinf file")
     args = parser.parse_args()

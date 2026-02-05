@@ -1,3 +1,4 @@
+//! Generate CPU kernel sources from `ops.json`.
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
@@ -43,6 +44,7 @@ impl InputArityInfo {
     }
 }
 
+/// Generate CPU kernel Rust sources based on `ops.json`.
 pub fn generate_cpu_kernels(manifest_dir: &Path) -> Result<(), Box<dyn Error>> {
     let ops_json = load_ops_json(manifest_dir)?;
 

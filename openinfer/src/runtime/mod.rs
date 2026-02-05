@@ -1,3 +1,16 @@
+//! Runtime execution infrastructure.
+//!
+//! This module hosts the execution engine, validation, tracing, and tensor
+//! storage used by `Simulator` and `Executor`.
+//!
+//! ## Key components
+//! - `executor`: step-by-step execution and fetch APIs.
+//! - `model_loader`: lazy `.oinf` loading and size resolution.
+//! - `trace`: trace event types and serialization.
+//! - `validation`: graph validation rules and invariants.
+//!
+//! The main entry points are [`Executor`](crate::runtime::Executor) and
+//! [`ModelLoader`](crate::runtime::ModelLoader).
 #![allow(unused_imports)]
 
 mod executor;

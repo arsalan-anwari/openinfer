@@ -1,3 +1,4 @@
+"""Type tables and conversions for the .oinf format."""
 from __future__ import annotations
 
 from typing import Optional
@@ -8,6 +9,7 @@ from oinf_common import OinfError
 
 
 class ValueType:
+    """Numeric value type identifiers for .oinf payloads."""
     I8 = 1
     I16 = 2
     I32 = 3
@@ -171,6 +173,7 @@ PACKED_UNSIGNED = {ValueType.U4, ValueType.U2, ValueType.U1}
 
 
 def dtype_from_alias(alias: Optional[str]) -> Optional[int]:
+    """Resolve a dtype alias string to a ValueType code."""
     if alias is None:
         return None
     if isinstance(alias, str):
@@ -181,6 +184,7 @@ def dtype_from_alias(alias: Optional[str]) -> Optional[int]:
 
 
 def value_type_from_numpy_dtype(dtype: np.dtype) -> int:
+    """Convert a numpy dtype to a ValueType code."""
     dtype = np.dtype(dtype)
     if dtype not in DTYPE_TO_VT:
         raise OinfError(f"Unsupported numpy dtype {dtype}")
@@ -188,6 +192,7 @@ def value_type_from_numpy_dtype(dtype: np.dtype) -> int:
 
 
 def tensor_nbytes(vtype: int, numel: int) -> int:
+    """Return the byte size for a tensor with numel elements."""
     if vtype in PACKED_BITS_PER:
         bits_per = PACKED_BITS_PER[vtype]
         return (numel * bits_per + 7) // 8

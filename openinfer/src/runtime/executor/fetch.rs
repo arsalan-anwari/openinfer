@@ -4,6 +4,7 @@ use crate::runtime::state::RuntimeState;
 use crate::runtime::value_eval::{tensor_to_bool, tensor_to_i64};
 use crate::tensor::{Tensor, TensorElement, TensorValue};
 
+/// Adapter for fetching runtime values by name.
 pub trait Fetchable: Sized {
     fn fetch(state: &mut RuntimeState, name: &str) -> Result<Self>;
 }

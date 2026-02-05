@@ -1,3 +1,12 @@
+//! Tensor and dtype utilities.
+//!
+//! Provides tensor containers (`Tensor`/`TensorValue`) and dtype helpers used
+//! across the runtime and graph layers.
+//!
+//! ## Highlights
+//! - `Tensor<T>`: owned tensor container with shape/stride metadata.
+//! - `TensorValue`: enum for runtime dtype dispatch.
+//! - `DType`: dtype definitions and packing utilities.
 mod scalar;
 mod scalar_value;
 mod shape;

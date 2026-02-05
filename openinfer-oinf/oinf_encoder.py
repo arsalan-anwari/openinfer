@@ -1,3 +1,4 @@
+"""Encode Python objects into the Open Infer Neural Format (.oinf)."""
 from __future__ import annotations
 
 import argparse
@@ -38,13 +39,16 @@ class Bitset:
     """Packed bitset payload."""
 
     def __init__(self, bits: Iterable[bool]):
+        """Create a bitset from an iterable of booleans."""
         self._bits = [bool(b) for b in bits]
 
     @property
     def bit_count(self) -> int:
+        """Return the number of bits in the payload."""
         return len(self._bits)
 
     def to_packed(self) -> bytes:
+        """Pack the bitset into bytes."""
         byte_count = (self.bit_count + 7) // 8
         data = bytearray(byte_count)
         for i, bit in enumerate(self._bits):
@@ -62,6 +66,7 @@ class TensorSpec:
         dtype: Optional[Union[str, int]] = None,
         name: Optional[str] = None,
     ):
+        """Define a tensor with optional dtype override and name."""
         self.data = data
         self.dtype = dtype
         self.name = name
@@ -71,6 +76,7 @@ class ScalarValue:
     """Represents a scalar metadata value."""
 
     def __init__(self, value: Any, dtype: Optional[Union[str, int]] = None):
+        """Create a scalar metadata entry with optional dtype override."""
         self.value = value
         self.dtype = dtype
 
@@ -79,6 +85,7 @@ class SizeVar:
     """Represents a size variable value."""
 
     def __init__(self, value: Any):
+        """Create a size variable entry."""
         self.value = value
 
 
@@ -86,6 +93,7 @@ class UninitializedTensor:
     """Represents a tensor declaration without data."""
 
     def __init__(self, dtype: Union[str, int], shape: Sequence[int], name: Optional[str] = None):
+        """Declare a tensor entry without attached data."""
         self.dtype = dtype
         self.shape = tuple(int(x) for x in shape)
         self.name = name
@@ -632,6 +640,7 @@ def _encode_oinf(
 
 
 def dataclass_to_oinf(instance: Any) -> bytes:
+    """Encode a dataclass instance into an .oinf binary payload."""
     if not dataclasses.is_dataclass(instance):
         raise OinfError("Input must be a dataclass instance")
 
@@ -666,12 +675,14 @@ def _load_instance(target: str, json_path: Optional[str]) -> Any:
 
 
 def write_oinf(instance: Any, output_path: str) -> None:
+    """Encode a dataclass instance and write it to a file."""
     payload = dataclass_to_oinf(instance)
     with open(output_path, "wb") as handle:
         handle.write(payload)
 
 
 def main() -> None:
+    """CLI entry point for dataclass-to-.oinf encoding."""
     parser = argparse.ArgumentParser(description="Convert a dataclass instance into .oinf")
     parser.add_argument("--input", required=True, help="module:ClassName or module:instance")
     parser.add_argument("--output", required=True, help="Output .oinf path")

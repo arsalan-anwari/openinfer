@@ -1,0 +1,1 @@
+.. include:: guides/components.rst

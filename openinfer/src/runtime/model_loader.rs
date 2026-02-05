@@ -1,3 +1,7 @@
+//! Lazy `.oinf` model loader.
+//!
+//! The loader memory-maps the model file, validates headers, and loads tensor
+//! payloads only on demand.
 use std::collections::HashMap;
 use std::fs::File;
 use std::path::{Path, PathBuf};
@@ -24,6 +28,7 @@ struct MetadataInfo {
     dims: Vec<u64>,
 }
 
+/// Loads `.oinf` model files and exposes tensors/metadata.
 #[derive(Debug, Clone)]
 pub struct ModelLoader {
     #[allow(dead_code)]
@@ -37,6 +42,15 @@ pub struct ModelLoader {
 }
 
 impl ModelLoader {
+    /// Open an `.oinf` model file from disk.
+    ///
+    /// # Example
+    /// ```no_run
+    /// # use openinfer::ModelLoader;
+    /// # fn main() -> anyhow::Result<()> {
+    /// let model = ModelLoader::open("model.oinf")?;
+    /// # Ok(()) }
+    /// ```
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
         let path = path.as_ref().to_path_buf();
         let file = File::open(&path).with_context(|| "open model file")?;
@@ -215,6 +229,16 @@ impl ModelLoader {
         })
     }
 
+    /// Lookup a size variable by name.
+    ///
+    /// # Example
+    /// ```no_run
+    /// # use openinfer::ModelLoader;
+    /// # fn main() -> anyhow::Result<()> {
+    /// let model = ModelLoader::open("model.oinf")?;
+    /// let b = model.size_of("B")?;
+    /// # Ok(()) }
+    /// ```
     pub fn size_of(&self, name: &str) -> Result<usize> {
         self.sizes
             .get(name)
@@ -222,6 +246,7 @@ impl ModelLoader {
             .ok_or_else(|| anyhow!("unknown size: {}", name))
     }
 
+    /// Resolve a product of dimension strings into a length.
     pub fn resolve_len(&self, dims: &[String]) -> Result<usize> {
         let mut total = 1usize;
         for dim in dims {
@@ -230,6 +255,16 @@ impl ModelLoader {
         Ok(total)
     }
 
+    /// Resolve dimension strings into a concrete shape.
+    ///
+    /// # Example
+    /// ```no_run
+    /// # use openinfer::ModelLoader;
+    /// # fn main() -> anyhow::Result<()> {
+    /// let model = ModelLoader::open("model.oinf")?;
+    /// let shape = model.resolve_shape(&["B".into(), "D".into()])?;
+    /// # Ok(()) }
+    /// ```
     pub fn resolve_shape(&self, dims: &[String]) -> Result<Vec<usize>> {
         let mut shape = Vec::with_capacity(dims.len());
         for dim in dims {
@@ -238,6 +273,7 @@ impl ModelLoader {
         Ok(shape)
     }
 
+    /// Resolve a single dimension expression (literal, sizevar, or product).
     pub fn resolve_dim_value(&self, dim: &str) -> Result<usize> {
         if let Ok(val) = dim.parse::<usize>() {
             return Ok(val);
@@ -259,14 +295,26 @@ impl ModelLoader {
         self.size_of(trimmed)
     }
 
+    /// Fetch variable metadata by name.
     pub fn var_info(&self, name: &str) -> Option<&VarInfo> {
         self.vars.get(name)
     }
 
+    /// Access the underlying tensor store.
     pub fn tensor_store(&self) -> &TensorStore {
         &self.tensor_store
     }
 
+    /// Load a tensor payload by name from the mapped file.
+    ///
+    /// # Example
+    /// ```no_run
+    /// # use openinfer::ModelLoader;
+    /// # fn main() -> anyhow::Result<()> {
+    /// let model = ModelLoader::open("model.oinf")?;
+    /// let tensor = model.load_tensor("w1")?;
+    /// # Ok(()) }
+    /// ```
     pub fn load_tensor(&self, name: &str) -> Result<TensorValue> {
         let info = self
             .vars
@@ -282,6 +330,7 @@ impl ModelLoader {
         tensor_value_from_bytes(info, data)
     }
 
+    /// Load a metadata tensor by name, if present.
     pub fn load_metadata_tensor(&self, name: &str) -> Result<Option<TensorValue>> {
         let info = match self.metadata.get(name) {
             Some(info) => info,
@@ -347,6 +396,7 @@ impl ModelLoader {
         tensor_value_from_bytes(&var_info, payload).map(Some)
     }
 
+    /// True if a named metadata entry is a string.
     pub fn has_metadata_string(&self, name: &str) -> bool {
         self.metadata
             .get(name)
@@ -354,6 +404,7 @@ impl ModelLoader {
             .unwrap_or(false)
     }
 
+    /// Load a metadata string by name, if present.
     pub fn load_metadata_string(&self, name: &str) -> Result<Option<String>> {
         let info = match self.metadata.get(name) {
             Some(info) => info,

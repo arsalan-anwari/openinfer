@@ -6,6 +6,7 @@ use rand::{Rng, SeedableRng};
 
 use crate::tensor::{numel, BF16, F8, I1, I2, I4, Tensor, TensorOptions};
 
+/// Random tensor generator for a specific element type.
 pub struct Random<T> {
     rng: StdRng,
     _marker: PhantomData<T>,
@@ -15,6 +16,7 @@ impl<T> Random<T>
 where
     T: RandomValue,
 {
+    /// Create a seeded random generator.
     pub fn with_seed(seed: u64) -> Self {
         Self {
             rng: StdRng::seed_from_u64(seed),
@@ -22,18 +24,22 @@ where
         }
     }
 
+    /// Generate a tensor with a default seed and options.
     pub fn generate(range: (T, T), len: usize) -> Result<Tensor<T>> {
         Self::generate_with_seed_opts(0, range, len, TensorOptions::default())
     }
 
+    /// Generate a tensor with custom options and default seed.
     pub fn generate_with_opts(range: (T, T), len: usize, opts: TensorOptions) -> Result<Tensor<T>> {
         Self::generate_with_seed_opts(0, range, len, opts)
     }
 
+    /// Generate a tensor with an explicit seed.
     pub fn generate_with_seed(seed: u64, range: (T, T), len: usize) -> Result<Tensor<T>> {
         Self::generate_with_seed_opts(seed, range, len, TensorOptions::default())
     }
 
+    /// Generate a tensor with an explicit seed and options.
     pub fn generate_with_seed_opts(
         seed: u64,
         range: (T, T),
@@ -44,10 +50,12 @@ where
         generate_with_rng::<T>(&mut rng, range, len, opts)
     }
 
+    /// Generate the next tensor using the internal RNG.
     pub fn next(&mut self, range: (T, T), len: usize) -> Result<Tensor<T>> {
         self.next_with_opts(range, len, TensorOptions::default())
     }
 
+    /// Generate the next tensor using the internal RNG and options.
     pub fn next_with_opts(
         &mut self,
         range: (T, T),
@@ -96,6 +104,7 @@ fn generate_with_rng<T: RandomValue>(
     )
 }
 
+/// Trait for values that can be sampled by `Random`.
 pub trait RandomValue: Sized + Copy {
     fn sample(rng: &mut StdRng, range: (Self, Self)) -> Result<Self>;
 }

@@ -1,2 +1,4 @@
 pydantic
 numpy
+
+-r docs/sphinx/requirements.txt

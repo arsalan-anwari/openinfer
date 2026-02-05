@@ -79,34 +79,40 @@ fn emit(kind: &str, color: &str, args: Arguments) {
     }
 }
 
+/// Emit a warning message when trace level allows it.
 pub fn emit_warning(args: Arguments) {
     if trace_full_enabled() {
         emit("WARNING", COLOR_WARNING, args);
     }
 }
 
+/// Emit an error message when trace level allows it.
 pub fn emit_error(args: Arguments) {
     if trace_basic_enabled() {
         emit("ERROR", COLOR_ERROR, args);
     }
 }
 
+/// Emit a Vulkan trace message when Vulkan trace is enabled.
 pub fn emit_vk_trace(args: Arguments) {
     if vk_trace_enabled() {
         emit("VK_TRACE", COLOR_VK_TRACE, args);
     }
 }
 
+/// Emit a critical message unconditionally.
 pub fn emit_critical(args: Arguments) {
     emit("CRITICAL", COLOR_CRITICAL, args);
 }
 
+/// Emit a trace message when trace level allows it.
 pub fn emit_trace(args: Arguments) {
     if trace_basic_enabled() {
         emit("TRACE", COLOR_TRACE, args);
     }
 }
 
+/// Emit a warning message via the logging subsystem.
 #[macro_export]
 macro_rules! warning {
     ($($arg:tt)*) => {
@@ -114,6 +120,7 @@ macro_rules! warning {
     };
 }
 
+/// Emit an error message via the logging subsystem.
 #[macro_export]
 macro_rules! error {
     ($($arg:tt)*) => {
@@ -121,6 +128,7 @@ macro_rules! error {
     };
 }
 
+/// Emit a Vulkan trace message via the logging subsystem.
 #[macro_export]
 macro_rules! vk_trace {
     ($($arg:tt)*) => {
@@ -128,6 +136,7 @@ macro_rules! vk_trace {
     };
 }
 
+/// Emit a critical message via the logging subsystem.
 #[macro_export]
 macro_rules! critical {
     ($($arg:tt)*) => {
@@ -135,6 +144,7 @@ macro_rules! critical {
     };
 }
 
+/// Emit a trace message via the logging subsystem.
 #[macro_export]
 macro_rules! trace {
     ($($arg:tt)*) => {
@@ -142,6 +152,7 @@ macro_rules! trace {
     };
 }
 
+/// Emit a raw log message using `println!`.
 #[macro_export]
 macro_rules! log {
     ($($arg:tt)*) => {

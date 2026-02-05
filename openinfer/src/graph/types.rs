@@ -1,3 +1,7 @@
+//! Core graph data types.
+//!
+//! Graphs contain named blocks of nodes and a set of variable declarations.
+//! The runtime executes these graphs deterministically.
 use std::collections::HashMap;
 
 use anyhow::{anyhow, Result};
@@ -8,6 +12,7 @@ use crate::tensor::{DType, ScalarValue};
 
 use super::var::{MemoryKind, VarDecl};
 
+/// Attribute value used by ops in the graph.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum AttrValue {
     Float(f32),
@@ -21,12 +26,14 @@ pub enum AttrValue {
     DType(DType),
 }
 
+/// Index literal or identifier for cache addressing.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum CacheIndexValue {
     Ident(String),
     Lit(i64),
 }
 
+/// Cache index expression (single or slice).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum CacheIndexExpr {
     Single(CacheIndexValue),
@@ -36,6 +43,7 @@ pub enum CacheIndexExpr {
     },
 }
 
+/// Describes a cache access pattern in a node.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CacheAccess {
     pub base: String,
@@ -43,23 +51,27 @@ pub struct CacheAccess {
     pub bracketed: bool,
 }
 
+/// Named attribute for an op invocation.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OpAttr {
     pub name: String,
     pub value: AttrValue,
 }
 
+/// Collection of op attributes.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct OpAttrs {
     pub items: Vec<OpAttr>,
 }
 
 impl OpAttrs {
+    /// Build an empty attribute set.
     pub fn none() -> Self {
         Self { items: Vec::new() }
     }
 }
 
+/// Operation kind supported by the runtime.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum OpKind {
@@ -113,6 +125,7 @@ pub enum OpKind {
 }
 
 impl OpKind {
+    /// String identifier for the op kind.
     pub fn as_str(self) -> &'static str {
         match self {
             OpKind::Add => "add",
@@ -230,11 +243,13 @@ impl std::str::FromStr for OpKind {
 }
 
 impl OpKind {
+    /// Parse an op kind from its string name.
     pub fn from_name(name: &str) -> Result<Self> {
         name.parse()
     }
 }
 
+/// Node variants that make up a graph.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum NodeKind {
     Assign { name: String, dtype: DType, dims: Vec<String> },
@@ -293,6 +308,7 @@ pub enum NodeKind {
     Return,
 }
 
+/// A graph node with index and kind.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Node {
     pub index: usize,
@@ -300,6 +316,7 @@ pub struct Node {
     pub kind: NodeKind,
 }
 
+/// A named block of nodes (control-flow unit).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Block {
     pub name: String,
@@ -307,6 +324,7 @@ pub struct Block {
 }
 
 impl Block {
+    /// Create a new empty block.
     pub fn new(name: impl Into<String>) -> Self {
         Self {
             name: name.into(),
@@ -315,6 +333,7 @@ impl Block {
     }
 }
 
+/// Graph structure containing blocks and variable declarations.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Graph {
     pub vars: HashMap<String, VarDecl>,
@@ -323,6 +342,20 @@ pub struct Graph {
 }
 
 impl Graph {
+    /// Create an empty graph with no blocks or variables.
+    ///
+    /// # Example
+    /// ```no_run
+    /// # use openinfer::graph::{Graph, NodeKind};
+    /// # use openinfer::graph::MemoryKind;
+    /// # use openinfer::tensor::DType;
+    /// # fn main() -> anyhow::Result<()> {
+    /// let mut g = Graph::new();
+    /// g.add_block("entry");
+    /// g.add_var(MemoryKind::Dynamic, "x", DType::F32, vec!["B".into()], None, None, vec![], None, false, vec![], vec![]);
+    /// g.add_node("entry", NodeKind::Return)?;
+    /// # Ok(()) }
+    /// ```
     pub fn new() -> Self {
         Self {
             vars: HashMap::new(),
@@ -331,6 +364,7 @@ impl Graph {
         }
     }
 
+    /// Add a variable declaration to the graph.
     pub fn add_var(
         &mut self,
         kind: MemoryKind,
@@ -364,11 +398,13 @@ impl Graph {
         );
     }
 
+    /// Ensure a block exists, creating it if missing.
     pub fn add_block(&mut self, name: impl Into<String>) {
         let name = name.into();
         self.blocks.entry(name.clone()).or_insert_with(|| Block::new(name));
     }
 
+    /// Append a node to a block by name.
     pub fn add_node(&mut self, block: &str, kind: NodeKind) -> Result<()> {
         let node = self.make_node(kind);
         let block = self
@@ -379,6 +415,7 @@ impl Graph {
         Ok(())
     }
 
+    /// Append a prebuilt node to a block by name.
     pub fn add_prebuilt_node(&mut self, block: &str, node: Node) -> Result<()> {
         let block = self
             .blocks
@@ -388,6 +425,7 @@ impl Graph {
         Ok(())
     }
 
+    /// Allocate a node with a fresh index and UUID.
     pub fn make_node(&mut self, kind: NodeKind) -> Node {
         let node = Node {
             index: self.next_index,
@@ -398,6 +436,7 @@ impl Graph {
         node
     }
 
+    /// Allocate a loop node with a fresh index and UUID.
     pub fn make_loop_node(
         &mut self,
         name: impl Into<String>,
@@ -422,6 +461,7 @@ impl Graph {
         }
     }
 
+    /// Fetch a block by name.
     pub fn block(&self, name: &str) -> Result<&Block> {
         self.blocks
             .get(name)

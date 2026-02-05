@@ -1,0 +1,57 @@
+/* Custom theme overrides for the Sphinx portal. */
+body {
+  font-feature-settings: "kern" 1;
+}
+
+/* Keep list items compact even when wrapped in <p>. */
+.wy-nav-content .document li > p {
+  margin: 0;
+}
+
+/* Ensure visible bullets for unordered lists in content. */
+.wy-nav-content .document ul,
+.wy-nav-content .document ul.simple,
+.wy-nav-content .document ul.simple > li,
+.wy-nav-content .document ul > li {
+  list-style-type: disc !important;
+  list-style-position: outside;
+}
+
+.wy-nav-content .document ul {
+  margin-left: 1.25rem;
+  padding-left: 0;
+}
+
+.wy-nav-content .document ul {
+  margin-bottom: 0.75rem;
+}
+
+.wy-nav-content .document ul ul,
+.wy-nav-content .document ul ul > li {
+  list-style-type: circle !important;
+}
+
+.wy-side-nav-search .brand {
+  height: 20.5rem;
+  max-height: 20.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wy-side-nav-search .brand img.logo {
+  height: 15.5rem;
+  max-height: 15.5rem;
+  width: auto;
+  display: block;
+}
+
+/* Mobile nav fallback if theme JS fails to toggle. */
+@media (max-width: 768px) {
+  .wy-nav-side.shift {
+    left: 0;
+  }
+  .wy-nav-content-wrap.shift {
+    left: 300px;
+  }
+}

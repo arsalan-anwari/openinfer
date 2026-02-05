@@ -1,4 +1,5 @@
 use crate::tensor::{BF16, Bitset, F16, F8, I1, I2, I4, T1, T2, U1, U2, U4};
+/// Format a value for compact human-readable output.
 pub trait FormatValue {
     fn format_value(&self) -> String;
 }
@@ -99,6 +100,7 @@ impl FormatValue for T1 {
     }
 }
 
+/// Format a slice with head/tail truncation.
 pub fn format_truncated<T: FormatValue>(data: &[T]) -> String {
     let len = data.len();
     if len == 0 {

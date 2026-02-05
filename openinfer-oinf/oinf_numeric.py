@@ -1,9 +1,11 @@
+"""Numeric conversion helpers for packed and custom dtypes."""
 from __future__ import annotations
 
 import numpy as np
 
 
 def float_to_bf16_bits(value: float) -> int:
+    """Convert a float to BF16 bit representation."""
     bits = np.float32(value).view(np.uint32)
     rounding = np.uint32(0x7FFF + ((bits >> 16) & 1))
     rounded = bits + rounding
@@ -11,6 +13,7 @@ def float_to_bf16_bits(value: float) -> int:
 
 
 def float_to_f8_bits(value: float) -> int:
+    """Convert a float to F8 bit representation."""
     value = float(value)
     if np.isnan(value):
         return 0x7D
@@ -48,11 +51,13 @@ def float_to_f8_bits(value: float) -> int:
 
 
 def bf16_to_f32(bits: np.ndarray) -> np.ndarray:
+    """Convert BF16 bit arrays to float32."""
     bits32 = bits.astype(np.uint32) << 16
     return bits32.view(np.float32)
 
 
 def f8_to_f32_scalar(bits: int) -> float:
+    """Convert a single F8 byte to float32."""
     sign = (bits >> 7) & 1
     exp = (bits >> 2) & 0x1F
     mant = bits & 0x03
@@ -70,5 +75,6 @@ def f8_to_f32_scalar(bits: int) -> float:
 
 
 def f8_to_f32(bits: np.ndarray) -> np.ndarray:
+    """Convert an array of F8 bytes to float32."""
     vec = np.vectorize(f8_to_f32_scalar, otypes=[np.float32])
     return vec(bits.astype(np.uint8))

@@ -1,3 +1,4 @@
+"""Common helpers for the Open Infer Neural Format (.oinf)."""
 from __future__ import annotations
 
 import re
@@ -13,10 +14,12 @@ ASCII_KEY_RE = re.compile(r"^[A-Za-z0-9._-]+$")
 
 
 def align_up(value: int, alignment: int = 8) -> int:
+    """Round a value up to the next alignment boundary."""
     return (value + alignment - 1) // alignment * alignment
 
 
 def check_key(key: str) -> None:
+    """Validate that a key is ASCII-safe for the .oinf format."""
     if not isinstance(key, str):
         raise OinfError(f"Key must be str, got {type(key)}")
     if not ASCII_KEY_RE.match(key):
@@ -24,6 +27,7 @@ def check_key(key: str) -> None:
 
 
 def encode_string(value: str) -> bytes:
+    """Encode a key-safe string with length prefix and padding."""
     check_key(value)
     raw = value.encode("ascii")
     header = struct.pack("<I", len(raw))
@@ -33,6 +37,7 @@ def encode_string(value: str) -> bytes:
 
 
 def read_string(blob: bytes, offset: int) -> Tuple[str, int]:
+    """Read a length-prefixed ASCII string from a blob."""
     if offset + 4 > len(blob):
         raise OinfError("String length exceeds file")
     length = struct.unpack_from("<I", blob, offset)[0]

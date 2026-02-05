@@ -8,6 +8,7 @@ struct TimerState {
     enabled: Vec<bool>,
 }
 
+/// Simple per-thread timing utility for runtime instrumentation.
 pub struct Timer;
 
 impl Timer {
@@ -30,6 +31,7 @@ impl Timer {
         }
     }
 
+    /// Enable or disable timing for a thread ID.
     pub fn set_enabled(thread_id: usize, enabled: bool) {
         let mut state = Self::state()
             .lock()
@@ -42,6 +44,7 @@ impl Timer {
         }
     }
 
+    /// Start a timer for a thread ID.
     pub fn start(thread_id: usize) {
         let mut state = Self::state()
             .lock()
@@ -53,6 +56,7 @@ impl Timer {
         state.starts[thread_id] = Some(Instant::now());
     }
 
+    /// Stop a timer for a thread ID and record elapsed time.
     pub fn stop(thread_id: usize) {
         let mut state = Self::state()
             .lock()
@@ -68,6 +72,7 @@ impl Timer {
         state.durations[thread_id] = elapsed;
     }
 
+    /// Record an explicit duration (ns) for a thread ID.
     pub fn record(thread_id: usize, duration_ns: u128) {
         let mut state = Self::state()
             .lock()
@@ -80,6 +85,7 @@ impl Timer {
         state.durations[thread_id] = duration_ns;
     }
 
+    /// Fetch the last recorded duration (ns) for a thread ID.
     pub fn elapsed(thread_id: usize) -> Option<u128> {
         let state = Self::state()
             .lock()

@@ -7,6 +7,7 @@ use serde::Deserialize;
 use crate::graph::{AttrValue, OpAttrs, OpKind};
 use crate::tensor::DType;
 
+/// Attribute type used in op schemas.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(dead_code)]
 pub enum OpAttrType {
@@ -17,6 +18,7 @@ pub enum OpAttrType {
     IntList,
 }
 
+/// Allowed scalar kinds for scalar attributes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(dead_code)]
 pub enum ScalarAttrKind {
@@ -26,6 +28,7 @@ pub enum ScalarAttrKind {
     Bool,
 }
 
+/// Definition of a single op attribute.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct OpAttrDef {
     pub name: &'static str,
@@ -34,6 +37,7 @@ pub struct OpAttrDef {
 }
 
 impl OpAttrDef {
+    /// Create a non-scalar attribute definition.
     pub const fn new(name: &'static str, kind: OpAttrType) -> Self {
         Self {
             name,
@@ -42,6 +46,7 @@ impl OpAttrDef {
         }
     }
 
+    /// Create a scalar attribute definition.
     pub const fn scalar(name: &'static str, scalar_kinds: &'static [ScalarAttrKind]) -> Self {
         Self {
             name,
@@ -51,6 +56,7 @@ impl OpAttrDef {
     }
 }
 
+/// Supported dtypes for an op (normal/accumulate modes).
 #[derive(Debug, Clone, Copy)]
 #[allow(dead_code)]
 pub struct OpDTypeSupport {
@@ -58,6 +64,7 @@ pub struct OpDTypeSupport {
     pub accumulate: &'static [(DType, DType)],
 }
 
+/// Broadcast support for an op.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(dead_code)]
 pub enum BroadcastSupport {
@@ -66,11 +73,13 @@ pub enum BroadcastSupport {
 }
 
 impl BroadcastSupport {
+    /// True if broadcasting is allowed.
     pub fn allow(self) -> bool {
         matches!(self, BroadcastSupport::Allow)
     }
 }
 
+/// In-place support for an op.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(dead_code)]
 pub enum InplaceSupport {
@@ -79,11 +88,13 @@ pub enum InplaceSupport {
 }
 
 impl InplaceSupport {
+    /// True if in-place execution is allowed.
     pub fn allow(self) -> bool {
         matches!(self, InplaceSupport::Allow)
     }
 }
 
+/// Accumulate support for an op.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(dead_code)]
 pub enum AccumulateSupport {
@@ -92,11 +103,13 @@ pub enum AccumulateSupport {
 }
 
 impl AccumulateSupport {
+    /// True if accumulate mode is allowed.
     pub fn allow(self) -> bool {
         matches!(self, AccumulateSupport::Allow)
     }
 }
 
+/// Static schema definition for an op.
 #[derive(Debug, Clone, Copy)]
 #[allow(dead_code)]
 pub struct OpSchema {
@@ -112,6 +125,7 @@ pub struct OpSchema {
     pub output_dtypes: Option<&'static [DType]>,
 }
 
+/// Type inference rule for op outputs.
 #[derive(Debug, Clone, Copy)]
 #[allow(dead_code)]
 pub enum TypeRule {
@@ -120,6 +134,7 @@ pub enum TypeRule {
     AccFromAttr { attr: &'static str },
 }
 
+/// Input arity constraints for an op.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(dead_code)]
 pub enum InputArity {
@@ -129,6 +144,7 @@ pub enum InputArity {
 }
 
 impl InputArity {
+    /// True if the provided count satisfies the arity.
     pub fn allows(self, count: usize) -> bool {
         match self {
             InputArity::Fixed(expected) => count == expected,
@@ -137,6 +153,7 @@ impl InputArity {
         }
     }
 
+    /// Return the fixed input count if applicable.
     pub fn fixed(self) -> Option<usize> {
         match self {
             InputArity::Fixed(count) => Some(count),
@@ -145,6 +162,7 @@ impl InputArity {
     }
 }
 
+/// Output arity constraints for an op.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(dead_code)]
 pub enum OutputArity {
@@ -155,6 +173,7 @@ pub enum OutputArity {
 
 #[allow(dead_code)]
 impl OutputArity {
+    /// True if the provided count satisfies the arity.
     pub fn allows(self, count: usize) -> bool {
         match self {
             OutputArity::Fixed(expected) => count == expected,
@@ -164,6 +183,7 @@ impl OutputArity {
     }
 
     #[allow(dead_code)]
+    /// Return the fixed output count if applicable.
     pub fn fixed(self) -> Option<usize> {
         match self {
             OutputArity::Fixed(count) => Some(count),
@@ -173,6 +193,7 @@ impl OutputArity {
 }
 
 impl TypeRule {
+    /// Infer an output dtype from inputs and attributes.
     pub fn output_dtype(self, inputs: &[DType], attrs: &OpAttrs) -> Result<DType> {
         match self {
             TypeRule::SameAsInput(index) => inputs
@@ -497,6 +518,7 @@ fn build_output_dtype_sets(
     Ok(out)
 }
 
+/// Convenience accessor for the `acc` dtype attribute.
 #[allow(unused)]
 pub fn acc_dtype(attrs: &OpAttrs) -> Result<DType> {
     attrs
@@ -510,10 +532,12 @@ pub fn acc_dtype(attrs: &OpAttrs) -> Result<DType> {
         })
 }
 
+/// Lookup the schema for a specific op kind.
 pub fn op_schema(kind: OpKind) -> Option<&'static OpSchema> {
     registry().schemas.iter().find(|op| op.kind == kind)
 }
 
+/// Initialize the global op registry (idempotent).
 pub fn init_ops_registry() {
     let _ = registry();
 }

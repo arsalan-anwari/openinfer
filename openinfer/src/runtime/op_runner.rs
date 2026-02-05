@@ -7,6 +7,7 @@ use crate::runtime::state::SharedTensor;
 use crate::simulator::Device;
 use crate::tensor::{DType, TensorValue};
 
+/// Execute a single op kernel given inputs and optional output storage.
 pub fn exec_op(
     device: Device,
     op: OpKind,
