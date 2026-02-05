@@ -29,6 +29,33 @@ cp "${OPENINFER_FAVICON}" "${SPHINX_STATIC_IMAGES}/OpenInferFavIcon.png"
 
 "${VENV_DIR}/bin/python" -m sphinx -b html "${SPHINX_DIR}" "${SPHINX_OUT}"
 
+"${VENV_DIR}/bin/python" - <<'PY'
+import os
+import re
+from pathlib import Path
+
+sphinx_out = Path("/home/arsalan/Workspace/open-infer/docs/sphinx/out")
+logo_path = sphinx_out / "_static" / "images" / "OpenInferIcon.png"
+favicon_path = sphinx_out / "_static" / "images" / "OpenInferFavIcon.png"
+pattern = re.compile(r'(<div class="brand">)(.*?)(</div>)', re.DOTALL)
+head_close = "</head>"
+
+for html_path in sphinx_out.rglob("*.html"):
+    rel_logo = os.path.relpath(logo_path, html_path.parent)
+    rel_favicon = os.path.relpath(favicon_path, html_path.parent)
+    replacement = r'\1<img src="%s" class="logo" alt="OpenInfer">\3' % rel_logo
+    text = html_path.read_text(encoding="utf-8")
+    new_text, count = pattern.subn(replacement, text, count=1)
+    favicon_tag = (
+        f'<link rel="icon" href="{rel_favicon}" type="image/png">'
+    )
+    if head_close in new_text:
+        if "rel=\"icon\"" not in new_text:
+            new_text = new_text.replace(head_close, f"  {favicon_tag}\n{head_close}")
+    if count:
+        html_path.write_text(new_text, encoding="utf-8")
+PY
+
 mkdir -p "${SPHINX_DIR}/api"
 rm -rf "${RUSTDOC_OUT}"
 mkdir -p "${RUSTDOC_OUT}"
