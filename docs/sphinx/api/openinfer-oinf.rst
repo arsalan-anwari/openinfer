@@ -1,5 +1,5 @@
 openinfer-oinf (Python API)
-==========================
+=============================
 
 The `openinfer-oinf` package provides Python tooling for authoring, validating,
 and inspecting `.oinf` model files. It is intentionally small and script-driven:
@@ -14,7 +14,7 @@ the runtime expectations, then come back here for the concrete Python entry
 points.
 
 Overview of the Python tools
-----------------------------
+-------------------------------
 
 The Python tooling serves three core use cases:
 
@@ -27,7 +27,7 @@ in `examples/openinfer-oinf/`. The examples demonstrate a practical end-to-end
 workflow: create an in-memory model, write it to disk, and verify the binary.
 
 Key entry points
-----------------
+------------------
 
 While the project uses scripts, the API is designed to be imported by those
 scripts. The most commonly used functions and types include:
@@ -43,7 +43,7 @@ The examples in `examples/openinfer-oinf/` show these in action and are the best
 reference for how the tooling is intended to be used in practice.
 
 Creating a model from a dataclass
----------------------------------
+-----------------------------------
 
 The recommended authoring pattern is to define a dataclass that represents your
 model. Fields can be plain values (metadata), `SizeVar` instances (sizevars), or

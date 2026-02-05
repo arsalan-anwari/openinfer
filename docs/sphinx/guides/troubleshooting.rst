@@ -7,7 +7,7 @@ Build failures
 --------------
 
 - Missing Rust toolchain: install via `rustup`.
-- Missing Python deps: run `pip install -r docs/sphinx/requirements.txt`.
+- Missing Python deps: run `pip install -r requirements.txt`.
 - Vulkan build errors: ensure `--features vulkan` and a Vulkan SDK.
 
 Runtime validation errors

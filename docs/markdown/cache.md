@@ -56,6 +56,23 @@ persistent {
 - `C`: A growable 1D table with `f16[i * D * H]` elements, accessed like `C[0..i] -> f16[D, H]`.
 - `D`: A fixed size 2D table with `f16[1024 * 256 * D * H]` elements, accessed like `D[0..1023, 0..255] -> f16[D, H]`.
 
+### Mental model: table indices vs tensor shape
+
+It helps to split the idea into two pieces:
+
+- **Table indices** select *which* tensor instance you want.
+- **Tensor dimensions** describe the *shape* of each instance.
+
+So `A(i): f32[D] @table` is a table of vectors:
+
+- `A[3]` returns the 4th vector with shape `f32[D]`.
+- `A[0..3]` returns a stack of 3 vectors with shape `f32[3, D]`.
+
+For multi-index tables, each index selects a slot in a logical grid of tensors:
+
+- `B(i, j): f32[D] @table` means `B[2, 5]` is still shape `f32[D]`.
+- `B[0..2, 0..3]` returns shape `f32[2, 3, D]` (a 2x3 grid of vectors).
+
 ### Indices slice access
 
 You can also access a slice of the table entries.
@@ -66,6 +83,13 @@ For example lets say in a previous step you used `A[10]`, then the prefix cache 
 - `A[0..5] -> f32[5, D]`
 - `A[2..5] -> f32[3, D]`
 - `A[0..-3] -> f32[7, D] == A[0..6]`
+
+Notes:
+
+- Slice ranges are **inclusive-exclusive** (`start..end`).
+- Negative values are offsets relative to the current size (e.g. `-3` means
+  "three before the current end").
+- Slice reads do not grow the table; only scalar index access can grow tables.
 
 ## Autodim cache
 
@@ -90,6 +114,17 @@ persistent {
 - `B`: Same as `A` but the matrix is bounded to maximum size `[D+1024, H+256]`.
 
 - `C`: A growable 1D table containing a 2D matrix of size `f32[l * (D + i) * (H + j)]`. It has a similar access pattern as `A` but with an additional index `l` in the beginning like `C[l, i, j]`. The same rules for index slices apply here, so using `C[0..4, i, j]` returns a higher-rank tensor with `[4 * (D + i) * (H + j)]` elements.
+
+### Mental model: auto-dim access
+
+Auto-dim indices grow the **shape** of a tensor based on scalar index access:
+
+- Scalar access (e.g. `M[r, c]`) grows the internal `r/c` counts and returns the
+  full tensor with the new shape.
+- Slice access (e.g. `M[0..r, 0..c]`) does **not** grow counts; it only reads.
+
+That means you can use scalar indices as the "growth driver" and slices as
+views into the current allocation.
 
 ### Growing the cache per step
 

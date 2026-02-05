@@ -57,6 +57,23 @@ known and validated, while the index evolves over time. This is crucial for
 streaming workloads where the time index grows per token but the tensor shape
 stays constant.
 
+Fixed-size tables with `@fixed`
+-------------------------------
+
+By default, `@table` caches are growable: the table expands to accommodate new
+indices. If you want a hard upper bound, add `@fixed` with explicit sizes for
+one or more table indices:
+
+.. code-block:: rust
+
+   persistent {
+     D(i, j): f16[D, H] @table @fixed(i=1024, j=256);
+   }
+
+With `@fixed`, the table layout is preallocated and bounded. Accessing indices
+outside the fixed range is a validation error. This is useful when you know the
+maximum sequence length or want strict memory bounds.
+
 Accessing a cache table uses a bracket syntax:
 
 .. code-block:: rust
@@ -105,10 +122,44 @@ This behavior is deterministic and explicit, which makes it easy to reason about
 memory usage.
 
 Slice indices are a common pattern in streaming models. For example, you might
-use `t` to represent the current time step, and you might want to read the last
-`W` entries. OpenInfer expresses this by indexing with `t - W` or by reading
-multiple indices in a loop. The important point is that *you* express the slice
-logic in the DSL; the runtime does not assume any slicing semantics.
+use `t` to represent the current time step, and you might want to read a window
+of entries. OpenInfer expresses this by providing explicit slice indices. Slice
+indices follow an inclusive-exclusive range (`start..end`) and can use negative
+offsets relative to the current size:
+
+.. code-block:: rust
+
+   cache.read A[] >> full;       // Equivalent to A[0..t]
+   cache.read A[0..5] >> first;  // First 5 entries
+   cache.read A[2..5] >> mid;    // Entries 2,3,4
+   cache.read A[0..-3] >> head;  // All but the last 3 entries
+
+The important point is that *you* express the slice logic in the DSL; the runtime
+does not assume any slicing semantics beyond the indices you specify.
+
+Mental model: tables vs auto-dim
+--------------------------------
+
+It helps to separate two concepts:
+
+- **Table indices** (`@table`): choose *which* tensor entry you are accessing.
+  Think of it as a keyed map of tensors with identical shapes.
+- **Auto-dim indices** (`@auto_dim`): grow the *shape* of a tensor when you
+  access it with scalar indices that exceed the current size.
+
+Example mental models:
+
+.. code-block:: rust
+
+   persistent {
+     A(i): f32[D] @table;
+     M(r, c): f16[D, H] @auto_dim(r, c);
+     C(l, r, c): f16[D, H] @table @auto_dim(r, c);
+   }
+
+- `A(i)` is a table of vectors: `A[3]` selects the 4th vector with shape `[D]`.
+- `M(r, c)` is one matrix that grows as `r` and `c` increase.
+- `C(l, r, c)` is a table of matrices; `l` selects which matrix, `r/c` grow it.
 
 Cache operations and semantics
 ------------------------------
@@ -132,7 +183,17 @@ These operations have precise semantics:
   are typically stored as persistent scalars and are used as the table indices.
 - **cache.reset**: clears the cache table or resets a specific index variable,
   depending on the arguments. Use reset when you need a clean state, for example
-  when processing a new sequence.
+  when processing a new sequence. Reset can target the whole table or a specific
+  indexed slice.
+
+Reset examples:
+
+.. code-block:: rust
+
+   cache.reset t;        // Reset a scalar index variable
+   cache.reset K;        // Clear the entire table
+   cache.reset K[l];     // Clear a specific row (first index fixed)
+   cache.reset K[l, t];  // Clear a single entry at (l, t)
 
 Because these are nodes, they appear in traces and validation errors. This is
 important for debugging. If you see an incorrect cache access, you can trace
@@ -234,8 +295,8 @@ Here is one approach using a modulo index to maintain a circular buffer:
    }
 
    block entry {
-     cache.increment 1 t;
-     op mod(t, W) >> t_mod;
+     cache.increment t;
+     op rem(t, W) >> t_mod;
      cache.write k >> K[l, t_mod];
      return;
    }

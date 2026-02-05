@@ -167,7 +167,8 @@ Example command:
 
 .. code-block:: bash
 
-   OPENINFER_TRACE=full cargo run --example streaming_pipeline
+   let sim = Simulator::new(&model, &g, Device::Cpu)?.with_trace().with_timer();
+
 
 Once you have the trace, inspect the sequence of nodes and compare it with the
 DSL. The indices should match the insertion order in the graph. If they do not,
@@ -220,40 +221,3 @@ Likewise, if you need persistent state across iterations, you must use
 These constraints are intentionally strict because they allow you to reason
 about execution without hidden state. The cost is verbosity, but the benefit is
 determinism and traceability.
-
-Example: structured pipeline
-----------------------------
-
-The following example shows a pipeline with a producer and consumer block that
-coordinate using yield/await. It also illustrates how to structure blocks to
-make scheduling intent clear:
-
-.. code-block:: rust
-
-   block entry {
-     branch ready producer idle;
-   }
-
-   block producer {
-     op compute(x) >> out;
-     yield out;
-     branch more producer done;
-   }
-
-   block consumer {
-     await out;
-     op consume(out) >> y;
-     return;
-   }
-
-   block idle {
-     return;
-   }
-
-   block done {
-     return;
-   }
-
-This example is intentionally verbose. The explicit branches make it obvious
-which blocks can run and when they exit. When you read the trace, you can follow
-the block transitions directly.

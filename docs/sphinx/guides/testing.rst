@@ -26,6 +26,25 @@ Baseline data is stored under:
 If you update ops or serialization formats, regenerate baselines and keep
 changes minimal and documented.
 
+NumPy baselines
+~~~~~~~~~~~~~~~
+
+Most op tests use a NumPy reference to validate correctness. The baseline
+generator (`tests/openinfer/ops/baseline/gen_ops_baseline.py`) builds inputs
+and expected outputs with NumPy, then writes them into `.oinf` baselines. Rust
+tests load those baselines and compare device results against the NumPy outputs.
+
+Comparison behavior:
+
+- Float outputs are checked with dtype-specific tolerances (looser for f16/f8,
+  stricter for f32/f64).
+- Vulkan targets allow a slightly larger tolerance to account for device
+  variance.
+- Integer, boolean, and packed types must match exactly.
+
+This keeps CPU, Vulkan, and future targets aligned with the same NumPy ground
+truth.
+
 Python verification
 -------------------
 

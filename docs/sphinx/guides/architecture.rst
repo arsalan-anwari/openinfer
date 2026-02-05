@@ -23,7 +23,7 @@ High-level flow
                             |
                             +--> Simulator / Executor (CPU | Vulkan)
                             +--> Trace + JSON serialization
-                            +--> Analyzer / Synthesizer (planned)
+                            +--> Analyzer / Synthesizer (planned codegen)
 
 The system is designed so the graph is the single source of truth. There is no implicit scheduling or hidden optimizer layer. This makes the runtime easier to reason about and gives developers precise control when building new workloads.
 
@@ -40,6 +40,8 @@ System diagram
      E --> F[CPU Ops]
      E --> G[Vulkan Ops]
      E --> H[Trace + JSON]
+     B --> I[Synthesizer (planned)]
+     I --> J[HAL Codegen (C/VHDL/etc)]
 
 Key concepts
 ------------
@@ -143,7 +145,7 @@ Trace workflow:
 
 .. code-block:: bash
 
-   OPENINFER_TRACE=full cargo run --example kv_cache_decode
+   let sim = Simulator::new(&model, &g, Device::Cpu)?.with_trace();
 
 The JSON trace is a structured log that can be ingested by downstream tooling.
 

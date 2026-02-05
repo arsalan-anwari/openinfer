@@ -30,8 +30,9 @@ hiding complexity behind opaque runtimes.
 
 OpenInfer defines a symbolic, inspectable inference graph that can be simulated,
 traced, and executed on CPU or Vulkan. The long‑term plan is a synthesizer that
-generates optimized, backend‑specific code from the same graph. The user‑facing
-documentation lives in the [GitHub Wiki](../../wiki).
+generates optimized, backend‑specific code from the same graph. The main website
+is [www.open-infer.nl](https://www.open-infer.nl), and the docs live at
+[docs.open-infer.nl](https://docs.open-infer.nl).
 
 ### Condensed Rust Example (DSL Overview)
 
@@ -122,9 +123,11 @@ fn main() -> anyhow::Result<()> {
 > sizevars and tensors for the variables referenced in the graph.
 > See the Wiki for current [op support](../../wiki/Ops) and [capabilities](../../wiki/Capabilities).
 
-## Documentation (Wiki)
+## Documentation (Docs + Wiki)
 
-- Home and quick links: [Wiki Home](../../wiki)
+- Docs homepage: [docs.open-infer.nl](https://docs.open-infer.nl)
+- Main website: [www.open-infer.nl](https://www.open-infer.nl)
+- Wiki home and quick links: [Wiki Home](../../wiki)
 - Getting started: [Getting Started](../../wiki/Getting-Started)
 - Core concepts and DSL: [Core Concepts](../../wiki/Core-Concepts)
 - Components and usage: [Components](../../wiki/Components), [Using OpenInfer](../../wiki/Using-OpenInfer)

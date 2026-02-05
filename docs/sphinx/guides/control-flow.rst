@@ -76,9 +76,16 @@ streaming execution modes.
 
    block entry {
      op matmul(x, w) >> h;
-     yield h;
-     await h;
+     yield h; // cannot use h again in this block
+     op abs(x) >> x;
+     await h; // can use h again in this block
+     op add(x, h) >> h;
      return;
+   }
+   block consumer {
+     await h;
+     op relu(h, alpha=0.0, clamp_max=6.0) >> h;
+     yield h;
    }
 
 In streaming pipelines, `yield` can publish a tensor to a downstream consumer,
