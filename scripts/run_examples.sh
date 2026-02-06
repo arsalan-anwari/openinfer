@@ -2,8 +2,8 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-examples_py_dir="$repo_root/examples/openinfer-oinf"
-examples_rs_dir="$repo_root/examples/openinfer"
+examples_py_dir="$repo_root/openinfer-oinf/examples"
+examples_rs_dir="$repo_root/openinfer-simulator/examples"
 
 usage() {
   cat <<'EOF'
@@ -180,12 +180,13 @@ run_one() {
   local example="$1"
   local target="$2"
   local run_features="$features"
+  local sync_script="$repo_root/scripts/sync_models.sh"
   if [[ -n "$target" && "$target" != "cpu" ]]; then
     run_features="$(append_feature "$run_features" "vulkan")"
   fi
 
   local py_script="$examples_py_dir/${example}_oinf.py"
-  local -a cmd=(cargo run --package openinfer --example "$example")
+  local -a cmd=(cargo run --manifest-path "$repo_root/openinfer-simulator/Cargo.toml" --example "$example")
   if [[ -n "$run_features" ]]; then
     cmd+=(--features "$run_features")
   fi
@@ -195,6 +196,10 @@ run_one() {
 
   echo "==> ${python_bin} ${py_script}"
   "$python_bin" "$py_script"
+  if [[ -x "$sync_script" ]]; then
+    echo "==> ${sync_script}"
+    "$sync_script"
+  fi
   echo "==> ${cmd[*]}"
   "${cmd[@]}"
   echo ""

@@ -15,10 +15,10 @@ optional and enabled with `--features vulkan`.
 Use the Python tooling under `openinfer-oinf/`, for example:
 
 ```bash
-python examples/openinfer-oinf/mlp_regression_oinf.py
+python openinfer-oinf/examples/mlp_regression_oinf.py
 ```
 
-This writes a `.oinf` file in `res/models/`.
+This writes a `.oinf` file in `openinfer-oinf/res/models/`.
 
 ## Can I use my own model weights?
 

@@ -11,3 +11,7 @@ Placeholder for synthesis and future C API work.
    internals
    extending
    api
+   guides/synthesizer
+   api/doxygen
+
+

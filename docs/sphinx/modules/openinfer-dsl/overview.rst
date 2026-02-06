@@ -2,7 +2,7 @@ Overview
 ========
 
 The `openinfer-dsl` crate provides the `graph!` macro for building graphs with a
-compact syntax.
+compact syntax that feeds the simulator and synthesizer pipeline.
 
 Topics
 ------
@@ -16,7 +16,7 @@ Design philosophy
 - Explicit control flow and op ordering.
 - Declarative variable definitions with memory kinds.
 - No implicit optimizations or operator fusion.
-- The DSL is a builder for the runtime graph, not a compiler.
+- The DSL is a front-end to simulation and synthesis, not a runtime.
 
 Structure
 ---------
@@ -50,3 +50,5 @@ Example
 
 This expands into calls that construct a `Graph`, allocate variables, and add
 nodes to the `entry` block. The runtime executes the graph exactly as declared.
+
+

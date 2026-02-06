@@ -1,1 +1,0 @@
-.. include:: guides/synthesizer.rst

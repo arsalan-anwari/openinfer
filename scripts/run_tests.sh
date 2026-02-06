@@ -2,8 +2,9 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-baseline_ops="$repo_root/tests/openinfer/ops/baseline/gen_ops_baseline.py"
-baseline_graph="$repo_root/tests/openinfer/graph/baseline/gen_graph_baseline.py"
+baseline_ops="$repo_root/openinfer-simulator/tests/ops/baseline/gen_ops_baseline.py"
+baseline_graph="$repo_root/openinfer-simulator/tests/graph/baseline/gen_graph_baseline.py"
+graph_models="$repo_root/openinfer-simulator/tests/graph/baseline/gen_graph_models.py"
 
 usage() {
   cat <<'EOF'
@@ -15,14 +16,14 @@ Options:
   --list                 List available tests and exit.
   --target <value>       Target: cpu|vulkan|all (default: cpu).
   --features <list>      Cargo features to enable (comma-separated).
-  --test-filter <name>   Filter tests (supports openinfer::, openinfer-dsl::, openinfer-oinf::).
+  --test-filter <name>   Filter tests (supports openinfer-simulator::, openinfer-dsl::, openinfer-oinf::).
   --help                 Show this help.
 
 Examples:
   ./scripts/run_tests.sh --target=cpu
   ./scripts/run_tests.sh --target=vulkan --features=vulkan
   ./scripts/run_tests.sh --target=all --features=vulkan
-  ./scripts/run_tests.sh --test-filter openinfer::ops_misc
+  ./scripts/run_tests.sh --test-filter openinfer-simulator::ops_misc
   ./scripts/run_tests.sh --test-filter openinfer-dsl::parse_tests
   ./scripts/run_tests.sh --test-filter openinfer-oinf::test_common.TestCommon.test_align_up
 EOF
@@ -129,24 +130,24 @@ if [[ "$selected_target" == "vulkan" || "$selected_target" == "all" ]]; then
 fi
 
 if [[ "$list_only" == "true" ]]; then
-  list_cmd=(cargo test -p openinfer --test openinfer -- --list)
+  list_cmd=(cargo test --manifest-path "$repo_root/openinfer-simulator/Cargo.toml" --test openinfer -- --list)
   if [[ -n "$features" ]]; then
-    list_cmd=(cargo test -p openinfer --test openinfer --features "$features" -- --list)
+    list_cmd=(cargo test --manifest-path "$repo_root/openinfer-simulator/Cargo.toml" --test openinfer --features "$features" -- --list)
   fi
   echo "==> ${list_cmd[*]}"
-  "${list_cmd[@]}" | awk '{gsub(/: test$/, "", $0); if (NF==0) next; print "openinfer::" $0}'
-  dsl_list_cmd=(cargo test -p openinfer-dsl -- --list)
+  "${list_cmd[@]}" | awk '{gsub(/: test$/, "", $0); if (NF==0) next; print "openinfer-simulator::" $0}'
+  dsl_list_cmd=(cargo test --manifest-path "$repo_root/openinfer-dsl/Cargo.toml" -- --list)
   echo "==> ${dsl_list_cmd[*]}"
   "${dsl_list_cmd[@]}" | awk '{gsub(/: test$/, "", $0); if (NF==0) next; print "openinfer-dsl::" $0}'
-  oinf_list_cmd=("$python_bin" "$repo_root/tests/openinfer-oinf/run_oinf_tests.py" --list)
+  oinf_list_cmd=(env PYTHONPATH="$repo_root/openinfer-oinf" "$python_bin" "$repo_root/openinfer-oinf/tests/run_oinf_tests.py" --list)
   echo "==> ${oinf_list_cmd[*]}"
   "${oinf_list_cmd[@]}" | awk '{if (NF==0) next; print "openinfer-oinf::" $0}'
   exit 0
 fi
 
-if [[ "$test_filter" == openinfer::* ]]; then
-  test_module="openinfer"
-  test_filter="${test_filter#openinfer::}"
+if [[ "$test_filter" == openinfer-simulator::* ]]; then
+  test_module="openinfer-simulator"
+  test_filter="${test_filter#openinfer-simulator::}"
 elif [[ "$test_filter" == openinfer-dsl::* ]]; then
   test_module="openinfer-dsl"
   test_filter="${test_filter#openinfer-dsl::}"
@@ -155,11 +156,13 @@ elif [[ "$test_filter" == openinfer-oinf::* ]]; then
   test_filter="${test_filter#openinfer-oinf::}"
 fi
 
-if [[ -z "$test_module" || "$test_module" == "openinfer" ]]; then
+if [[ -z "$test_module" || "$test_module" == "openinfer-simulator" ]]; then
   echo "==> ${python_bin} ${baseline_ops}"
   "$python_bin" "$baseline_ops"
   echo "==> ${python_bin} ${baseline_graph}"
   "$python_bin" "$baseline_graph"
+  echo "==> ${python_bin} ${graph_models}"
+  "$python_bin" "$graph_models"
 fi
 
 test_targets="cpu"
@@ -169,8 +172,8 @@ elif [[ "$selected_target" == "all" ]]; then
   test_targets="cpu,vulkan"
 fi
 
-if [[ -z "$test_module" || "$test_module" == "openinfer" ]]; then
-  test_cmd=(cargo test -p openinfer --test openinfer)
+if [[ -z "$test_module" || "$test_module" == "openinfer-simulator" ]]; then
+  test_cmd=(cargo test --manifest-path "$repo_root/openinfer-simulator/Cargo.toml" --test openinfer)
   if [[ -n "$features" ]]; then
     test_cmd+=(--features "$features")
   fi
@@ -182,7 +185,7 @@ if [[ -z "$test_module" || "$test_module" == "openinfer" ]]; then
 fi
 
 if [[ -z "$test_module" || "$test_module" == "openinfer-dsl" ]]; then
-  dsl_cmd=(cargo test -p openinfer-dsl)
+  dsl_cmd=(cargo test --manifest-path "$repo_root/openinfer-dsl/Cargo.toml")
   if [[ -n "$test_filter" && "$test_module" == "openinfer-dsl" ]]; then
     dsl_cmd+=("$test_filter")
   fi
@@ -191,7 +194,7 @@ if [[ -z "$test_module" || "$test_module" == "openinfer-dsl" ]]; then
 fi
 
 if [[ -z "$test_module" || "$test_module" == "openinfer-oinf" ]]; then
-  oinf_cmd=("$python_bin" "$repo_root/tests/openinfer-oinf/run_oinf_tests.py")
+  oinf_cmd=(env PYTHONPATH="$repo_root/openinfer-oinf" "$python_bin" "$repo_root/openinfer-oinf/tests/run_oinf_tests.py")
   if [[ -n "$test_filter" && "$test_module" == "openinfer-oinf" ]]; then
     oinf_cmd+=(--filter "$test_filter")
   fi

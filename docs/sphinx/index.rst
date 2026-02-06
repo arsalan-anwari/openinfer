@@ -1,14 +1,41 @@
 OpenInfer Documentation
 =======================
 
-Welcome to the OpenInfer documentation portal. This site provides developer
-guides, module overviews, and links to native API references.
+OpenInfer is an edge-focused ML transpilation framework. It lets you express
+inference pipelines in a Rust-embedded DSL, validate them in a host-side
+simulator, and then synthesize fully static, device-specific source code for
+deployment on constrained hardware.
 
 .. toctree::
-   :maxdepth: 5
-   :caption: Documentation
+   :maxdepth: 2
+   :caption: Common
 
-   guides-getting-started
-   guides-core-concepts
-   guides-developing
-   guides-reference
+   common/index
+
+
+.. toctree::
+   :maxdepth: 2
+   :caption: openinfer-simulator
+
+   modules/openinfer-simulator/index
+
+
+.. toctree::
+   :maxdepth: 2
+   :caption: openinfer-dsl
+
+   modules/openinfer-dsl/index
+
+
+.. toctree::
+   :maxdepth: 2
+   :caption: openinfer-synth
+
+   modules/openinfer-synth/index
+
+
+.. toctree::
+   :maxdepth: 2
+   :caption: openinfer-oinf
+
+   modules/openinfer-oinf/index

@@ -23,4 +23,5 @@ When adding syntax:
 
 1. Update keywords and parsers in `openinfer-dsl`.
 2. Update validation logic.
-3. Add or update tests under `tests/openinfer-dsl`.
+3. Add or update tests under `openinfer-dsl/tests`.
+

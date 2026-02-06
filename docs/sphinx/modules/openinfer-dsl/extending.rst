@@ -15,4 +15,5 @@ Steps
 1. Define a new keyword in the `kw` module.
 2. Extend the parser to recognize the new syntax.
 3. Map the AST to a `NodeKind` or variable declaration.
-4. Add tests in `tests/openinfer-dsl`.
+4. Add tests in `openinfer-dsl/tests`.
+

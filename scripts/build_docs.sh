@@ -27,14 +27,17 @@ mkdir -p "${SPHINX_STATIC_IMAGES}"
 cp "${OPENINFER_ICON}" "${SPHINX_STATIC_IMAGES}/OpenInferIcon.png"
 cp "${OPENINFER_FAVICON}" "${SPHINX_STATIC_IMAGES}/OpenInferFavIcon.png"
 
-"${VENV_DIR}/bin/python" -m sphinx -b html "${SPHINX_DIR}" "${SPHINX_OUT}"
+rm -rf "${SPHINX_OUT}"
+mkdir -p "${SPHINX_OUT}"
+"${VENV_DIR}/bin/python" -m sphinx -b html -E "${SPHINX_DIR}" "${SPHINX_OUT}"
 
-"${VENV_DIR}/bin/python" - <<'PY'
+ROOT_DIR="${ROOT_DIR}" "${VENV_DIR}/bin/python" - <<'PY'
 import os
 import re
 from pathlib import Path
 
-sphinx_out = Path("/home/arsalan/Workspace/open-infer/docs/sphinx/out")
+root_dir = Path(os.environ["ROOT_DIR"])
+sphinx_out = root_dir / "docs" / "sphinx" / "out"
 logo_path = sphinx_out / "_static" / "images" / "OpenInferIcon.png"
 favicon_path = sphinx_out / "_static" / "images" / "OpenInferFavIcon.png"
 pattern = re.compile(r'(<div class="brand">)(.*?)(</div>)', re.DOTALL)
@@ -256,7 +259,14 @@ cat > "${RUSTDOC_HEADER}" <<EOF
 EOF
 
 RUSTDOCFLAGS="${RUSTDOCFLAGS:-} --extend-css ${RUSTDOC_CSS} --html-in-header ${RUSTDOC_HEADER}" \
-  cargo doc --workspace --no-deps
+  CARGO_TARGET_DIR="${ROOT_DIR}/target" \
+  cargo doc --manifest-path "${ROOT_DIR}/openinfer-simulator/Cargo.toml" --no-deps
+RUSTDOCFLAGS="${RUSTDOCFLAGS:-} --extend-css ${RUSTDOC_CSS} --html-in-header ${RUSTDOC_HEADER}" \
+  CARGO_TARGET_DIR="${ROOT_DIR}/target" \
+  cargo doc --manifest-path "${ROOT_DIR}/openinfer-dsl/Cargo.toml" --no-deps
+RUSTDOCFLAGS="${RUSTDOCFLAGS:-} --extend-css ${RUSTDOC_CSS} --html-in-header ${RUSTDOC_HEADER}" \
+  CARGO_TARGET_DIR="${ROOT_DIR}/target" \
+  cargo doc --manifest-path "${ROOT_DIR}/openinfer-simulator/generator/Cargo.toml" --no-deps
 cp -R "${TARGET_DOC}/." "${RUSTDOC_OUT}/"
 
 rm -rf "${SPHINX_OUT}/api/rustdoc"

@@ -1,12 +1,12 @@
 [submodule "openinfer-simulator"]
 	path = openinfer-simulator
-	url = /home/arsalan/Workspace/openinfer-simulator
+	url = https://github.com/arsalan-anwari/openinfer-simulator.git
 [submodule "openinfer-dsl"]
 	path = openinfer-dsl
-	url = /home/arsalan/Workspace/openinfer-dsl
+	url = https://github.com/arsalan-anwari/openinfer-dsl.git
 [submodule "openinfer-synth"]
 	path = openinfer-synth
-	url = /home/arsalan/Workspace/openinfer-synth
+	url = https://github.com/arsalan-anwari/openinfer-synth.git
 [submodule "openinfer-oinf"]
 	path = openinfer-oinf
-	url = /home/arsalan/Workspace/openinfer-oinf
+	url = https://github.com/arsalan-anwari/openinfer-oinf.git

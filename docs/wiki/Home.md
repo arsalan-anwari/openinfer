@@ -1,10 +1,11 @@
 # OpenInfer Wiki
 
-![](https://github.com/arsalan-anwari/open-infer/blob/main/res/images/OpenInferHeader.png)
+![](https://github.com/arsalan-awnari/openinfer/blob/main/res/images/OpenInferHeader.png)
 
-OpenInfer is an inference graph and execution framework for machine-learning
-workloads. It lets you describe inference logic and control flow explicitly in
-Rust, then simulate and execute the graph on CPU or Vulkan.
+OpenInfer is an edge-focused ML transpilation framework. It lets you describe
+inference logic and control flow explicitly in Rust, validate graphs in a
+host-side simulator, and then synthesize static, device-specific source code
+for constrained hardware.
 
 Use this wiki for a user‑level overview: what OpenInfer does, what components it
 has, and how to use it. Detailed contributor and implementation docs live
@@ -26,16 +27,16 @@ elsewhere in the repo.
 ## What OpenInfer is
 
 - **Explicit graphs**: control flow is visible and deterministic
-- **Model‑agnostic**: works for transformer‑like, vision, or streaming pipelines
+- **Model‑agnostic**: works for transformer-like, vision, or streaming pipelines
 - **Inspectable**: supports tracing, serialization, and reproducible runs
-- **Portable**: CPU backend + Vulkan backend (feature‑gated)
+- **Edge-focused**: simulator + synthesis workflow for constrained targets
 
 ## What you can do
 
 - Load a `.oinf` model package (weights + metadata + sizevars)
 - Build a graph with the Rust DSL
-- Simulate and run on CPU or Vulkan
-- Fetch results and traces for inspection
+- Validate and simulate on the host
+- Prepare for synthesis into device-specific code
 
 ## Where to look next
 

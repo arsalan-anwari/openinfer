@@ -11,3 +11,7 @@ Procedural macro DSL for graph construction.
    internals
    extending
    api
+   guides/dsl
+   tutorials/add-dsl-node
+
+

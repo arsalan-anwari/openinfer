@@ -31,3 +31,5 @@ Rust loader
 
 `ModelLoader::open` memory-maps the file, validates header tables, and loads
 tensor payloads lazily when requested by the executor.
+
+

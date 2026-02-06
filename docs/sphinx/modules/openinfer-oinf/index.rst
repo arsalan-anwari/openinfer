@@ -11,3 +11,6 @@ Python tooling for the `.oinf` format.
    internals
    extending
    api
+   guides/oinf-format
+   tutorials/export-oinf
+

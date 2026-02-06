@@ -6,15 +6,14 @@ _Inference graphs, explicit control flow, portable execution._
 
 `inference` · `dsl` · `graph` · `cpu` · `vulkan` · `ml`
 
-OpenInfer is an open-source **inference graph and execution framework** for
-machine-learning workloads. It lets you describe inference logic and control
-flow explicitly in a Rust‑embedded DSL, then simulate and execute on CPU or
-Vulkan. A key future pillar is the **synthesizer** (planned), which will lower
-DSL graphs into optimized, backend‑specific code for targets like CPU, GPU, TPU,
-and FPGA.
+OpenInfer is an **edge-focused ML transpilation framework**. It lets you express
+inference pipelines in a Rust-embedded DSL, validate them in a host-side
+simulator, and then synthesize fully static, device-specific source code for
+deployment on constrained hardware.
 
-The focus is **clarity, explicit control, and inspectability**, rather than
-hiding complexity behind opaque runtimes.
+The focus is **clarity, explicit control, and inspectability**, with a workflow
+that sits between ML frameworks and hardware SDKs rather than relying on opaque
+runtimes.
 
 ---
 
@@ -23,15 +22,15 @@ hiding complexity behind opaque runtimes.
 - ✨ **Explicit graphs** with visible control flow and side effects
 - 🧩 **Model‑agnostic**: transformers, vision, audio, streaming pipelines
 - 🔍 **Inspectable**: tracing, timing, and JSON serialization
-- ⚡ **Portable**: CPU backend + optional Vulkan backend
-- 🧠 **Synthesizer (planned)**: lower DSL graphs to optimized backend code
+- 🧠 **Host simulator** for correctness, scheduling, and memory layout checks
+- ⚡ **Synthesizer (planned)**: generate device-specific static code
 
 ## Overview
 
 OpenInfer defines a symbolic, inspectable inference graph that can be simulated,
-traced, and executed on CPU or Vulkan. The long‑term plan is a synthesizer that
-generates optimized, backend‑specific code from the same graph. The main website
-is [www.open-infer.nl](https://www.open-infer.nl), and the docs live at
+traced, and validated on the host before being lowered into device-specific
+source code. The main website is [www.open-infer.nl](https://www.open-infer.nl),
+and the docs live at
 [docs.open-infer.nl](https://docs.open-infer.nl).
 
 ### Condensed Rust Example (DSL Overview)
@@ -43,7 +42,7 @@ use openinfer::{
 };
 
 fn main() -> anyhow::Result<()> {
-    let model = ModelLoader::open("res/models/mlp_regression.oinf")?;
+    let model = ModelLoader::open("openinfer-simulator/res/models/mlp_regression.oinf")?;
 
     let g = graph! {
         dynamic {
@@ -135,18 +134,45 @@ fn main() -> anyhow::Result<()> {
 - Capabilities + roadmap: [Capabilities](../../wiki/Capabilities), [Synthesis](../../wiki/Synthesis)
 - Testing + tools: [Testing and Tools](../../wiki/Testing-and-Tools)
 
-## Prerequisites
+## Modules
 
+- `openinfer-simulator`: host-side simulator and runtime (`openinfer-simulator/`)
+- `openinfer-dsl`: Rust-embedded DSL for graph construction
+- `openinfer-oinf`: Python tooling for the `.oinf` model format
+- `openinfer-synth`: synthesis pipeline for device-specific codegen
+
+## Cloning (with submodules)
+
+To ensure submodules are fetched automatically on clone/pull, set this once:
+```bash
+git config --global submodule.recurse true
+git config --global fetch.recurseSubmodules true
+```
+
+If you cannot set global config, use:
+```bash
+./scripts/bootstrap_submodules.sh
+```
+
+To update submodules later:
+```bash
+git submodule sync --recursive
+git submodule update --init --recursive
+```
+
+## Quickstart (recommended)
+
+Prerequisites:
 - Rust toolchain (cargo)
 - Python 3 + pip (for OINF tools and Python examples)
 - Slang compiler (`slangc`) for Vulkan shader builds (add to PATH)
-- Python deps: `pip install -r requirements.txt`
 
-## Build
-
+Setup + build + tests:
 ```bash
-cargo build -p openinfer
-cargo build -p openinfer --features vulkan
+./scripts/setup_all.sh
+./scripts/sync_models.sh
+./scripts/build_all.sh
+./scripts/run_tests.sh
 ```
 
 For Vulkan builds with shader progress output, use:
@@ -156,32 +182,28 @@ cargo build-spv
 
 To clean Vulkan SPIR-V artifacts and then run `cargo clean`:
 ```bash
-cargo clean-spv -p openinfer
+cargo clean-spv
 ```
 
 ## Run Examples
 
-### Python
+Using the runner script (recommended):
 ```bash
-python examples/openinfer-oinf/{example}_oinf.py
-python openinfer-oinf/verify_oinf.py "res/models/{example}.oinf"
-```
-
-### Rust
-```bash
-cargo run -p openinfer --example {name}
-```
-
-Using the runner script (default, all examples):
-```bash
-./scripts/run_rust_examples.sh
+./scripts/run_examples.sh
 ```
 
 Targeted modes:
 ```bash
-./scripts/run_rust_examples.sh --target cpu
-./scripts/run_rust_examples.sh --target vulkan --features vulkan
-./scripts/run_rust_examples.sh --target all --features vulkan
+./scripts/run_examples.sh --target cpu
+./scripts/run_examples.sh --target vulkan --features vulkan
+./scripts/run_examples.sh --target all --features vulkan
+```
+
+Manual (per-submodule):
+```bash
+python openinfer-oinf/examples/{example}_oinf.py
+python openinfer-oinf/verify_oinf.py "openinfer-oinf/res/models/{example}.oinf"
+cargo run --manifest-path openinfer-simulator/Cargo.toml --example {name}
 ```
 
 ## Tests
@@ -197,22 +219,21 @@ Common options:
 ./scripts/run_tests.sh --target=cpu
 ./scripts/run_tests.sh --target=vulkan --features=vulkan
 ./scripts/run_tests.sh --target=all --features=vulkan
-./scripts/run_tests.sh --test-filter openinfer::ops_misc
+./scripts/run_tests.sh --test-filter openinfer-simulator::ops_misc
 ```
 
 ## Supported Targets
 
-- Architectures: CPU (scalar kernels) and Vulkan GPU backend
-- SIMD extensions: AVX/AVX2 are enabled via `.cargo/config.toml` on x86_64 Linux
-- GPU drivers: Vulkan-capable drivers (feature-gated)
-- Vulkan dtype support: see [Capabilities](../../wiki/Capabilities); f16 is always simulated via f32 casts, and f64/i64/u64 depend on device features (fallback to CPU when unsupported)
+- Simulator: CPU host execution with optional Vulkan backend
+- Planned synthesis: ARM + NEON, x86 + AVX, Vulkan GPUs, NVIDIA Jetson CUDA,
+  Android NNAPI, USB TPUs (Coral), bare-metal MCUs, and FPGA flows (VHDL/HLS)
 
 ## Synthesizer (Planned)
 
-OpenInfer does not yet ship a synthesizer, but the long‑term goal is to lower
-DSL graphs into optimized, backend‑specific code. This would enable native
-output for targets like CPU, GPU, TPU, and FPGA, with room for vendor‑specific
-optimization passes as the ecosystem matures.
+OpenInfer does not yet ship a synthesizer, but the long-term goal is to lower
+DSL graphs into optimized, backend-specific code. This enables native output
+for edge targets while keeping compilation and deployment inside vendor
+toolchains.
 
 ## Status
 

@@ -13,12 +13,13 @@ flows through it.
 
 ## Codebase layout (user‑level)
 
-- `openinfer/` — main runtime crate (DSL integration, execution, backends)
+- `openinfer-simulator/` — main runtime crate (DSL integration, execution, backends)
+- `openinfer-simulator/generator/` — utilities for Vulkan shaders and build artifacts
 - `openinfer-dsl/` — procedural macro that builds graphs
-- `openinfer-generator/` — utilities for Vulkan shaders and build artifacts
 - `openinfer-oinf/` — Python tools for creating and validating `.oinf` files
-- `examples/` — Rust + Python examples
-- `res/models/` — example `.oinf` model files
+- `openinfer-simulator/examples/` — Rust examples
+- `openinfer-oinf/examples/` — Python model generators
+- `openinfer-oinf/res/models/` — example `.oinf` model files
 
 ## Execution model
 

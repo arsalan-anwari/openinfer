@@ -1,7 +1,8 @@
 Overview
 ========
 
-`openinfer-oinf` provides Python encoders and verifiers for the `.oinf` format.
+`openinfer-oinf` provides Python encoders and verifiers for the `.oinf` format,
+which supplies model weights and metadata to the simulator and synthesizer.
 
 Topics
 ------
@@ -21,3 +22,5 @@ Tooling entry points
 
 - `dataclass_to_oinf.py`: encode Python dataclasses to `.oinf`.
 - `verify_oinf.py`: verify and pretty-print `.oinf` files.
+
+

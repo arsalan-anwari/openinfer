@@ -2,14 +2,13 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
 
 
 ROOT = Path(__file__).resolve().parents[2]
-OPS_JSON = ROOT / "ops.json"
-OUT_DIR = ROOT / "docs" / "sphinx" / "ops"
+OPS_JSON = ROOT / "openinfer-simulator" / "ops.json"
+OUT_DIR = ROOT / "docs" / "sphinx" / "modules" / "openinfer-simulator" / "ops"
 CAT_DIR = OUT_DIR / "categories"
 OP_DIR = OUT_DIR / "operations"
 

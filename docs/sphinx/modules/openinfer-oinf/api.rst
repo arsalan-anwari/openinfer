@@ -1,14 +1,17 @@
 API Reference
 =============
 
-Python Tools
-------------
+Python API
+----------
 
-The Python modules expose encoder and verifier utilities. Autodoc pages can be
-added in a later stage if desired.
+The Sphinx API reference includes autodoc pages for the Python modules:
 
-Entry points
-------------
+- :doc:`api/python`
 
-- `dataclass_to_oinf.py`: encode dataclasses to `.oinf`.
-- `verify_oinf.py`: validate and pretty-print `.oinf`.
+.. toctree::
+   :maxdepth: 1
+
+   api/python
+
+
+

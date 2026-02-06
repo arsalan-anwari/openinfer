@@ -10,6 +10,13 @@ Use the repo script:
 ./scripts/run_tests.sh
 ```
 
+Setup + build helpers:
+```bash
+./scripts/setup_all.sh
+./scripts/sync_models.sh
+./scripts/build_all.sh
+```
+
 Common options:
 
 ```bash
@@ -17,7 +24,7 @@ Common options:
 ./scripts/run_tests.sh --target=cpu
 ./scripts/run_tests.sh --target=vulkan --features=vulkan
 ./scripts/run_tests.sh --target=all --features=vulkan
-./scripts/run_tests.sh --test-filter openinfer::ops_misc
+./scripts/run_tests.sh --test-filter openinfer-simulator::ops_misc
 ./scripts/run_tests.sh --test-filter openinfer-dsl::parse_tests
 ./scripts/run_tests.sh --test-filter openinfer-oinf::test_common.TestCommon.test_align_up
 ```

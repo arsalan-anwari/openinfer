@@ -8,7 +8,27 @@ This guide shows a minimal path to running OpenInfer locally.
 - Python 3 + pip (for `.oinf` tooling and Python examples)
 - Optional: Vulkan SDK + `slangc` (only if you want GPU execution)
 
-Install Python deps:
+## Submodules
+
+Enable recursive submodule updates once:
+```bash
+git config --global submodule.recurse true
+git config --global fetch.recurseSubmodules true
+```
+
+Or run:
+```bash
+./scripts/bootstrap_submodules.sh
+```
+
+## Setup (recommended)
+
+```bash
+./scripts/setup_all.sh
+./scripts/sync_models.sh
+```
+
+Install Python deps manually (if needed):
 
 ```bash
 pip install -r requirements.txt
@@ -19,13 +39,13 @@ pip install -r requirements.txt
 CPU only:
 
 ```bash
-cargo build -p openinfer
+cargo build --manifest-path openinfer-simulator/Cargo.toml
 ```
 
 Vulkan (optional):
 
 ```bash
-cargo build -p openinfer --features vulkan
+cargo build --manifest-path openinfer-simulator/Cargo.toml --features vulkan
 ```
 
 Build SPIR‑V (optional, for Vulkan shaders):
@@ -37,22 +57,22 @@ cargo build-spv
 ## Generate a sample model
 
 ```bash
-python examples/openinfer-oinf/mlp_regression_oinf.py
+python openinfer-oinf/examples/mlp_regression_oinf.py
 ```
 
-This writes `res/models/mlp_regression.oinf`.
+This writes `openinfer-oinf/res/models/mlp_regression.oinf`.
 
 ## Run a Rust example
 
 ```bash
-cargo run -p openinfer --example mlp_regression
+cargo run --manifest-path openinfer-simulator/Cargo.toml --example mlp_regression
 ```
 
 Select a device (if Vulkan is enabled):
 
 ```bash
-cargo run -p openinfer --example mlp_regression -- --target=cpu
-cargo run -p openinfer --example mlp_regression --features vulkan -- --target=vulkan
+cargo run --manifest-path openinfer-simulator/Cargo.toml --example mlp_regression -- --target=cpu
+cargo run --manifest-path openinfer-simulator/Cargo.toml --example mlp_regression --features vulkan -- --target=vulkan
 ```
 
 ## Next steps

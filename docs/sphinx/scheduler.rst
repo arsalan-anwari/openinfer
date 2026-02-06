@@ -1,1 +1,0 @@
-.. include:: guides/scheduler.rst
