@@ -1,4 +1,2 @@
-pydantic
-numpy
-
+-r openinfer-oinf/requirements.txt
 -r docs/sphinx/requirements.txt
