@@ -1,0 +1,12 @@
+[submodule "openinfer-simulator"]
+	path = openinfer-simulator
+	url = /home/arsalan/Workspace/openinfer-simulator
+[submodule "openinfer-dsl"]
+	path = openinfer-dsl
+	url = /home/arsalan/Workspace/openinfer-dsl
+[submodule "openinfer-synth"]
+	path = openinfer-synth
+	url = /home/arsalan/Workspace/openinfer-synth
+[submodule "openinfer-oinf"]
+	path = openinfer-oinf
+	url = /home/arsalan/Workspace/openinfer-oinf
