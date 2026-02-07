@@ -3,7 +3,7 @@ Rustdoc
 
 Native Rust API documentation is generated via `cargo doc`.
 
-- `openinfer <rustdoc/openinfer/index.html>`_
+- `openinfer-simulator <rustdoc/openinfer_simulator/index.html>`_
 - `openinfer-dsl <rustdoc/openinfer_dsl/index.html>`_
-- `openinfer-generator <rustdoc/openinfer_generator/index.html>`_ (from `openinfer-simulator/generator`)
+- `openinfer-simulator-generator <rustdoc/openinfer_simulator_generator/index.html>`_ (from `openinfer-simulator/generator`)
 

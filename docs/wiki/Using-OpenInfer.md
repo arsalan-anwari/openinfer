@@ -7,7 +7,7 @@ This page shows the typical workflow at a high level.
 ```rust
 use openinfer::ModelLoader;
 
-let model = ModelLoader::open("openinfer-simulator/res/models/mlp_regression.oinf")?;
+let model = ModelLoader::open("path/to/model.oinf")?;
 ```
 
 ## 2) Define a graph

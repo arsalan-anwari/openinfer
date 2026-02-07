@@ -70,6 +70,4 @@ See also
 --------
 
 - :doc:`../tutorials/add-shader-op`
-- :doc:`../guides/ops`
-- `docs/details/vulkan-interop.md` for deeper Vulkan interop notes
-
+- :doc:`../guides/ops-and-extensions`

@@ -8,7 +8,23 @@ This guide shows a minimal path to running OpenInfer locally.
 - Python 3 + pip (for `.oinf` tooling and Python examples)
 - Optional: Vulkan SDK + `slangc` (only if you want GPU execution)
 
-## Submodules
+## User method (packages)
+
+Install the packages directly (recommended for users):
+
+Rust crates:
+```bash
+cargo add openinfer-simulator
+cargo add openinfer-dsl
+cargo add openinfer-synth
+```
+
+Python tooling:
+```bash
+pip install openinfer-oinf
+```
+
+## Repo method (contributors)
 
 Enable recursive submodule updates once:
 ```bash

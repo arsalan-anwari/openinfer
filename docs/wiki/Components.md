@@ -45,3 +45,15 @@ CPU and Vulkan implementations are selected from this registry at runtime.
 
 - **CPU**: reference implementation focused on correctness
 - **Vulkan**: optional GPU backend using precompiled SPIR‑V
+
+## Synthesizer (planned)
+
+The synthesizer lowers validated graphs into static, device-specific source
+code for edge targets such as ARM + NEON, x86 + AVX, Vulkan GPUs, NVIDIA Jetson
+CUDA, Android NNAPI, USB TPUs (Coral), bare-metal MCUs, and FPGA flows
+(VHDL/HLS).
+
+## Packages
+
+- Rust crates: `openinfer-simulator`, `openinfer-dsl`, `openinfer-synth`
+- Python tooling: `openinfer-oinf`

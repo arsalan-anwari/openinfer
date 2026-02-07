@@ -6,14 +6,15 @@ _Inference graphs, explicit control flow, portable execution._
 
 `inference` · `dsl` · `graph` · `cpu` · `vulkan` · `ml`
 
-OpenInfer is an **edge-focused ML transpilation framework**. It lets you express
-inference pipelines in a Rust-embedded DSL, validate them in a host-side
-simulator, and then synthesize fully static, device-specific source code for
-deployment on constrained hardware.
+OpenInfer is an **edge-focused ML transpilation framework**. It lets developers
+express inference pipelines in a Rust-embedded DSL, validate them in a
+high-level simulator, and then synthesize fully static, device-specific source
+code for deployment on constrained hardware.
 
-The focus is **clarity, explicit control, and inspectability**, with a workflow
-that sits between ML frameworks and hardware SDKs rather than relying on opaque
-runtimes.
+The simulator runs purely on the host and verifies graph correctness,
+scheduling logic, memory layouts, and transformations inside the DSL. A planned
+synthesizer lowers the same graph into concrete C/CUDA/Vulkan/VHDL-style source
+that targets a thin hardware-abstraction layer and native device APIs.
 
 ---
 
@@ -23,15 +24,18 @@ runtimes.
 - 🧩 **Model‑agnostic**: transformers, vision, audio, streaming pipelines
 - 🔍 **Inspectable**: tracing, timing, and JSON serialization
 - 🧠 **Host simulator** for correctness, scheduling, and memory layout checks
-- ⚡ **Synthesizer (planned)**: generate device-specific static code
+- ⚡ **Synthesizer (planned)**: lower graphs into static, device-specific source
 
 ## Overview
 
 OpenInfer defines a symbolic, inspectable inference graph that can be simulated,
 traced, and validated on the host before being lowered into device-specific
-source code. The main website is [www.open-infer.nl](https://www.open-infer.nl),
-and the docs live at
-[docs.open-infer.nl](https://docs.open-infer.nl).
+source code. It is designed for edge inference, custom accelerators, FPGA
+pipelines, and safety-critical firmware where teams want transparent generated
+code and strict control over memory and scheduling.
+
+The main website is [www.open-infer.nl](https://www.open-infer.nl), and the docs
+live at [docs.open-infer.nl](https://docs.open-infer.nl).
 
 ### Condensed Rust Example (DSL Overview)
 
@@ -141,7 +145,25 @@ fn main() -> anyhow::Result<()> {
 - `openinfer-oinf`: Python tooling for the `.oinf` model format
 - `openinfer-synth`: synthesis pipeline for device-specific codegen
 
-## Cloning (with submodules)
+## User method (packages)
+
+Install from package managers (recommended for users):
+
+Rust crates:
+```bash
+cargo add openinfer-simulator
+cargo add openinfer-dsl
+cargo add openinfer-synth
+```
+
+Python tooling:
+```bash
+pip install openinfer-oinf
+```
+
+## Repo method (contributors)
+
+If you are contributing to the repo, use submodules.
 
 To ensure submodules are fetched automatically on clone/pull, set this once:
 ```bash
@@ -225,15 +247,16 @@ Common options:
 ## Supported Targets
 
 - Simulator: CPU host execution with optional Vulkan backend
-- Planned synthesis: ARM + NEON, x86 + AVX, Vulkan GPUs, NVIDIA Jetson CUDA,
-  Android NNAPI, USB TPUs (Coral), bare-metal MCUs, and FPGA flows (VHDL/HLS)
+- Planned synthesis targets: ARM + NEON, x86 + AVX, Vulkan GPUs, NVIDIA Jetson
+  CUDA, Android NNAPI, USB TPUs (Coral), bare-metal MCUs, and FPGA flows
+  (VHDL/HLS)
 
 ## Synthesizer (Planned)
 
 OpenInfer does not yet ship a synthesizer, but the long-term goal is to lower
-DSL graphs into optimized, backend-specific code. This enables native output
-for edge targets while keeping compilation and deployment inside vendor
-toolchains.
+DSL graphs into optimized, backend-specific code (C/CUDA/Vulkan/VHDL/HLS). This
+enables native output for edge targets while keeping compilation and deployment
+inside vendor toolchains.
 
 ## Status
 

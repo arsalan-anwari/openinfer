@@ -46,6 +46,8 @@ execution order. This is expected, especially for `f8`, `bf16`, and `f16`.
 
 ## Synthesis (planned)
 
-OpenInfer does not yet ship a synthesizer. A future pipeline is planned to lower
-graphs into optimized, backend‑specific code for targets like CPU, GPU, TPU, and
-FPGA, including vendor‑specific optimization passes.
+OpenInfer does not yet ship a synthesizer. A future pipeline is planned to
+lower graphs into optimized, backend‑specific code for edge targets such as
+ARM + NEON, x86 + AVX, Vulkan GPUs, NVIDIA Jetson CUDA, Android NNAPI, USB TPUs
+(Coral), bare‑metal MCUs, and FPGA flows (VHDL/HLS), including vendor‑specific
+optimization passes.

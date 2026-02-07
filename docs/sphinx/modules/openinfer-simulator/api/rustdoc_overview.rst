@@ -11,7 +11,9 @@ The build script runs:
 
 .. code-block:: bash
 
-   cargo doc --workspace --no-deps
+   cargo doc --manifest-path openinfer-simulator/Cargo.toml --no-deps
+   cargo doc --manifest-path openinfer-dsl/Cargo.toml --no-deps
+   cargo doc --manifest-path openinfer-simulator/generator/Cargo.toml --no-deps
 
 Rustdoc output is copied into:
 
