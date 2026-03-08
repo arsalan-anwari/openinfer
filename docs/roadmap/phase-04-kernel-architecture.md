@@ -16,6 +16,7 @@ This phase standardizes the target kernel taxonomy. Avoid legacy dispatch-compat
   - `quantized` (packed/native values interpreted via quant metadata)
   - `simulated` (hardware-emulation/simulated dtype behavior)
 - Extend dispatch keying to include interpretation mode.
+- Standardize accumulation handoff: kernel entrypoints receive `acc` as `Vec<DType>`.
 - Generate Vulkan specialization dispatch artifacts with bounded explosion strategy.
 
 ## Design Decisions
@@ -26,6 +27,9 @@ This phase standardizes the target kernel taxonomy. Avoid legacy dispatch-compat
    - byte-address path retained for packed/simulated/bit-level needs.
 3. **Generated specialization map** over monolithic hand-written switch trees.
 4. **CPU is reference semantics per mode**.
+5. **Kernel wrappers are thin**:
+   - read validated `acc` type list,
+   - pass it to generic kernel implementation.
 
 ## Primary Implementation Targets
 
@@ -40,8 +44,10 @@ This phase standardizes the target kernel taxonomy. Avoid legacy dispatch-compat
 1. Define mode taxonomy in op dispatch core.
 2. Reorganize/extend generated kernel stubs to include new variants.
 3. Add Vulkan specialization-id generation (compact type/mode encoding).
-4. Implement fallback kernels for unsupported rare combinations.
-5. Add diagnostic tracing for resolved variant at runtime.
+4. Add unified kernel wrapper signature that includes `acc_types: &[DType]`.
+5. Validate `(op, in_dtypes, acc list, out_dtype, mode)` support before dispatch.
+6. Return explicit validation errors for unsupported combinations (no silent fallback).
+7. Add diagnostic tracing for resolved variant at runtime.
 
 ## Test Plan
 
@@ -57,7 +63,8 @@ This phase standardizes the target kernel taxonomy. Avoid legacy dispatch-compat
 - Dispatch resolves mode-specific kernels deterministically.
 - CPU/Vulkan variant behavior is consistent within documented tolerances.
 - Kernel organization matches agreed variant taxonomy across backends.
-- Unsupported combinations fail with explicit diagnostics.
+- Kernel wrappers pass `acc` type arrays directly to generic kernels.
+- Unsupported `(input, acc, output)` combinations fail with explicit diagnostics at validation time.
 
 ## Risks and Mitigations
 
@@ -81,6 +88,7 @@ pub struct OpKeyV2 {
     pub mode: OpMode,               // normal/inplace/accumulate
     pub semantic: KernelSemanticMode,
     pub in_dtypes: Vec<DType>,
+    pub acc_dtypes: Vec<DType>,
     pub out_dtype: DType,
 }
 ```
@@ -114,6 +122,17 @@ switch (PC.typeIdMask) {
   - `shaders/packed.slang`
   - `shaders/quantized.slang`
   - `shaders/simulated.slang`
+
+## Wrapper and Generic Kernel Flow
+
+```rust
+fn matmul_kernel_wrapper(ctx: &KernelCtx) -> Result<()> {
+    let acc_types = &ctx.acc_dtypes; // already validated
+    matmul_generic(ctx.inputs, acc_types, ctx.output)
+}
+```
+
+Validation should reject unsupported combinations before this wrapper runs.
 
 ## Handoff Notes For Another AI
 

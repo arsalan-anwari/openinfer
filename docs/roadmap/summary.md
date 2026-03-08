@@ -91,3 +91,12 @@ packed != quantized
 // Typing principle
 output_dtype = validate(op_policy, output_decl, attrs)
 ```
+
+# Done 
+- [x] Phase 1
+- [x] Phase 2
+- [x] Phase 3
+- [] Phase 4
+- [] Phase 5
+- [] Phase 6
+- [] Phase 7
