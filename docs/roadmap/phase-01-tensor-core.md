@@ -4,6 +4,10 @@
 
 Replace the simplified tensor model with a robust view-capable representation that supports future layout ops, quantization metadata, and backend-safe indexing.
 
+## Compatibility Stance
+
+This phase is a foundational replacement track. Do not preserve legacy tensor-core behavior via backward-compatibility shims.
+
 ## Scope
 
 - Introduce canonical tensor view metadata:
@@ -125,5 +129,5 @@ fn validate_view(shape: &[usize], strides: &[isize], offset: usize, storage_len:
 ## Migration Notes For Another AI
 
 - First update tensor internals and tests before touching many ops.
-- Keep compatibility shim methods (`shape()`, `strides()`) while refactoring call sites.
+- Update call sites directly instead of introducing compatibility shims.
 - Add temporary helper wrappers for old unsigned-stride call paths and delete after Phase 05 lands.

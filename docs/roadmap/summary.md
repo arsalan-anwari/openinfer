@@ -4,6 +4,10 @@
 
 Provide a practical, independent phase sequence to harden OpenInfer into a comprehensive ML inferencing foundation (not only LLM-oriented), with strong typing, tensor semantics, and backend correctness.
 
+## Compatibility Policy
+
+This roadmap is a forward-foundation track. Phases are expected to converge on canonical contracts without backward-compatibility shims for legacy behavior.
+
 ## Phase Index
 
 - Phase 00: `phase-00-contracts.md`

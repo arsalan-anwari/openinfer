@@ -4,6 +4,10 @@
 
 Lock down correctness, determinism, and baseline performance before the first stable foundation release.
 
+## Compatibility Stance
+
+This phase certifies the canonical foundation contracts. It does not guarantee backward compatibility with pre-foundation behavior.
+
 ## Scope
 
 - Build a conformance matrix over:
@@ -13,7 +17,7 @@ Lock down correctness, determinism, and baseline performance before the first st
   - backend (CPU/Vulkan)
 - Add integration workloads covering broader ML usage (not LLM-only).
 - Add repeatable baseline benchmarks and guardrails.
-- Finalize stable foundation documentation and migration notes.
+- Finalize stable foundation documentation and release contracts.
 
 ## Design Decisions
 
@@ -50,7 +54,7 @@ Lock down correctness, determinism, and baseline performance before the first st
   - repeat runs produce stable outputs/traces where expected.
 - **Performance smoke tests**
   - baseline deltas with threshold alarms.
-- **Compatibility tests**
+- **Contract conformance tests**
   - ensure declared stable contracts are respected end-to-end.
 
 ## Acceptance Criteria

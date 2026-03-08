@@ -1,19 +1,23 @@
-# Phase 02 - OINF v2 Quantization Model
+# Phase 02 - OINF Quantization Model
 
 ## Goal
 
 Evolve OINF to represent quantization explicitly (per tensor or per channel) while preserving deterministic loading and strict validation.
 
+## Compatibility Stance
+
+This phase defines the canonical quantization-capable OINF format for the foundation track. Legacy OINF v1 loading is not a requirement.
+
 ## Scope
 
-- Bump format version for quantization-capable files.
+- Introduce the canonical quantization-capable OINF format (superseding legacy v1).
 - Extend Python authoring path to encode quant metadata.
 - Extend Rust loader to parse and attach quant metadata to runtime tensors.
 - Keep packed-only (non-quantized) tensors supported.
 
 ## Design Decisions
 
-1. **Versioned format change** (v2) instead of overloading v1 behavior.
+1. **Canonical format replacement** for quant metadata (no legacy fallback path).
 2. **Per-tensor metadata association must be explicit**, not inferred from dtype.
 3. **Quantization schema**
    - `scheme`: symmetric/asymmetric
@@ -32,10 +36,10 @@ Evolve OINF to represent quantization explicitly (per tensor or per channel) whi
 ## Work Breakdown
 
 1. Introduce quant-capable `TensorSpec` contract in Python API.
-2. Encode quant metadata in OINF v2 layout.
+2. Encode quant metadata in the canonical quantization layout.
 3. Extend verifier output and validation logic for quant sections.
 4. Add loader parsing and runtime mapping to tensor quant metadata.
-5. Ensure v1/v2 behavior is explicit and deterministic.
+5. Ensure format behavior is explicit and deterministic, with clear rejection of unsupported legacy files.
 
 ## Test Plan
 
@@ -49,19 +53,19 @@ Evolve OINF to represent quantization explicitly (per tensor or per channel) whi
   - unsupported quant combinations must fail.
 - **Loader tests**
   - quant metadata roundtrip and attachment to tensors.
-  - v1 files still load according to declared support policy.
+  - legacy v1 files fail with explicit unsupported-version diagnostics.
 
 ## Acceptance Criteria
 
-- OINF v2 files can encode and verify quant metadata robustly.
+- Canonical OINF quantization files can encode and verify quant metadata robustly.
 - Loader surfaces quant metadata without ambiguity.
 - Packed non-quantized behavior remains available.
 - Validation catches malformed quant payloads before execution.
 
 ## Risks and Mitigations
 
-- Risk: ambiguous backward behavior between v1 and v2.
-  - Mitigation: strict version gate + explicit loader error messages.
+- Risk: confusion during one-way cutover from legacy v1 artifacts.
+  - Mitigation: strict unsupported-version errors + fixture refresh during migration.
 - Risk: metadata bloat for per-channel quant tensors.
   - Mitigation: compact encoding and alignment-aware payload design.
 
@@ -98,7 +102,7 @@ model = Model(
 )
 ```
 
-## Proposed OINF v2 Tensor Entry Sketch
+## Proposed Canonical Tensor Entry Sketch
 
 ```text
 String name
@@ -126,6 +130,7 @@ tensor.set_quant(quant);
 
 ## Execution Guidance For Another AI
 
-- Prefer adding v2 first-class support before touching dequant behavior in kernels.
+- Prefer landing canonical format support before touching dequant behavior in kernels.
+- Treat this format as the authoritative baseline for subsequent phases; do not add backward-compatibility branches.
 - Keep verifier strictness high; malformed quant sections should fail before runtime execution.
 - Add golden files early; use them as hard fixtures across encoder, verifier, loader.

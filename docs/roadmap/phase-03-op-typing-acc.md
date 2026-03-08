@@ -4,6 +4,10 @@
 
 Decouple accumulation semantics from output typing and move to explicit, policy-driven op typing validation.
 
+## Compatibility Stance
+
+This phase is a contract cleanup phase. Do not preserve legacy shorthand behavior when it conflicts with the target typing model.
+
 ## Scope
 
 - Redefine op schema typing model:
@@ -123,6 +127,6 @@ ensure!(schema.output_shape_rule.validate(inputs, output_decl.shape), "output sh
 
 ## Practical Migration Strategy
 
-- Stage A: keep old `acc: DType` accepted as shorthand and internally normalize.
-- Stage B: emit warnings on shorthand in docs/tests.
-- Stage C: require structured form for ops that need scoped accumulation semantics.
+- Perform a one-shot schema and DSL migration to policy-structured `acc` semantics.
+- Update existing models/tests to the canonical form in the same phase.
+- Reject legacy shorthand forms once migration lands.

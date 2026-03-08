@@ -59,7 +59,7 @@ counts, and offsets. The runtime validates the header before anything else.
 .. code-block:: text
 
    magic[5] = "OINF\0"
-   u32 version = 1
+   u32 version = 2
    u32 flags   = 0
    u32 n_sizevars
    u32 n_metadata
@@ -150,14 +150,20 @@ location. It is the central table the runtime uses for lazy loading.
    String name
    u32 dtype          (ValueType 1-12, 16-25 only)
    u32 ndim
-   u32 flags          (bit 0 = HAS_DATA)
+   u32 flags          (bit 0 = HAS_DATA, bit 1 = HAS_QUANT)
    u64 dims[ndim]
    u64 data_nbytes
    u64 data_offset
+   u64 quant_nbytes
+   u64 quant_offset
 
 If `HAS_DATA` is `0`, then `data_offset` and `data_nbytes` are `0`. This is a
 valid representation of tensors that are declared but not initialized in the
 model. In that case, the runtime uses DSL `@init` values or zeros.
+
+If `HAS_QUANT` is `0`, then `quant_offset` and `quant_nbytes` are `0`. When
+`HAS_QUANT` is `1`, the quant payload is validated and attached to runtime
+tensors as `QuantParams`.
 
 Tensor payload encoding
 -----------------------
@@ -179,6 +185,35 @@ single element with the dtype’s size.
 This encoding is consistent across CPU and Vulkan backends. Vulkan kernels use
 helpers in `packed_utils.slang` to decode and encode packed values without
 materializing large buffers.
+
+Quant payload encoding
+----------------------
+
+Quantization metadata is stored as a separate payload referenced by
+`quant_offset`/`quant_nbytes` in each tensor entry.
+
+.. code-block:: text
+
+   u32 scheme        (1 = symmetric, 2 = asymmetric)
+   u32 scale_mode    (1 = per_tensor, 2 = per_channel)
+   u32 zp_mode       (0 = none, 1 = per_tensor, 2 = per_channel)
+   u32 reserved      (must be 0)
+   u64 scale_axis
+   u64 scale_count
+   u64 zp_axis
+   u64 zp_count
+   f32 scale_values[scale_count]
+   i32 zp_values[zp_count]
+   padding to 8 bytes
+
+Validation rules:
+
+- Per-tensor scale requires `scale_axis = 0` and `scale_count = 1`.
+- Per-channel scale requires `scale_axis < ndim` and `scale_count = dims[axis]`.
+- Per-tensor zero-point requires per-tensor scale and `zp_count = 1`.
+- Per-channel zero-point requires per-channel scale, matching axis, and
+  `zp_count = dims[axis]`.
+- Symmetric quantization must not include zero-point.
 
 Lazy loading in the runtime
 ---------------------------
@@ -206,6 +241,7 @@ The loader validates the file before execution. Key checks include:
 - String character set validity.
 - Tensor sizes equal `numel * sizeof(dtype)` for non-packed types.
 - Packed dtype sizes match the expected bit-packing.
+- Quant payload axis/count/size constraints are valid when `HAS_QUANT` is set.
 
 If any validation fails, the loader returns an error and the graph does not run.
 This prevents undefined behavior in kernels.
@@ -305,14 +341,8 @@ Compatibility and versioning
 ----------------------------
 
 The `version` field in the header is the compatibility gate. The runtime will
-reject unknown versions. If you plan to extend the format, you must:
-
-1. Add a new version number.
-2. Update the loader to accept and parse it.
-3. Update the Python tooling to emit the new version.
-
-Do not change the meaning of existing fields without bumping the version. The
-format is meant to be stable and deterministic across releases.
+reject unsupported versions. In the foundation roadmap, version 2 is the
+canonical format baseline and legacy version 1 files are intentionally rejected.
 
 Security and robustness notes
 -----------------------------

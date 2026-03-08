@@ -4,6 +4,10 @@
 
 Standardize kernel organization and dispatch semantics so packed, quantized, simulated, and native execution paths are explicit and scalable.
 
+## Compatibility Stance
+
+This phase standardizes the target kernel taxonomy. Avoid legacy dispatch-compat layers that obscure mode semantics.
+
 ## Scope
 
 - Introduce consistent kernel variants:
@@ -115,4 +119,4 @@ switch (PC.typeIdMask) {
 
 - Refactor one op family at a time (`add`, `matmul`, then reductions).
 - Add dispatch completeness tests before migrating next family.
-- Keep fallback path during migration to avoid hard breakage while variants expand.
+- Keep temporary internal fallback kernels only as delivery scaffolding and remove them before phase completion.

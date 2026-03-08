@@ -4,6 +4,10 @@
 
 Eliminate ambiguous or incorrect boundary behavior for packed/native/simulated dtypes and centralize conversion semantics.
 
+## Compatibility Stance
+
+This phase prioritizes correctness over preserving historical edge-case behavior. No backward-compatibility exceptions for incorrect conversions.
+
 ## Scope
 
 - Define canonical min/max for every dtype and interpretation mode.
@@ -58,8 +62,8 @@ Eliminate ambiguous or incorrect boundary behavior for packed/native/simulated d
 
 ## Risks and Mitigations
 
-- Risk: behavior changes in legacy edge cases.
-  - Mitigation: document intentional semantic changes in release notes.
+- Risk: behavior changes in previously tolerated edge cases.
+  - Mitigation: document intentional semantic changes and enforce them with explicit tests.
 - Risk: duplicate boundary logic reappears.
   - Mitigation: lint/test guardrails against local hardcoded limits.
 

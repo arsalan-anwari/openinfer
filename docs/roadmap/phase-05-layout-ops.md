@@ -4,6 +4,10 @@
 
 Make tensor layout manipulation explicit, validated, and reusable as standalone ops instead of hidden side effects in compute ops.
 
+## Compatibility Stance
+
+This phase promotes layout semantics to first-class contracts. Do not keep implicit legacy layout behavior for backward compatibility.
+
 ## Scope
 
 Add first-class ops:
